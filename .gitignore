@@ -1,0 +1,16 @@
+# Ignore .env
+.env
+
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+venv/
+.env/
+
+# Node modules
+node_modules/
+
+# Logs
+*.log

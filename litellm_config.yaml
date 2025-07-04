@@ -1,0 +1,35 @@
+model_list:
+  # Claude 3.7 Sonnet
+  - model_name: claude-3-7-sonnet
+    litellm_params:
+      model: bedrock/apac.anthropic.claude-3-7-sonnet-20250219-v1:0
+      aws_region_name: ap-southeast-1
+      # AWS credentials จะอ่านจาก environment variables
+    model_info:
+      description: "Claude 3.7 Sonnet via AWS Bedrock"
+      max_tokens: 200000
+      input_modalities: ["TEXT", "IMAGE"]
+      output_modalities: ["TEXT"]
+      response_streaming_supported: true
+
+  # เพิ่ม models อื่นๆ ได้ที่นี่
+  - model_name: claude-3-haiku
+    litellm_params:
+      model: bedrock/anthropic.claude-3-haiku-20240307-v1:0
+      aws_region_name: ap-southeast-1
+    model_info:
+      description: "Claude 3 Haiku via AWS Bedrock"
+      max_tokens: 200000
+
+general_settings:
+  master_key: sk-1234
+  completion_model: claude-3-7-sonnet
+  
+# Optional: Logging และ monitoring
+litellm_settings:
+  drop_params: true
+  set_verbose: false
+  
+# Optional: Rate limiting
+router_settings:
+  routing_strategy: simple-shuffle
