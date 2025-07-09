@@ -9,6 +9,7 @@ from typing import List, Optional
 import uvicorn
 import time
 
+
 # Pydantic models
 class ChatMessage(BaseModel):
     role: str
