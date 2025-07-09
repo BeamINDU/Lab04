@@ -1,0 +1,261 @@
+{
+  "name": "test1",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "23849812-fbf1-45b3-84ea-c8057a74b989",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -320,
+        120
+      ],
+      "webhookId": "chat"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.body.message }}",
+              "operation": "contains",
+              "value2": "พนักงาน"
+            },
+            {
+              "value1": "={{ $json.body.message }}",
+              "operation": "contains",
+              "value2": "เงินเดือน"
+            },
+            {
+              "value1": "={{ $json.body.message }}",
+              "operation": "contains",
+              "value2": "โปรเจค"
+            },
+            {
+              "value1": "={{ $json.body.message }}",
+              "operation": "contains",
+              "value2": "กี่คน"
+            },
+            {
+              "value1": "={{ $json.body.message }}",
+              "operation": "contains",
+              "value2": "จำนวน"
+            }
+          ]
+        },
+        "combineOperation": "any"
+      },
+      "id": "80aefb39-b9ca-484c-975e-e57e1cfc06c9",
+      "name": "Route Decision",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -120,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://rag-service:5000/rag-query",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "=Value: {{ $json.body.message }}"
+            },
+            {
+              "name": "agent_type",
+              "value": "postgres"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "b9d98dcc-a21a-4dd6-b110-3be700110871",
+      "name": "PostgreSQL Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        80,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://rag-service:5000/rag-query",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "=Value: {{ $json.body.message }}"
+            },
+            {
+              "name": "agent_type",
+              "value": "knowledge_base"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "898c68a0-0c75-46ac-8880-e9d5e5d84e48",
+      "name": "Knowledge Base Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        80,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ดึงข้อมูลจาก Knowledge Base Agent\nconst response = $json;\n\n// จัดรูปแบบคำตอบ\nlet formattedAnswer = response.answer;\n\n// เพิ่มข้อมูลเกี่ยวกับ agent\nif (response.agent === 'knowledge_base') {\n  formattedAnswer += '\\n\\n📚 *ข้อมูลจากเอกสารบริษัท*';\n} else if (response.agent === 'postgres') {\n  formattedAnswer += '\\n\\n📊 *ข้อมูลจากฐานข้อมูล*';\n}\n\nreturn {\n  answer: formattedAnswer,\n  agent: response.agent,\n  success: response.success,\n  source: response.source,\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "947adcca-fb02-4657-90ca-93a53778cd81",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        280,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "f0f66e2f-10a6-4a70-b8c7-62c65a2d4098",
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        480,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ตรวจสอบว่าจริงๆ แล้วเป็น error หรือไม่\nconst inputData = $input.first().json;\n\n// ถ้ามี answer และ success = true แสดงว่าไม่ error\nif (inputData.answer && inputData.success) {\n  return inputData; // ส่งข้อมูลดั้งเดิมต่อไป\n}\n\n// เป็น error จริง\nreturn {\n  answer: 'ขออภัย เกิดข้อผิดพลาดในการประมวลผลคำถาม กรุณาลองใหม่อีกครั้ง',\n  agent: 'error',\n  success: false,\n  timestamp: new Date().toISOString(),\n  workflow: 'n8n-siamtech-assistant',\n  error: true\n};"
+      },
+      "id": "39aa5b70-3816-42e7-a7b1-c1451147acfb",
+      "name": "Error Handler",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        280,
+        320
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Route Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Decision": {
+      "main": [
+        [
+          {
+            "node": "PostgreSQL Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Knowledge Base Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PostgreSQL Agent": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Error Handler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Knowledge Base Agent": {
+      "main": [
+        [
+          {
+            "node": "Error Handler",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Handler": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "f2f28773-a62f-4d01-bf6b-48071aa7b128",
+  "meta": {
+    "instanceId": "4c2a0d135d5b913e469fda03f0706621be5ea954f41e177ce9579c2e37657e9b"
+  },
+  "id": "etBdyQWmoO7Ji949",
+  "tags": []
+}

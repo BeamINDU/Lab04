@@ -15,7 +15,33 @@ services:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     restart: unless-stopped
 
-  # RAG Service (updated to include PostgreSQL agent)
+  # n8n Workflow Automation
+  n8n:
+    image: n8nio/n8n:latest
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=password
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=http://localhost:5678
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=siamtech
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password123
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION}
+      - KNOWLEDGE_BASE_ID=${KNOWLEDGE_BASE_ID}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    restart: unless-stopped
+
+  # RAG Service (เก็บไว้เผื่อใช้ direct call)
   rag-service:
     build:
       context: .
@@ -35,21 +61,37 @@ services:
     depends_on:
       - postgres
     restart: unless-stopped
+
+  # OpenWebUI Proxy Service (เป็นตัวกลางส่งไปยัง n8n)
+  openwebui-proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile.proxy
+    ports:
+      - "8001:8001"
+    environment:
+      - N8N_WEBHOOK_URL=http://n8n:5678/webhook/chat
+    depends_on:
+      - n8n
+    restart: unless-stopped
     
-  # Open WebUI
+  # Open WebUI (ชี้ไปที่ proxy แทน)
   open-webui:
     image: ghcr.io/open-webui/open-webui:main
     ports:
       - "3000:8080"
     environment:
-      - OPENAI_API_BASE_URL=http://rag-service:5000/v1
+      - OPENAI_API_BASE_URL=http://openwebui-proxy:8001/v1
       - OPENAI_API_KEY=sk-1234
+      - WEBUI_NAME=SiamTech AI Assistant
+      - WEBUI_URL=http://localhost:3000
     volumes:
       - open-webui-data:/app/backend/data
     depends_on:
-      - rag-service
+      - openwebui-proxy
     restart: unless-stopped
 
 volumes:
   postgres_data:
+  n8n_data:
   open-webui-data:
