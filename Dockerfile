@@ -1,13 +1,15 @@
-FROM ghcr.io/berriai/litellm:main-latest
+FROM python:3.11-slim
 
-# Copy config file
-COPY litellm_config.yaml /app/litellm_config.yaml
-
-# Set working directory
 WORKDIR /app
 
-# Expose port
-EXPOSE 4000
+# Install dependencies
+RUN pip install fastapi uvicorn aiohttp pydantic boto3 psycopg2-binary
 
-# Run litellm
-CMD ["--config", "/app/litellm_config.yaml", "--port", "4000", "--num_workers", "1"]
+# Copy files
+COPY . .
+
+# Default port
+EXPOSE 8000
+
+# Can run any service
+CMD ["python", "app.py"]

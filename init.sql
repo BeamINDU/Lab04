@@ -1,4 +1,4 @@
--- Create database \i /docker-entrypoint-initdb.d/init.sql docker exec -it chat-postgres-1 psql -U postgres -d siamtech
+-- Create database \i /docker-entrypoint-initdb.d/init-company-a.sql docker exec -it chat-postgres-1 psql -U postgres -d siamtech
 CREATE DATABASE siamtech;
 
 -- Use database

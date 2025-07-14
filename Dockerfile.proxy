@@ -2,18 +2,74 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libpq-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install dependencies
 RUN pip install --no-cache-dir \
     fastapi==0.104.1 \
     uvicorn[standard]==0.24.0 \
     aiohttp==3.9.0 \
-    pydantic==2.5.0
+    pydantic==2.5.0 \
+    pyyaml==6.0.1 \
+    python-dotenv==1.0.0 \
+    psycopg2-binary==2.9.9
+
+# Copy tenant management files first
+COPY tenant_manager.py .
+COPY tenant_config.yaml .
 
 # Copy application files
 COPY openwebui_proxy.py .
 
+# Create logs directory
+RUN mkdir -p /app/logs
+
+# Set environment variables
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+
+# Health check script
+COPY <<EOF /app/healthcheck.py
+#!/usr/bin/env python3
+import requests
+import sys
+import os
+
+try:
+    response = requests.get(
+        f"http://localhost:{os.getenv('PORT', '8001')}/health",
+        timeout=10
+    )
+    if response.status_code == 200:
+        print("Health check passed")
+        sys.exit(0)
+    else:
+        print(f"Health check failed: HTTP {response.status_code}")
+        sys.exit(1)
+except Exception as e:
+    print(f"Health check failed: {e}")
+    sys.exit(1)
+EOF
+
+RUN chmod +x /app/healthcheck.py
+
 # Expose port
 EXPOSE 8001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD python /app/healthcheck.py
+
+# Create non-root user for security
+RUN useradd --create-home --shell /bin/bash siamtech && \
+    chown -R siamtech:siamtech /app
+
+USER siamtech
 
 # Run the FastAPI application
 CMD ["python", "openwebui_proxy.py"]

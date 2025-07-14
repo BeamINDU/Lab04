@@ -1,63 +1,135 @@
 {
-  "name": "test1",
+  "name": "SiamTech Multi-Tenant Chat Assistant",
   "nodes": [
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "chat",
+        "path": "company-a-chat",
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "23849812-fbf1-45b3-84ea-c8057a74b989",
-      "name": "Webhook Trigger",
+      "id": "webhook-company-a",
+      "name": "Webhook Company A",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
       "position": [
-        -320,
-        120
+        -500,
+        100
       ],
-      "webhookId": "chat"
+      "webhookId": "company-a-chat"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "company-b-chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-company-b",
+      "name": "Webhook Company B",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -500,
+        300
+      ],
+      "webhookId": "company-b-chat"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "company-c-chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-company-c",
+      "name": "Webhook Company C",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -500,
+        500
+      ],
+      "webhookId": "company-c-chat"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract tenant information from webhook path\nconst inputData = $input.first().json;\nconst webhookPath = $node[\"Webhook Company A\"].context?.webhook?.path || \n                   $node[\"Webhook Company B\"].context?.webhook?.path || \n                   $node[\"Webhook Company C\"].context?.webhook?.path;\n\n// Determine tenant ID from webhook path or body\nlet tenantId = 'company-a'; // default\n\n// Check which webhook triggered this\nif ($node[\"Webhook Company A\"].data) {\n  tenantId = 'company-a';\n} else if ($node[\"Webhook Company B\"].data) {\n  tenantId = 'company-b';\n} else if ($node[\"Webhook Company C\"].data) {\n  tenantId = 'company-c';\n}\n\n// Also check from request body if provided\nif (inputData.body?.tenant_id) {\n  tenantId = inputData.body.tenant_id;\n}\n\n// Get message from request\nconst message = inputData.body?.message || inputData.query || 'Hello';\nconst agentType = inputData.body?.agent_type || 'auto';\n\n// Tenant configurations\nconst tenantConfigs = {\n  'company-a': {\n    name: 'SiamTech Main Office',\n    location: 'Bangkok',\n    language: 'th',\n    specialization: 'Enterprise solutions, Large projects'\n  },\n  'company-b': {\n    name: 'SiamTech Regional Office', \n    location: 'Chiang Mai',\n    language: 'th',\n    specialization: 'Tourism, Regional projects'\n  },\n  'company-c': {\n    name: 'SiamTech International',\n    location: 'Bangkok (Global)',\n    language: 'en',\n    specialization: 'International clients, Global projects'\n  }\n};\n\nconst tenantConfig = tenantConfigs[tenantId] || tenantConfigs['company-a'];\n\n// Log for debugging\nconsole.log(`Processing request for tenant: ${tenantId}`);\nconsole.log(`Message: ${message}`);\n\nreturn {\n  tenant_id: tenantId,\n  tenant_name: tenantConfig.name,\n  tenant_location: tenantConfig.location,\n  tenant_language: tenantConfig.language,\n  tenant_specialization: tenantConfig.specialization,\n  message: message,\n  agent_type: agentType,\n  original_body: inputData.body,\n  conversation_history: inputData.body?.conversation_history || [],\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "tenant-detector",
+      "name": "Tenant Detector",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -200,
+        300
+      ]
     },
     {
       "parameters": {
         "conditions": {
           "string": [
             {
-              "value1": "={{ $json.body.message }}",
+              "value1": "={{ $json.message }}",
               "operation": "contains",
               "value2": "พนักงาน"
             },
             {
-              "value1": "={{ $json.body.message }}",
+              "value1": "={{ $json.message }}",
+              "operation": "contains",
+              "value2": "employee"
+            },
+            {
+              "value1": "={{ $json.message }}",
               "operation": "contains",
               "value2": "เงินเดือน"
             },
             {
-              "value1": "={{ $json.body.message }}",
+              "value1": "={{ $json.message }}",
+              "operation": "contains",
+              "value2": "salary"
+            },
+            {
+              "value1": "={{ $json.message }}",
               "operation": "contains",
               "value2": "โปรเจค"
             },
             {
-              "value1": "={{ $json.body.message }}",
+              "value1": "={{ $json.message }}",
+              "operation": "contains",
+              "value2": "project"
+            },
+            {
+              "value1": "={{ $json.message }}",
               "operation": "contains",
               "value2": "กี่คน"
             },
             {
-              "value1": "={{ $json.body.message }}",
+              "value1": "={{ $json.message }}",
+              "operation": "contains",
+              "value2": "how many"
+            },
+            {
+              "value1": "={{ $json.message }}",
               "operation": "contains",
               "value2": "จำนวน"
+            },
+            {
+              "value1": "={{ $json.agent_type }}",
+              "operation": "equal",
+              "value2": "postgres"
             }
           ]
         },
         "combineOperation": "any"
       },
-      "id": "80aefb39-b9ca-484c-975e-e57e1cfc06c9",
+      "id": "route-decision",
       "name": "Route Decision",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
       "position": [
-        -120,
-        120
+        0,
+        300
       ]
     },
     {
@@ -69,25 +141,41 @@
           "parameters": [
             {
               "name": "query",
-              "value": "=Value: {{ $json.body.message }}"
+              "value": "={{ $json.message }}"
             },
             {
               "name": "agent_type",
               "value": "postgres"
+            },
+            {
+              "name": "tenant_id",
+              "value": "={{ $json.tenant_id }}"
             }
           ]
         },
         "options": {
           "timeout": 30000
+        },
+        "sendHeaders": {
+          "headers": [
+            {
+              "name": "X-Tenant-ID",
+              "value": "={{ $json.tenant_id }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
         }
       },
-      "id": "b9d98dcc-a21a-4dd6-b110-3be700110871",
+      "id": "postgres-agent",
       "name": "PostgreSQL Agent",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [
-        80,
-        20
+        250,
+        200
       ]
     },
     {
@@ -99,38 +187,54 @@
           "parameters": [
             {
               "name": "query",
-              "value": "=Value: {{ $json.body.message }}"
+              "value": "={{ $json.message }}"
             },
             {
               "name": "agent_type",
               "value": "knowledge_base"
+            },
+            {
+              "name": "tenant_id",
+              "value": "={{ $json.tenant_id }}"
             }
           ]
         },
         "options": {
           "timeout": 30000
+        },
+        "sendHeaders": {
+          "headers": [
+            {
+              "name": "X-Tenant-ID", 
+              "value": "={{ $json.tenant_id }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
         }
       },
-      "id": "898c68a0-0c75-46ac-8880-e9d5e5d84e48",
+      "id": "knowledge-agent",
       "name": "Knowledge Base Agent",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [
-        80,
-        220
+        250,
+        400
       ]
     },
     {
       "parameters": {
-        "jsCode": "// ดึงข้อมูลจาก Knowledge Base Agent\nconst response = $json;\n\n// จัดรูปแบบคำตอบ\nlet formattedAnswer = response.answer;\n\n// เพิ่มข้อมูลเกี่ยวกับ agent\nif (response.agent === 'knowledge_base') {\n  formattedAnswer += '\\n\\n📚 *ข้อมูลจากเอกสารบริษัท*';\n} else if (response.agent === 'postgres') {\n  formattedAnswer += '\\n\\n📊 *ข้อมูลจากฐานข้อมูล*';\n}\n\nreturn {\n  answer: formattedAnswer,\n  agent: response.agent,\n  success: response.success,\n  source: response.source,\n  timestamp: new Date().toISOString()\n};"
+        "jsCode": "// Get the response from either PostgreSQL or Knowledge Base agent\nconst inputData = $input.first().json;\nconst tenantData = $node[\"Tenant Detector\"].json;\n\n// Determine which agent was used\nlet agentUsed = 'unknown';\nlet response = null;\n\n// Check if this came from PostgreSQL agent\nif ($node[\"PostgreSQL Agent\"].data) {\n  agentUsed = 'postgres';\n  response = inputData;\n} else if ($node[\"Knowledge Base Agent\"].data) {\n  agentUsed = 'knowledge_base';\n  response = inputData;\n}\n\n// Extract answer from response\nlet answer = response?.answer || response?.response || 'ขออภัย ไม่สามารถประมวลผลได้';\nlet success = response?.success !== false;\n\n// Add tenant context to answer\nif (success && tenantData) {\n  const tenantName = tenantData.tenant_name;\n  const tenantLocation = tenantData.tenant_location;\n  \n  // Add footer based on language\n  if (tenantData.tenant_language === 'en') {\n    answer += `\\n\\n---\\n*Data from: ${tenantName} (${tenantLocation})*`;\n  } else {\n    answer += `\\n\\n---\\n*ข้อมูลจาก: ${tenantName} (${tenantLocation})*`;\n  }\n}\n\n// Handle errors gracefully\nif (!success) {\n  if (tenantData?.tenant_language === 'en') {\n    answer = `Sorry, I couldn't process your request for ${tenantData.tenant_name}. Please try again.`;\n  } else {\n    answer = `ขออภัย ไม่สามารถประมวลผลคำถามสำหรับ ${tenantData.tenant_name} ได้ กรุณาลองใหม่อีกครั้ง`;\n  }\n}\n\n// Return formatted response\nreturn {\n  answer: answer,\n  agent: agentUsed,\n  success: success,\n  tenant_id: tenantData?.tenant_id || 'unknown',\n  tenant_name: tenantData?.tenant_name || 'Unknown',\n  tenant_location: tenantData?.tenant_location || 'Unknown',\n  source: response?.source || 'n8n workflow',\n  routing_decision: agentUsed,\n  timestamp: new Date().toISOString(),\n  original_response: response,\n  metadata: {\n    workflow: 'siamtech-multitenant',\n    version: '1.0',\n    language: tenantData?.tenant_language || 'th'\n  }\n};"
       },
-      "id": "947adcca-fb02-4657-90ca-93a53778cd81",
-      "name": "Format Response",
+      "id": "response-formatter",
+      "name": "Response Formatter",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        280,
-        120
+        500,
+        300
       ]
     },
     {
@@ -139,32 +243,127 @@
         "responseBody": "={{ $json }}",
         "options": {}
       },
-      "id": "f0f66e2f-10a6-4a70-b8c7-62c65a2d4098",
+      "id": "webhook-response",
       "name": "Webhook Response",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
       "position": [
-        480,
-        120
+        750,
+        300
       ]
     },
     {
       "parameters": {
-        "jsCode": "// ตรวจสอบว่าจริงๆ แล้วเป็น error หรือไม่\nconst inputData = $input.first().json;\n\n// ถ้ามี answer และ success = true แสดงว่าไม่ error\nif (inputData.answer && inputData.success) {\n  return inputData; // ส่งข้อมูลดั้งเดิมต่อไป\n}\n\n// เป็น error จริง\nreturn {\n  answer: 'ขออภัย เกิดข้อผิดพลาดในการประมวลผลคำถาม กรุณาลองใหม่อีกครั้ง',\n  agent: 'error',\n  success: false,\n  timestamp: new Date().toISOString(),\n  workflow: 'n8n-siamtech-assistant',\n  error: true\n};"
+        "jsCode": "// Error handler for any failures in the workflow\nconst inputData = $input.first().json;\nconst tenantData = $node[\"Tenant Detector\"]?.json;\n\n// Determine language for error message\nconst isEnglish = tenantData?.tenant_language === 'en';\nconst tenantName = tenantData?.tenant_name || 'Unknown Company';\n\n// Create appropriate error message\nlet errorMessage;\nif (isEnglish) {\n  errorMessage = `I apologize, but I encountered an error while processing your request for ${tenantName}. Please try again later or contact support.`;\n} else {\n  errorMessage = `ขออภัย เกิดข้อผิดพลาดในการประมวลผลคำถามสำหรับ ${tenantName} กรุณาลองใหม่อีกครั้งหรือติดต่อฝ่ายสนับสนุน`;\n}\n\n// Log error for debugging\nconsole.error('Workflow error:', {\n  tenant_id: tenantData?.tenant_id,\n  error: inputData,\n  timestamp: new Date().toISOString()\n});\n\nreturn {\n  answer: errorMessage,\n  agent: 'error_handler',\n  success: false,\n  tenant_id: tenantData?.tenant_id || 'unknown',\n  tenant_name: tenantName,\n  error: true,\n  timestamp: new Date().toISOString(),\n  workflow: 'siamtech-multitenant',\n  error_details: inputData\n};"
       },
-      "id": "39aa5b70-3816-42e7-a7b1-c1451147acfb",
+      "id": "error-handler",
       "name": "Error Handler",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        280,
-        320
+        500,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.tenant_id }}",
+              "operation": "equal", 
+              "value2": "company-a"
+            }
+          ]
+        }
+      },
+      "id": "tenant-company-a-check",
+      "name": "Is Company A?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -50,
+        150
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.tenant_id }}",
+              "operation": "equal",
+              "value2": "company-b"  
+            }
+          ]
+        }
+      },
+      "id": "tenant-company-b-check",
+      "name": "Is Company B?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -50,
+        350
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.tenant_id }}",
+              "operation": "equal",
+              "value2": "company-c"
+            }
+          ]
+        }
+      },
+      "id": "tenant-company-c-check", 
+      "name": "Is Company C?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -50,
+        550
       ]
     }
   ],
-  "pinData": {},
   "connections": {
-    "Webhook Trigger": {
+    "Webhook Company A": {
+      "main": [
+        [
+          {
+            "node": "Tenant Detector",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Company B": {
+      "main": [
+        [
+          {
+            "node": "Tenant Detector", 
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Company C": {
+      "main": [
+        [
+          {
+            "node": "Tenant Detector",
+            "type": "main", 
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tenant Detector": {
       "main": [
         [
           {
@@ -197,12 +396,7 @@
       "main": [
         [
           {
-            "node": "Format Response",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Error Handler",
+            "node": "Response Formatter",
             "type": "main",
             "index": 0
           }
@@ -213,19 +407,14 @@
       "main": [
         [
           {
-            "node": "Error Handler",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Format Response",
+            "node": "Response Formatter", 
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Format Response": {
+    "Response Formatter": {
       "main": [
         [
           {
@@ -250,12 +439,28 @@
   },
   "active": true,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowOwner"
   },
-  "versionId": "f2f28773-a62f-4d01-bf6b-48071aa7b128",
+  "versionId": "multitenant-v1",
   "meta": {
-    "instanceId": "4c2a0d135d5b913e469fda03f0706621be5ea954f41e177ce9579c2e37657e9b"
+    "templateCredsSetupCompleted": true,
+    "instanceId": "siamtech-multitenant-instance"
   },
-  "id": "etBdyQWmoO7Ji949",
-  "tags": []
+  "id": "multitenant-workflow",
+  "tags": [
+    {
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z", 
+      "id": "multitenant",
+      "name": "Multi-Tenant"
+    },
+    {
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z",
+      "id": "siamtech",
+      "name": "SiamTech"
+    }
+  ]
 }

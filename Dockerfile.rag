@@ -1,18 +1,76 @@
 FROM python:3.11-slim
 
+# Set working directory
 WORKDIR /app
 
-# Install dependencies
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    libpq-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first for better caching
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+
+# Install Python dependencies
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Copy multi-tenant configuration files
+COPY tenant_config.yaml .
+COPY tenant_manager.py .
 
 # Copy application files
 COPY postgres_agent.py .
 COPY aggregator_agent.py .
 COPY multi_agent_service.py .
 
+# Create logs directory
+RUN mkdir -p /app/logs
+
+# Set environment variables
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+
+# Health check script
+COPY <<EOF /app/healthcheck.py
+#!/usr/bin/env python3
+import requests
+import sys
+import os
+
+try:
+    response = requests.get(
+        f"http://localhost:{os.getenv('PORT', '5000')}/health",
+        timeout=10
+    )
+    if response.status_code == 200:
+        print("Health check passed")
+        sys.exit(0)
+    else:
+        print(f"Health check failed: HTTP {response.status_code}")
+        sys.exit(1)
+except Exception as e:
+    print(f"Health check failed: {e}")
+    sys.exit(1)
+EOF
+
+RUN chmod +x /app/healthcheck.py
+
 # Expose port
 EXPOSE 5000
 
-# Run the FastAPI application
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD python /app/healthcheck.py
+
+# Create non-root user for security
+RUN useradd --create-home --shell /bin/bash siamtech && \
+    chown -R siamtech:siamtech /app
+
+USER siamtech
+
+# Run the multi-tenant FastAPI application
 CMD ["python", "multi_agent_service.py"]
