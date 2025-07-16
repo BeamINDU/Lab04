@@ -210,10 +210,9 @@ services:
       - "8011:8001"
     environment:
       - N8N_BASE_URL=http://n8n:5678
-      - N8N_WEBHOOK_URL=http://n8n:5678/webhook/company-a-chat
       - TENANT_CONFIG_FILE=/app/tenant_config.yaml
       - DEFAULT_TENANT=company-a
-      - FORCE_TENANT=company-a
+      - FORCE_TENANT=company-a 
       - REQUIRE_TENANT_HEADER=false
     volumes:
       - ./tenant_config.yaml:/app/tenant_config.yaml:ro
@@ -260,10 +259,9 @@ services:
       - "8101:8001"
     environment:
       - N8N_BASE_URL=http://n8n:5678
-      - N8N_WEBHOOK_URL=http://n8n:5678/webhook/company-b-chat
       - TENANT_CONFIG_FILE=/app/tenant_config.yaml
       - DEFAULT_TENANT=company-b
-      - FORCE_TENANT=company-b
+      - FORCE_TENANT=company-b 
       - REQUIRE_TENANT_HEADER=false
     volumes:
       - ./tenant_config.yaml:/app/tenant_config.yaml:ro
@@ -281,19 +279,16 @@ services:
     ports:
       - "3100:8080"
     environment:
-      - OPENAI_API_BASE_URL=http://openwebui-proxy-company-b:8101/v1
+      - OPENAI_API_BASE_URL=http://siamtech-rag-service:5000/v1
       - OPENAI_API_KEY=sk-company-b
       - WEBUI_NAME=SiamTech Chiang Mai - AI Assistant
-      - WEBUI_URL=http://localhost:3100
-      - DEFAULT_USER_ROLE=user
-      - ENABLE_SIGNUP=true
-      - SHOW_ADMIN_DETAILS=false
+      - X_TENANT_ID=company-b  # Force tenant B
     volumes:
       - open-webui-company-b-data:/app/backend/data
     networks:
       - siamtech_network
     depends_on:
-      - openwebui-proxy-company-b
+      - rag-service
     restart: unless-stopped
 
   # =============================================================================
@@ -314,6 +309,7 @@ services:
       - TENANT_CONFIG_FILE=/app/tenant_config.yaml
       - DEFAULT_TENANT=company-c
       - FORCE_TENANT=company-c
+      - FORCE_TENANT=company-c
       - REQUIRE_TENANT_HEADER=false
     volumes:
       - ./tenant_config.yaml:/app/tenant_config.yaml:ro
@@ -331,19 +327,16 @@ services:
     ports:
       - "3200:8080"
     environment:
-      - OPENAI_API_BASE_URL=http://openwebui-proxy-company-c:8201/v1
+      - OPENAI_API_BASE_URL=http://siamtech-rag-service:5000/v1
       - OPENAI_API_KEY=sk-company-c
       - WEBUI_NAME=SiamTech International - AI Assistant
-      - WEBUI_URL=http://localhost:3200
-      - DEFAULT_USER_ROLE=user
-      - ENABLE_SIGNUP=true
-      - SHOW_ADMIN_DETAILS=false
+      - X_TENANT_ID=company-c  # Force tenant C
     volumes:
       - open-webui-company-c-data:/app/backend/data
     networks:
       - siamtech_network
     depends_on:
-      - openwebui-proxy-company-c
+      - rag-service
     restart: unless-stopped
 
   # =============================================================================

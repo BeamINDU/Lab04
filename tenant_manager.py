@@ -54,7 +54,9 @@ class TenantManager:
                     database_config=tenant_data.get('database', {}),
                     knowledge_base_config=tenant_data.get('knowledge_base', {}),
                     api_keys=tenant_data.get('api_keys', {}),
-                    settings=tenant_data.get('settings', {})
+                    settings=tenant_data.get('settings', {}),
+                    webhooks=tenant_data.get('webhooks', {}),
+                    contact_info=tenant_data.get('contact_info', {})
                 )
             
             # Set default tenant
@@ -74,96 +76,194 @@ class TenantManager:
             'tenants': {
                 'company-a': {
                     'name': 'SiamTech Main Office',
+                    'description': 'สำนักงานใหญ่ กรุงเทพมหานคร',
                     'database': {
                         'host': os.getenv('POSTGRES_HOST_COMPANY_A', 'postgres-company-a'),
                         'port': int(os.getenv('POSTGRES_PORT_COMPANY_A', '5432')),
                         'database': os.getenv('POSTGRES_DB_COMPANY_A', 'siamtech_company_a'),
                         'user': os.getenv('POSTGRES_USER_COMPANY_A', 'postgres'),
-                        'password': os.getenv('POSTGRES_PASSWORD_COMPANY_A', 'password123')
+                        'password': os.getenv('POSTGRES_PASSWORD_COMPANY_A', 'password123'),
+                        'pool_size': 10,
+                        'max_overflow': 20
                     },
                     'knowledge_base': {
-                        'id': os.getenv('KNOWLEDGE_BASE_ID_COMPANY_A', 'KJGWQPHFSM'),
+                        'id': os.getenv('KNOWLEDGE_BASE_ID', 'KJGWQPHFSM'),
                         'prefix': 'company-a',
-                        'bucket': 'siamtech-kb-company-a'
+                        'bucket': 'siamtech-kb-company-a',
+                        'region': 'ap-southeast-1',
+                        'search_type': 'SEMANTIC',
+                        'max_results': 10
                     },
                     'api_keys': {
                         'bedrock': os.getenv('AWS_ACCESS_KEY_ID', ''),
-                        'openai': os.getenv('OPENAI_API_KEY', '')
+                        'bedrock_secret': os.getenv('AWS_SECRET_ACCESS_KEY', ''),
+                        'openai': os.getenv('OPENAI_API_KEY_COMPANY_A', '')
                     },
                     'settings': {
                         'max_tokens': 1000,
                         'temperature': 0.7,
-                        'allow_hybrid_search': True
+                        'allow_hybrid_search': True,
+                        'enable_postgres_agent': True,
+                        'enable_knowledge_base_agent': True,
+                        'default_agent_type': 'auto',
+                        'response_language': 'th'
                     },
                     'webhooks': {
-                        'n8n_endpoint': f'http://n8n:5678/webhook/{tenant_id}-chat',
-                        'health_check': f'http://n8n:5678/webhook/{tenant_id}-health'
+                        'n8n_endpoint': 'http://n8n:5678/webhook/company-a-chat',
+                        'health_check': 'http://n8n:5678/webhook/company-a-health'
                     },
                     'contact_info': {
                         'email': 'info@siamtech.co.th',
                         'phone': '02-123-4567',
-                        'address': 'Bangkok, Thailand'
+                        'address': 'กรุงเทพมหานคร'
                     }
                 },
                 'company-b': {
                     'name': 'SiamTech Regional Office',
+                    'description': 'สาขาภาคเหนือ เชียงใหม่',
                     'database': {
                         'host': os.getenv('POSTGRES_HOST_COMPANY_B', 'postgres-company-b'),
                         'port': int(os.getenv('POSTGRES_PORT_COMPANY_B', '5432')),
                         'database': os.getenv('POSTGRES_DB_COMPANY_B', 'siamtech_company_b'),
                         'user': os.getenv('POSTGRES_USER_COMPANY_B', 'postgres'),
-                        'password': os.getenv('POSTGRES_PASSWORD_COMPANY_B', 'password123')
+                        'password': os.getenv('POSTGRES_PASSWORD_COMPANY_B', 'password123'),
+                        'pool_size': 5,
+                        'max_overflow': 10
                     },
                     'knowledge_base': {
-                        'id': os.getenv('KNOWLEDGE_BASE_ID_COMPANY_B', 'KJGWQPHFSM'),
+                        'id': os.getenv('KNOWLEDGE_BASE_ID', 'KJGWQPHFSM'),
                         'prefix': 'company-b',
-                        'bucket': 'siamtech-kb-company-b'
+                        'bucket': 'siamtech-kb-company-b',
+                        'region': 'ap-southeast-1',
+                        'search_type': 'SEMANTIC',
+                        'max_results': 10
                     },
                     'api_keys': {
                         'bedrock': os.getenv('AWS_ACCESS_KEY_ID', ''),
-                        'openai': os.getenv('OPENAI_API_KEY', '')
+                        'bedrock_secret': os.getenv('AWS_SECRET_ACCESS_KEY', ''),
+                        'openai': os.getenv('OPENAI_API_KEY_COMPANY_B', '')
                     },
                     'settings': {
-                        'max_tokens': 1000,
+                        'max_tokens': 800,
                         'temperature': 0.7,
-                        'allow_hybrid_search': True
+                        'allow_hybrid_search': True,
+                        'enable_postgres_agent': True,
+                        'enable_knowledge_base_agent': True,
+                        'default_agent_type': 'auto',
+                        'response_language': 'th'
+                    },
+                    'webhooks': {
+                        'n8n_endpoint': 'http://n8n:5678/webhook/company-b-chat',
+                        'health_check': 'http://n8n:5678/webhook/company-b-health'
+                    },
+                    'contact_info': {
+                        'email': 'regional@siamtech.co.th',
+                        'phone': '053-123-456',
+                        'address': 'เชียงใหม่'
                     }
                 },
                 'company-c': {
                     'name': 'SiamTech International',
+                    'description': 'สำนักงานต่างประเทศ',
                     'database': {
                         'host': os.getenv('POSTGRES_HOST_COMPANY_C', 'postgres-company-c'),
                         'port': int(os.getenv('POSTGRES_PORT_COMPANY_C', '5432')),
                         'database': os.getenv('POSTGRES_DB_COMPANY_C', 'siamtech_company_c'),
                         'user': os.getenv('POSTGRES_USER_COMPANY_C', 'postgres'),
-                        'password': os.getenv('POSTGRES_PASSWORD_COMPANY_C', 'password123')
+                        'password': os.getenv('POSTGRES_PASSWORD_COMPANY_C', 'password123'),
+                        'pool_size': 8,
+                        'max_overflow': 15
                     },
                     'knowledge_base': {
-                        'id': os.getenv('KNOWLEDGE_BASE_ID_COMPANY_C', 'KJGWQPHFSM'),
+                        'id': os.getenv('KNOWLEDGE_BASE_ID', 'KJGWQPHFSM'),
                         'prefix': 'company-c',
-                        'bucket': 'siamtech-kb-company-c'
+                        'bucket': 'siamtech-kb-company-c',
+                        'region': 'ap-southeast-1',
+                        'search_type': 'SEMANTIC',
+                        'max_results': 10
                     },
                     'api_keys': {
                         'bedrock': os.getenv('AWS_ACCESS_KEY_ID', ''),
-                        'openai': os.getenv('OPENAI_API_KEY', '')
+                        'bedrock_secret': os.getenv('AWS_SECRET_ACCESS_KEY', ''),
+                        'openai': os.getenv('OPENAI_API_KEY_COMPANY_C', '')
                     },
                     'settings': {
-                        'max_tokens': 1000,
-                        'temperature': 0.7,
-                        'allow_hybrid_search': True
+                        'max_tokens': 1200,
+                        'temperature': 0.6,
+                        'allow_hybrid_search': True,
+                        'enable_postgres_agent': True,
+                        'enable_knowledge_base_agent': True,
+                        'default_agent_type': 'auto',
+                        'response_language': 'en'
+                    },
+                    'webhooks': {
+                        'n8n_endpoint': 'http://n8n:5678/webhook/company-c-chat',
+                        'health_check': 'http://n8n:5678/webhook/company-c-health'
+                    },
+                    'contact_info': {
+                        'email': 'international@siamtech.co.th',
+                        'phone': '+66-2-123-4567',
+                        'address': 'Bangkok, Thailand'
                     }
                 }
             }
         }
         
         # Save default config
-        with open(self.config_file, 'w', encoding='utf-8') as f:
-            yaml.dump(default_config, f, default_flow_style=False, allow_unicode=True)
+        try:
+            with open(self.config_file, 'w', encoding='utf-8') as f:
+                yaml.dump(default_config, f, default_flow_style=False, allow_unicode=True)
+            
+            logger.info(f"Created default tenant config at {self.config_file}")
+            
+            # Load the created config
+            self._load_config()
+            
+        except Exception as e:
+            logger.error(f"Error creating default config: {e}")
+            # Create minimal in-memory config as fallback
+            self._create_minimal_config()
+    
+    def _create_minimal_config(self):
+        """Create minimal in-memory configuration as fallback"""
+        logger.warning("Creating minimal in-memory configuration")
         
-        logger.info(f"Created default tenant config at {self.config_file}")
-        
-        # Load the created config
-        self._load_config()
+        for tenant_id in ['company-a', 'company-b', 'company-c']:
+            self.tenants[tenant_id] = TenantConfig(
+                tenant_id=tenant_id,
+                name=f'SiamTech {tenant_id.replace("-", " ").title()}',
+                database_config={
+                    'host': f'postgres-{tenant_id}',
+                    'port': 5432,
+                    'database': f'siamtech_{tenant_id}',
+                    'user': 'postgres',
+                    'password': 'password123'
+                },
+                knowledge_base_config={
+                    'id': 'KJGWQPHFSM',
+                    'prefix': tenant_id,
+                    'max_results': 10
+                },
+                api_keys={
+                    'bedrock': os.getenv('AWS_ACCESS_KEY_ID', ''),
+                    'bedrock_secret': os.getenv('AWS_SECRET_ACCESS_KEY', '')
+                },
+                settings={
+                    'max_tokens': 1000,
+                    'temperature': 0.7,
+                    'allow_hybrid_search': True,
+                    'enable_postgres_agent': True,
+                    'enable_knowledge_base_agent': True,
+                    'response_language': 'th' if tenant_id != 'company-c' else 'en'
+                },
+                webhooks={
+                    'n8n_endpoint': f'http://n8n:5678/webhook/{tenant_id}-chat'
+                },
+                contact_info={
+                    'email': f'{tenant_id}@siamtech.co.th',
+                    'phone': '02-123-4567'
+                }
+            )
     
     def get_tenant(self, tenant_id: str) -> Optional[TenantConfig]:
         """Get tenant configuration by ID"""
@@ -246,7 +346,9 @@ class TenantManager:
             database_config=config['database'],
             knowledge_base_config=config['knowledge_base'],
             api_keys=config.get('api_keys', {}),
-            settings=config.get('settings', {})
+            settings=config.get('settings', {}),
+            webhooks=config.get('webhooks', {}),
+            contact_info=config.get('contact_info', {})
         )
         
         self.tenants[tenant_id] = tenant_config
@@ -269,11 +371,16 @@ class TenantManager:
                 'database': tenant.database_config,
                 'knowledge_base': tenant.knowledge_base_config,
                 'api_keys': tenant.api_keys,
-                'settings': tenant.settings
+                'settings': tenant.settings,
+                'webhooks': tenant.webhooks,
+                'contact_info': tenant.contact_info
             }
         
-        with open(self.config_file, 'w', encoding='utf-8') as f:
-            yaml.dump(config_data, f, default_flow_style=False, allow_unicode=True)
+        try:
+            with open(self.config_file, 'w', encoding='utf-8') as f:
+                yaml.dump(config_data, f, default_flow_style=False, allow_unicode=True)
+        except Exception as e:
+            logger.error(f"Error saving config: {e}")
     
     def test_tenant_connections(self, tenant_id: str) -> Dict[str, Any]:
         """Test connections for a tenant"""
@@ -349,13 +456,16 @@ if __name__ == "__main__":
     print("\n🔧 Testing tenant configurations:")
     for tenant_id in ['company-a', 'company-b', 'company-c']:
         print(f"\n--- {tenant_id} ---")
-        config = get_tenant_config(tenant_id)
-        print(f"Name: {config.name}")
-        print(f"Database: {config.database_config['host']}:{config.database_config['port']}")
-        print(f"Knowledge Base: {config.knowledge_base_config['id']}")
-        print(f"Valid: {validate_tenant_id(tenant_id)}")
-        
-        # Test connections
-        test_results = tenant_manager.test_tenant_connections(tenant_id)
-        print(f"Database Status: {test_results['database']['status']}")
-        print(f"Knowledge Base Status: {test_results['knowledge_base']['status']}")
+        try:
+            config = get_tenant_config(tenant_id)
+            print(f"Name: {config.name}")
+            print(f"Database: {config.database_config['host']}:{config.database_config['port']}")
+            print(f"Knowledge Base: {config.knowledge_base_config['id']}")
+            print(f"Valid: {validate_tenant_id(tenant_id)}")
+            
+            # Test connections
+            test_results = tenant_manager.test_tenant_connections(tenant_id)
+            print(f"Database Status: {test_results['database']['status']}")
+            print(f"Knowledge Base Status: {test_results['knowledge_base']['status']}")
+        except Exception as e:
+            print(f"Error: {e}")

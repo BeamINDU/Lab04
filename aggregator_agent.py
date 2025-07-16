@@ -8,94 +8,116 @@ from tenant_manager import get_tenant_config, get_tenant_knowledge_base_config
 
 logger = logging.getLogger(__name__)
 
-class AggregatorAgent:
+class AutoAgent:
+    """Simplified Auto Agent - intelligently routes to best data source"""
+    
     def __init__(self):
         # Initialize tenant-aware agents (will be created on-demand)
         self.postgres_agents: Dict[str, PostgreSQLAgent] = {}
         
-        # Claude for routing decisions
+        # Claude for routing decisions and responses
         self.bedrock_runtime = boto3.client(
             'bedrock-runtime',
             region_name='ap-southeast-1'
         )
         
-        # Initialize Knowledge Base agent (existing RAG)
+        # Initialize Knowledge Base agent
         self.bedrock_agent = boto3.client(
             'bedrock-agent-runtime',
             region_name='ap-southeast-1'
         )
         
-        # Routing keywords (same for all tenants)
-        self.sql_keywords = [
-            'กี่คน', 'จำนวน', 'เท่าไหร่', 'เฉลี่ย', 'รวม', 'มากที่สุด', 'น้อยที่สุด',
-            'พนักงาน', 'เงินเดือน', 'โปรเจค', 'แผนก', 'ตำแหน่ง', 'งบประมาณ',
-            'ใครบ้าง', 'รายชื่อ', 'สถานะ', 'วันที่', 'ลูกค้า', 'เทคโนโลยี'
-        ]
-        
-        self.knowledge_keywords = [
-            'บริษัท', 'ธุรกิจ', 'บริการ', 'ติดต่อ', 'เวลา', 'สวัสดิการ', 'นโยบาย',
-            'สยามเทค', 'ทำงาน', 'ลางาน', 'วันหยุด', 'ฝึกอบรม', 'สำนักงาน'
+        # Simple routing keywords
+        self.database_keywords = [
+            'employees', 'พนักงาน', 'salary', 'เงินเดือน', 'projects', 'โปรเจค',
+            'how many', 'กี่คน', 'count', 'จำนวน', 'average', 'เฉลี่ย',
+            'budget', 'งบประมาณ', 'department', 'แผนก', 'statistics', 'สถิติ'
         ]
 
     def get_postgres_agent(self, tenant_id: str) -> PostgreSQLAgent:
         """Get or create PostgreSQL agent for specific tenant"""
         if tenant_id not in self.postgres_agents:
-            logger.info(f"Creating new PostgreSQL agent for tenant: {tenant_id}")
+            logger.info(f"Creating PostgreSQL agent for tenant: {tenant_id}")
             self.postgres_agents[tenant_id] = PostgreSQLAgent(tenant_id)
-        
         return self.postgres_agents[tenant_id]
 
-    async def route_question(self, question: str, tenant_id: str) -> str:
-        """ตัดสินใจว่าควรใช้ agent ไหนสำหรับ tenant นี้"""
+    async def smart_route_and_answer(self, question: str, tenant_id: str) -> Dict[str, Any]:
+        """Auto Agent - intelligently routes and provides unified answer"""
         
-        # Get tenant configuration
-        tenant_config = get_tenant_config(tenant_id)
+        try:
+            tenant_config = get_tenant_config(tenant_id)
+            logger.info(f"Auto Agent processing question for tenant: {tenant_id}")
+            
+            # Step 1: Determine data source using keywords and AI
+            data_source = await self.determine_data_source(question, tenant_id)
+            
+            # Step 2: Get data from appropriate source(s)
+            if data_source == "database":
+                answer = await self.get_database_answer(question, tenant_id)
+            elif data_source == "documents":
+                answer = await self.get_knowledge_answer(question, tenant_id)
+            else:  # both
+                answer = await self.get_combined_answer(question, tenant_id)
+            
+            return {
+                "success": True,
+                "answer": answer["content"],
+                "source": f"Auto Agent - {tenant_config.name}",
+                "agent": "auto",
+                "tenant_id": tenant_id,
+                "tenant_name": tenant_config.name,
+                "data_source_used": data_source,
+                "routing_decision": "auto"
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in Auto Agent for tenant {tenant_id}: {e}")
+            return {
+                "success": False,
+                "answer": f"Sorry, I encountered an error while processing your question: {str(e)}",
+                "source": "Auto Agent - Error",
+                "agent": "auto",
+                "tenant_id": tenant_id,
+                "error": str(e)
+            }
+
+    async def determine_data_source(self, question: str, tenant_id: str) -> str:
+        """Determine whether to use database, documents, or both"""
         
-        # Check if agents are enabled for this tenant
-        settings = tenant_config.settings
-        postgres_enabled = settings.get('enable_postgres_agent', True)
-        knowledge_enabled = settings.get('enable_knowledge_base_agent', True)
-        
-        # Simple keyword-based routing first
         question_lower = question.lower()
         
-        sql_score = sum(1 for keyword in self.sql_keywords if keyword in question_lower)
-        knowledge_score = sum(1 for keyword in self.knowledge_keywords if keyword in question_lower)
+        # Simple keyword matching first
+        database_score = sum(1 for keyword in self.database_keywords if keyword in question_lower)
         
-        # If clear match and agent is enabled, return immediately
-        if sql_score > knowledge_score and sql_score > 0 and postgres_enabled:
-            logger.info(f"Routing to PostgreSQL agent for tenant {tenant_id} (keyword match)")
-            return "postgres"
-        elif knowledge_score > sql_score and knowledge_score > 0 and knowledge_enabled:
-            logger.info(f"Routing to Knowledge Base agent for tenant {tenant_id} (keyword match)")
-            return "knowledge_base"
+        # If clear database question, use database
+        if database_score >= 2:
+            logger.info(f"Routing to database for tenant {tenant_id} (keyword match)")
+            return "database"
         
-        # Use Claude for ambiguous cases
-        return await self.claude_route_decision(question, tenant_id)
-
-    async def claude_route_decision(self, question: str, tenant_id: str) -> str:
-        """ใช้ Claude ตัดสินใจ routing สำหรับ tenant นี้"""
-        
+        # If no clear database keywords, check with Claude
         tenant_config = get_tenant_config(tenant_id)
         
-        prompt = f"""คุณเป็น routing agent สำหรับ {tenant_config.name} 
-ที่ต้องตัดสินใจว่าคำถามต่อไปนี้ควรส่งไปยัง agent ไหน
+        prompt = f"""You are a smart routing assistant for {tenant_config.name}.
 
-Agent ที่มี:
-1. "postgres" - สำหรับคำถามเกี่ยวกับข้อมูลในฐานข้อมูล เช่น จำนวนพนักงาน, เงินเดือน, โปรเจค, สถิติต่างๆ
-2. "knowledge_base" - สำหรับคำถามเกี่ยวกับข้อมูลทั่วไปของบริษัท เช่น ธุรกิจ, บริการ, นโยบาย, การติดต่อ
+Determine the best data source for this question:
+Question: "{question}"
 
-บริษัท: {tenant_config.name}
-คำถาม: "{question}"
+Available data sources:
+1. "database" - Employee data, projects, salaries, statistics, numbers
+2. "documents" - Company information, policies, services, general info
+3. "both" - Questions requiring both sources
 
-กรุณาตอบด้วย "postgres" หรือ "knowledge_base" เท่านั้น
+Rules:
+- Use "database" for: employee counts, salaries, project data, statistics, numbers
+- Use "documents" for: company services, policies, general information, contact info
+- Use "both" for: comprehensive questions about company and its data
 
-ตอบ:"""
+Respond with exactly one word: database, documents, or both"""
 
         try:
             claude_request = {
                 "anthropic_version": "bedrock-2023-05-31",
-                "max_tokens": 50,
+                "max_tokens": 10,
                 "messages": [{"role": "user", "content": prompt}]
             }
             
@@ -108,62 +130,52 @@ Agent ที่มี:
             response_body = json.loads(response['body'].read())
             decision = response_body['content'][0]['text'].strip().lower()
             
-            if "postgres" in decision:
-                logger.info(f"Claude routing decision for tenant {tenant_id}: postgres")
-                return "postgres"
-            elif "knowledge" in decision:
-                logger.info(f"Claude routing decision for tenant {tenant_id}: knowledge_base")
-                return "knowledge_base"
+            if decision in ["database", "documents", "both"]:
+                logger.info(f"Claude routing decision for tenant {tenant_id}: {decision}")
+                return decision
             else:
-                # Default to knowledge_base for safety
-                logger.warning(f"Unclear Claude routing decision for tenant {tenant_id}, defaulting to knowledge_base")
-                return "knowledge_base"
+                logger.warning(f"Unclear Claude decision for tenant {tenant_id}, defaulting to documents")
+                return "documents"
                 
         except Exception as e:
             logger.error(f"Error in Claude routing for tenant {tenant_id}: {e}")
-            return "knowledge_base"  # Default fallback
+            return "documents"  # Safe default
 
-    async def query_postgres_agent(self, question: str, tenant_id: str) -> Dict[str, Any]:
-        """Query PostgreSQL Agent สำหรับ tenant นี้"""
+    async def get_database_answer(self, question: str, tenant_id: str) -> Dict[str, str]:
+        """Get answer from database"""
         try:
             tenant_config = get_tenant_config(tenant_id)
             
             # Check if postgres agent is enabled
             if not tenant_config.settings.get('enable_postgres_agent', True):
                 return {
-                    "success": False,
-                    "answer": f"PostgreSQL agent ไม่ได้เปิดใช้งานสำหรับ {tenant_config.name}",
-                    "source": "Configuration",
-                    "agent": "postgres",
-                    "tenant_id": tenant_id
+                    "content": f"Database queries are not enabled for {tenant_config.name}",
+                    "source": "Configuration"
                 }
             
             postgres_agent = self.get_postgres_agent(tenant_id)
             result = postgres_agent.query(question, tenant_id)
             
-            return {
-                "success": result["success"],
-                "answer": result["answer"],
-                "source": f"PostgreSQL Database - {tenant_config.name}",
-                "agent": "postgres",
-                "tenant_id": tenant_id,
-                "sql": result.get("sql"),
-                "data": result.get("data")
-            }
+            if result["success"]:
+                return {
+                    "content": result["answer"],
+                    "source": "Company Database"
+                }
+            else:
+                return {
+                    "content": f"I couldn't retrieve data from the database: {result.get('answer', 'Unknown error')}",
+                    "source": "Database Error"
+                }
+                
         except Exception as e:
-            logger.error(f"Error in PostgreSQL agent for tenant {tenant_id}: {e}")
+            logger.error(f"Database query error for tenant {tenant_id}: {e}")
             return {
-                "success": False,
-                "answer": f"เกิดข้อผิดพลาดในการเข้าถึงฐานข้อมูลของ {tenant_id}: {str(e)}",
-                "source": "PostgreSQL Database",
-                "agent": "postgres",
-                "tenant_id": tenant_id,
-                "sql": None,
-                "data": None
+                "content": f"Database access error: {str(e)}",
+                "source": "Database Error"
             }
 
-    async def query_knowledge_base_agent(self, question: str, tenant_id: str) -> Dict[str, Any]:
-        """Query Knowledge Base Agent สำหรับ tenant นี้"""
+    async def get_knowledge_answer(self, question: str, tenant_id: str) -> Dict[str, str]:
+        """Get answer from knowledge base"""
         try:
             tenant_config = get_tenant_config(tenant_id)
             kb_config = get_tenant_knowledge_base_config(tenant_id)
@@ -171,24 +183,20 @@ Agent ที่มี:
             # Check if knowledge base agent is enabled
             if not tenant_config.settings.get('enable_knowledge_base_agent', True):
                 return {
-                    "success": False,
-                    "answer": f"Knowledge Base agent ไม่ได้เปิดใช้งานสำหรับ {tenant_config.name}",
-                    "source": "Configuration",
-                    "agent": "knowledge_base",
-                    "tenant_id": tenant_id
+                    "content": f"Knowledge base queries are not enabled for {tenant_config.name}",
+                    "source": "Configuration"
                 }
             
-            # Add tenant-specific context to the question
-            tenant_context = f"บริษัท: {tenant_config.name}"
-            enhanced_question = f"{tenant_context}\n\nคำถาม: {question}"
+            # Add tenant context to question
+            enhanced_question = f"Company: {tenant_config.name}\nQuestion: {question}"
             
-            # Retrieve from Knowledge Base with tenant-specific settings
+            # Retrieve from Knowledge Base
             retrieve_response = self.bedrock_agent.retrieve(
                 knowledgeBaseId=kb_config['id'],
                 retrievalQuery={'text': enhanced_question},
                 retrievalConfiguration={
                     'vectorSearchConfiguration': {
-                        'numberOfResults': kb_config.get('max_results', 10)
+                        'numberOfResults': kb_config.get('max_results', 5)
                     }
                 }
             )
@@ -198,37 +206,24 @@ Agent ที่มี:
             for result in retrieve_response.get('retrievalResults', []):
                 content = result.get('content', {}).get('text', '')
                 if content:
-                    # Filter by tenant prefix if available
-                    prefix = kb_config.get('prefix')
-                    if prefix:
-                        # Only include documents that are relevant to this tenant
-                        # This is a simple approach - you might want more sophisticated filtering
-                        retrieved_docs.append(content)
-                    else:
-                        retrieved_docs.append(content)
+                    retrieved_docs.append(content)
             
             if not retrieved_docs:
                 return {
-                    "success": False,
-                    "answer": f"ขออภัย ไม่พบข้อมูลที่เกี่ยวข้องกับคำถามของคุณในเอกสารของ {tenant_config.name}",
-                    "source": f"Knowledge Base - {tenant_config.name}",
-                    "agent": "knowledge_base",
-                    "tenant_id": tenant_id,
-                    "documents": []
+                    "content": f"I couldn't find relevant information in {tenant_config.name}'s knowledge base for your question.",
+                    "source": "Knowledge Base"
                 }
             
-            # Generate response with tenant context
-            context = "\n\n".join(retrieved_docs[:5])
-            prompt = f"""บริษัท: {tenant_config.name}
+            # Generate response with Claude
+            context = "\n\n".join(retrieved_docs[:3])
+            prompt = f"""Company: {tenant_config.name}
 
-จากข้อมูลบริบทต่อไปนี้:
-
+Context from company documents:
 {context}
 
-คำถาม: {question}
+Question: {question}
 
-กรุณาตอบคำถามโดยอ้างอิงจากข้อมูลบริบทข้างบน โดยเฉพาะข้อมูลที่เกี่ยวข้องกับ {tenant_config.name} 
-หากข้อมูลไม่เพียงพอ กรุณาบอกว่าไม่มีข้อมูลเพียงพอ อย่าสร้างข้อมูลเพิ่มเติม"""
+Please answer the question based on the context provided. If the information is not sufficient, say so clearly. Do not make up information."""
 
             claude_request = {
                 "anthropic_version": "bedrock-2023-05-31",
@@ -246,205 +241,144 @@ Agent ที่มี:
             answer = response_body['content'][0]['text']
             
             return {
-                "success": True,
-                "answer": answer,
-                "source": f"Knowledge Base Documents - {tenant_config.name}",
-                "agent": "knowledge_base",
-                "tenant_id": tenant_id,
-                "documents": retrieved_docs[:3]
+                "content": answer,
+                "source": "Company Knowledge Base"
             }
             
         except Exception as e:
-            logger.error(f"Error in Knowledge Base agent for tenant {tenant_id}: {e}")
+            logger.error(f"Knowledge base query error for tenant {tenant_id}: {e}")
             return {
-                "success": False,
-                "answer": f"เกิดข้อผิดพลาดในการเข้าถึงเอกสารของ {tenant_id}: {str(e)}",
-                "source": f"Knowledge Base - {tenant_id}",
-                "agent": "knowledge_base",
-                "tenant_id": tenant_id,
-                "documents": []
+                "content": f"Knowledge base access error: {str(e)}",
+                "source": "Knowledge Base Error"
             }
 
-    async def process_question(self, question: str, tenant_id: str) -> Dict[str, Any]:
-        """Main method - ประมวลผลคำถามและส่งไปยัง agent ที่เหมาะสมสำหรับ tenant นี้"""
-        
-        try:
-            # Validate tenant
-            tenant_config = get_tenant_config(tenant_id)
-            logger.info(f"Processing question for tenant: {tenant_id} ({tenant_config.name})")
-            
-            # Step 1: Route the question
-            selected_agent = await self.route_question(question, tenant_id)
-            logger.info(f"🎯 Routing decision for {tenant_id}: {selected_agent}")
-            
-            # Step 2: Query the selected agent
-            if selected_agent == "postgres":
-                result = await self.query_postgres_agent(question, tenant_id)
-            else:
-                result = await self.query_knowledge_base_agent(question, tenant_id)
-            
-            # Step 3: Add metadata
-            result["routing_decision"] = selected_agent
-            result["question"] = question
-            result["tenant_id"] = tenant_id
-            result["tenant_name"] = tenant_config.name
-            
-            return result
-            
-        except Exception as e:
-            logger.error(f"Error processing question for tenant {tenant_id}: {e}")
-            return {
-                "success": False,
-                "answer": f"เกิดข้อผิดพลาดในการประมวลผลคำถาม: {str(e)}",
-                "source": "Error",
-                "agent": "error",
-                "tenant_id": tenant_id,
-                "question": question,
-                "error": str(e)
-            }
-
-    async def hybrid_search(self, question: str, tenant_id: str) -> Dict[str, Any]:
-        """ค้นหาจากทั้งสอง agents และรวมผลลัพธ์สำหรับ tenant นี้"""
-        
+    async def get_combined_answer(self, question: str, tenant_id: str) -> Dict[str, str]:
+        """Get answer from both database and knowledge base"""
         try:
             tenant_config = get_tenant_config(tenant_id)
             
             # Check if hybrid search is allowed
             if not tenant_config.settings.get('allow_hybrid_search', True):
-                return {
-                    "success": False,
-                    "answer": f"Hybrid search ไม่ได้เปิดใช้งานสำหรับ {tenant_config.name}",
-                    "source": "Configuration",
-                    "agent": "hybrid",
-                    "tenant_id": tenant_id
-                }
+                # Fall back to documents only
+                return await self.get_knowledge_answer(question, tenant_id)
             
-            logger.info(f"🔄 Performing hybrid search for tenant: {tenant_id}")
+            logger.info(f"Getting combined answer for tenant: {tenant_id}")
             
-            # Query both agents simultaneously
-            postgres_task = self.query_postgres_agent(question, tenant_id)
-            knowledge_task = self.query_knowledge_base_agent(question, tenant_id)
+            # Query both sources
+            db_task = self.get_database_answer(question, tenant_id)
+            kb_task = self.get_knowledge_answer(question, tenant_id)
             
-            postgres_result, knowledge_result = await asyncio.gather(
-                postgres_task, knowledge_task, return_exceptions=True
-            )
+            db_result, kb_result = await asyncio.gather(db_task, kb_task, return_exceptions=True)
             
             # Handle exceptions
-            if isinstance(postgres_result, Exception):
-                postgres_result = {
-                    "success": False,
-                    "answer": f"PostgreSQL error: {str(postgres_result)}",
-                    "agent": "postgres",
-                    "tenant_id": tenant_id
-                }
-                
-            if isinstance(knowledge_result, Exception):
-                knowledge_result = {
-                    "success": False,
-                    "answer": f"Knowledge Base error: {str(knowledge_result)}",
-                    "agent": "knowledge_base",
-                    "tenant_id": tenant_id
-                }
+            if isinstance(db_result, Exception):
+                db_result = {"content": f"Database error: {str(db_result)}", "source": "Database Error"}
+            if isinstance(kb_result, Exception):
+                kb_result = {"content": f"Knowledge base error: {str(kb_result)}", "source": "Knowledge Base Error"}
             
-            # Combine results
-            combined_answer = self.combine_results(postgres_result, knowledge_result, question, tenant_config)
+            # Combine results intelligently
+            combined_answer = self.combine_answers(db_result, kb_result, question, tenant_config)
             
             return {
-                "success": True,
-                "answer": combined_answer,
-                "source": f"Hybrid Search - {tenant_config.name}",
-                "agent": "hybrid",
-                "tenant_id": tenant_id,
-                "tenant_name": tenant_config.name,
-                "postgres_result": postgres_result,
-                "knowledge_result": knowledge_result,
-                "question": question
+                "content": combined_answer,
+                "source": "Database + Knowledge Base"
             }
             
         except Exception as e:
-            logger.error(f"Error in hybrid search for tenant {tenant_id}: {e}")
+            logger.error(f"Combined query error for tenant {tenant_id}: {e}")
             return {
-                "success": False,
-                "answer": f"เกิดข้อผิดพลาดใน hybrid search: {str(e)}",
-                "source": "Hybrid Search",
-                "agent": "hybrid",
-                "tenant_id": tenant_id,
-                "error": str(e)
+                "content": f"Error accessing multiple data sources: {str(e)}",
+                "source": "Combined Error"
             }
 
-    def combine_results(self, postgres_result: Dict, knowledge_result: Dict, question: str, tenant_config) -> str:
-        """รวมผลลัพธ์จากทั้งสอง agents สำหรับ tenant นี้"""
+    def combine_answers(self, db_result: Dict, kb_result: Dict, question: str, tenant_config) -> str:
+        """Intelligently combine answers from different sources"""
         
-        postgres_success = postgres_result.get("success", False)
-        knowledge_success = knowledge_result.get("success", False)
-        tenant_name = tenant_config.name
+        db_content = db_result.get("content", "")
+        kb_content = kb_result.get("content", "")
         
-        if postgres_success and knowledge_success:
-            return f"""ข้อมูลจาก {tenant_name}:
+        # Check if both sources have useful content
+        db_has_content = db_content and "error" not in db_content.lower() and len(db_content.strip()) > 10
+        kb_has_content = kb_content and "error" not in kb_content.lower() and len(kb_content.strip()) > 10
+        
+        if db_has_content and kb_has_content:
+            return f"""Based on {tenant_config.name}'s data:
 
-📊 **จากฐานข้อมูล:**
-{postgres_result['answer']}
+📊 **From Database:**
+{db_content}
 
-📚 **จากเอกสาร:**
-{knowledge_result['answer']}
+📚 **From Company Information:**
+{kb_content}
 
 ---
-*ข้อมูลจาก: {tenant_name} - ฐานข้อมูลและเอกสารบริษัท*"""
+*Information from: {tenant_config.name} - Database and Knowledge Base*"""
 
-        elif postgres_success:
-            return f"""📊 **จากฐานข้อมูล {tenant_name}:**
-{postgres_result['answer']}
+        elif db_has_content:
+            return f"""📊 **From {tenant_config.name} Database:**
+{db_content}
 
-📚 *หมายเหตุ: ไม่พบข้อมูลเพิ่มเติมในเอกสาร*"""
+📝 *Note: Additional company information was not found in documents*"""
 
-        elif knowledge_success:
-            return f"""📚 **จากเอกสาร {tenant_name}:**
-{knowledge_result['answer']}
+        elif kb_has_content:
+            return f"""📚 **From {tenant_config.name} Information:**
+{kb_content}
 
-📊 *หมายเหตุ: ไม่พบข้อมูลที่เกี่ยวข้องในฐานข้อมูล*"""
+📝 *Note: No specific database records found for this query*"""
 
         else:
-            return f"ขออภัย ไม่พบข้อมูลที่เกี่ยวข้องกับคำถามของคุณใน {tenant_name} ทั้งในฐานข้อมูลและเอกสาร"
+            return f"I apologize, but I couldn't find relevant information in {tenant_config.name}'s database or knowledge base to answer your question. Please try rephrasing your question or contact support for assistance."
 
+
+# Convenience functions for backward compatibility
+class AggregatorAgent:
+    """Wrapper for backward compatibility"""
+    
+    def __init__(self):
+        self.auto_agent = AutoAgent()
+    
+    async def process_question(self, question: str, tenant_id: str) -> Dict[str, Any]:
+        """Process question using Auto Agent"""
+        return await self.auto_agent.smart_route_and_answer(question, tenant_id)
+    
     async def get_tenant_agent_status(self, tenant_id: str) -> Dict[str, Any]:
-        """ตรวจสอบสถานะของ agents สำหรับ tenant นี้"""
+        """Get agent status for tenant"""
         try:
             tenant_config = get_tenant_config(tenant_id)
             
             status = {
                 "tenant_id": tenant_id,
                 "tenant_name": tenant_config.name,
-                "postgres_agent": {"status": "unknown", "error": None},
-                "knowledge_base_agent": {"status": "unknown", "error": None},
+                "auto_agent": {"status": "active", "description": "Smart routing agent"},
                 "settings": tenant_config.settings
             }
             
-            # Test PostgreSQL agent
+            # Test database if enabled
             if tenant_config.settings.get('enable_postgres_agent', True):
                 try:
-                    postgres_agent = self.get_postgres_agent(tenant_id)
+                    postgres_agent = self.auto_agent.get_postgres_agent(tenant_id)
                     test_result = postgres_agent.test_connection(tenant_id)
-                    status["postgres_agent"]["status"] = "connected" if test_result["success"] else "error"
-                    if not test_result["success"]:
-                        status["postgres_agent"]["error"] = test_result.get("error")
+                    status["database"] = {
+                        "status": "connected" if test_result["success"] else "error",
+                        "error": test_result.get("error") if not test_result["success"] else None
+                    }
                 except Exception as e:
-                    status["postgres_agent"]["status"] = "error"
-                    status["postgres_agent"]["error"] = str(e)
+                    status["database"] = {"status": "error", "error": str(e)}
             else:
-                status["postgres_agent"]["status"] = "disabled"
+                status["database"] = {"status": "disabled"}
             
-            # Test Knowledge Base agent
+            # Test knowledge base if enabled
             if tenant_config.settings.get('enable_knowledge_base_agent', True):
                 try:
-                    test_result = await self.query_knowledge_base_agent("test", tenant_id)
-                    status["knowledge_base_agent"]["status"] = "connected" if test_result["success"] else "error"
-                    if not test_result["success"]:
-                        status["knowledge_base_agent"]["error"] = test_result.get("answer")
+                    # Simple test - just check if we can access the configuration
+                    kb_config = get_tenant_knowledge_base_config(tenant_id)
+                    if kb_config.get('id'):
+                        status["knowledge_base"] = {"status": "configured"}
+                    else:
+                        status["knowledge_base"] = {"status": "not_configured"}
                 except Exception as e:
-                    status["knowledge_base_agent"]["status"] = "error"
-                    status["knowledge_base_agent"]["error"] = str(e)
+                    status["knowledge_base"] = {"status": "error", "error": str(e)}
             else:
-                status["knowledge_base_agent"]["status"] = "disabled"
+                status["knowledge_base"] = {"status": "disabled"}
             
             return status
             
@@ -453,37 +387,31 @@ Agent ที่มี:
             return {
                 "tenant_id": tenant_id,
                 "error": str(e),
-                "postgres_agent": {"status": "error"},
-                "knowledge_base_agent": {"status": "error"}
+                "auto_agent": {"status": "error"}
             }
 
 
-# Multi-tenant convenience functions
+# Global instance
 def create_aggregator_agent() -> AggregatorAgent:
     """Create aggregator agent"""
     return AggregatorAgent()
 
 async def process_tenant_question(question: str, tenant_id: str) -> Dict[str, Any]:
     """Quick function to process question for specific tenant"""
-    aggregator = create_aggregator_agent()
-    return await aggregator.process_question(question, tenant_id)
-
-async def hybrid_search_for_tenant(question: str, tenant_id: str) -> Dict[str, Any]:
-    """Quick function for hybrid search for specific tenant"""
-    aggregator = create_aggregator_agent()
-    return await aggregator.hybrid_search(question, tenant_id)
+    auto_agent = AutoAgent()
+    return await auto_agent.smart_route_and_answer(question, tenant_id)
 
 
 # Test usage
-async def test_multitenant_aggregator():
-    """Test multi-tenant aggregator functionality"""
-    aggregator = AggregatorAgent()
+async def test_auto_agent():
+    """Test Auto Agent functionality"""
+    auto_agent = AutoAgent()
     
     test_scenarios = [
-        {"tenant": "company-a", "question": "มีพนักงานกี่คน?"},
-        {"tenant": "company-b", "question": "บริษัททำธุรกิจอะไร?"},
-        {"tenant": "company-c", "question": "เงินเดือนเฉลี่ยเท่าไหร่?"},
-        {"tenant": "company-a", "question": "เวลาทำการของบริษัท?"},
+        {"tenant": "company-a", "question": "How many employees are there?"},
+        {"tenant": "company-a", "question": "What services does the company provide?"},
+        {"tenant": "company-b", "question": "What is the average salary?"},
+        {"tenant": "company-c", "question": "Tell me about the company and employee count"},
     ]
     
     for scenario in test_scenarios:
@@ -496,19 +424,13 @@ async def test_multitenant_aggregator():
         print(f"{'='*70}")
         
         try:
-            # Test agent status
-            status = await aggregator.get_tenant_agent_status(tenant_id)
-            print(f"📊 PostgreSQL: {status['postgres_agent']['status']}")
-            print(f"📚 Knowledge Base: {status['knowledge_base_agent']['status']}")
-            
-            # Process question
-            result = await aggregator.process_question(question, tenant_id)
-            print(f"🎯 Agent Used: {result.get('routing_decision', 'unknown')}")
-            print(f"✅ Answer: {result['answer']}")
+            result = await auto_agent.smart_route_and_answer(question, tenant_id)
+            print(f"🎯 Data Source: {result.get('data_source_used', 'unknown')}")
+            print(f"✅ Answer: {result['answer'][:200]}..." if len(result['answer']) > 200 else f"✅ Answer: {result['answer']}")
             print(f"📍 Source: {result['source']}")
             
         except Exception as e:
             print(f"❌ Error: {e}")
 
 if __name__ == "__main__":
-    asyncio.run(test_multitenant_aggregator())
+    asyncio.run(test_auto_agent())

@@ -180,90 +180,50 @@ async def select_tenant(request: TenantSelectionRequest):
 
 @app.get("/v1/models")
 async def list_models():
-    """OpenAI compatible models endpoint with tenant-specific models"""
-    models = []
+    """OpenAI compatible models endpoint - Auto Agent only"""
     
-    # Base model types
-    base_models = [
-        {
-            "id": "siamtech-n8n-agent",
-            "description": "SiamTech AI Assistant via n8n Workflows"
-        },
-        {
-            "id": "siamtech-n8n-postgres",
-            "description": "PostgreSQL Agent via n8n"
-        },
-        {
-            "id": "siamtech-n8n-knowledge",
-            "description": "Knowledge Base Agent via n8n"
-        },
-        {
-            "id": "siamtech-n8n-hybrid",
-            "description": "Hybrid Agent via n8n"
-        }
-    ]
+    # Determine current tenant from environment or default
+    tenant_id = os.getenv('FORCE_TENANT', os.getenv('DEFAULT_TENANT', 'company-a'))
     
-    # Add tenant-specific models
-    tenants = list_available_tenants()
-    for tenant_id, tenant_name in tenants.items():
-        for base_model in base_models:
-            models.append({
-                "id": f"{base_model['id']}-{tenant_id}",
-                "object": "model",
-                "created": int(time.time()),
-                "owned_by": "siamtech",
-                "permission": [],
-                "root": base_model['id'],
-                "parent": None,
-                "description": f"{base_model['description']} - {tenant_name}",
-                "tenant_id": tenant_id,
-                "tenant_name": tenant_name
-            })
+    # Get tenant configuration
+    try:
+        tenant_config = get_tenant_config(tenant_id)
+        tenant_name = tenant_config.name
+    except:
+        tenant_name = f"SiamTech {tenant_id.replace('-', ' ').title()}"
     
-    # Add base models (will use default tenant or header)
-    for base_model in base_models:
-        models.append({
-            "id": base_model['id'],
-            "object": "model",
-            "created": int(time.time()),
-            "owned_by": "siamtech",
-            "permission": [],
-            "root": base_model['id'],
-            "parent": None,
-            "description": base_model['description']
-        })
+    # Single Auto Agent model only
+    model = {
+        "id": f"siamtech-auto-agent-{tenant_id}",
+        "object": "model",
+        "created": int(time.time()),
+        "owned_by": "siamtech",
+        "permission": [],
+        "root": "siamtech-auto-agent",
+        "parent": None,
+        "description": f"Auto Agent for {tenant_name} - Smart routing via n8n",
+        "tenant_id": tenant_id,
+        "tenant_name": tenant_name,
+        "workflow": "n8n"
+    }
     
     return {
         "object": "list",
-        "data": models
+        "data": [model]  # Only one Auto Agent model
     }
-
 @app.post("/v1/chat/completions")
 async def chat_completions(request: ChatCompletionRequest):
-    """OpenAI compatible endpoint that forwards to tenant-specific n8n workflows"""
+    """OpenAI compatible endpoint that forwards to tenant-specific n8n workflows - FIXED VERSION"""
     try:
         if not request.messages:
             raise HTTPException(status_code=400, detail="No messages provided")
         
-        # Determine tenant ID from multiple sources
-        tenant_id = request.tenant_id
-        
-        # Extract from model name if not specified
-        if not tenant_id:
-            tenant_id = extract_tenant_from_model(request.model)
-        
-        # Use default if still not found
-        if not tenant_id:
-            tenant_id = DEFAULT_TENANT
+        # Determine tenant ID from environment variables
+        tenant_id = os.getenv('FORCE_TENANT', os.getenv('DEFAULT_TENANT', 'company-a'))
         
         # Validate tenant
         if not validate_tenant_id(tenant_id):
-            if REQUIRE_TENANT_HEADER:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Invalid tenant ID: {tenant_id}. Available: {list(list_available_tenants().keys())}"
-                )
-            tenant_id = DEFAULT_TENANT
+            tenant_id = 'company-a'  # fallback
         
         # Get tenant configuration
         tenant_config = get_tenant_config(tenant_id)
@@ -273,25 +233,16 @@ async def chat_completions(request: ChatCompletionRequest):
         
         # Build conversation history
         conversation_history = []
-        for msg in request.messages[:-1]:  # All messages except the last one
+        for msg in request.messages[:-1]:
             conversation_history.append({
                 "role": msg.role,
                 "content": msg.content
             })
         
-        # Determine webhook URL
+        # Get n8n webhook URL
         webhook_url = tenant_config.webhooks.get('n8n_endpoint')
         if not webhook_url:
             webhook_url = f"{N8N_BASE_URL}/webhook/{tenant_id}-chat"
-        
-        # Determine agent type from model
-        agent_type = "auto"
-        if "postgres" in request.model.lower():
-            agent_type = "postgres"
-        elif "knowledge" in request.model.lower():
-            agent_type = "knowledge_base"
-        elif "hybrid" in request.model.lower():
-            agent_type = "hybrid"
         
         # Prepare payload for n8n
         n8n_payload = {
@@ -299,15 +250,16 @@ async def chat_completions(request: ChatCompletionRequest):
             "conversation_history": conversation_history,
             "tenant_id": tenant_id,
             "tenant_name": tenant_config.name,
-            "agent_type": agent_type,
+            "agent_type": "auto",  # Always use auto agent
             "model": request.model,
-            "max_tokens": min(request.max_tokens, tenant_config.settings.get('max_tokens', 1000)),
-            "temperature": request.temperature,
+            "max_tokens": min(request.max_tokens or 1000, tenant_config.settings.get('max_tokens', 1000)),
+            "temperature": request.temperature or 0.7,
             "timestamp": int(time.time()),
             "settings": tenant_config.settings
         }
         
-        logger.info(f"Forwarding request to {webhook_url} for tenant {tenant_id}")
+        logger.info(f"🚀 Forwarding to {webhook_url} for tenant {tenant_id}")
+        logger.info(f"📝 Message: {user_message[:100]}...")
         
         # Forward to n8n webhook
         async with aiohttp.ClientSession() as session:
@@ -320,7 +272,7 @@ async def chat_completions(request: ChatCompletionRequest):
                 
                 if response.status != 200:
                     error_text = await response.text()
-                    logger.error(f"n8n webhook error for tenant {tenant_id}: HTTP {response.status} - {error_text}")
+                    logger.error(f"❌ n8n webhook error: HTTP {response.status} - {error_text}")
                     raise HTTPException(
                         status_code=response.status,
                         detail=f"n8n webhook error: {error_text}"
@@ -328,31 +280,87 @@ async def chat_completions(request: ChatCompletionRequest):
                 
                 try:
                     n8n_response = await response.json()
+                    logger.info(f"✅ Got n8n response with keys: {list(n8n_response.keys()) if isinstance(n8n_response, dict) else 'Not dict'}")
                 except json.JSONDecodeError as e:
                     error_text = await response.text()
-                    logger.error(f"Invalid JSON response from n8n for tenant {tenant_id}: {error_text}")
+                    logger.error(f"❌ Invalid JSON from n8n: {error_text}")
                     raise HTTPException(
                         status_code=502,
                         detail=f"Invalid JSON response from n8n: {str(e)}"
                     )
         
-        # Extract answer from n8n response
+        # === EXTRACT ANSWER FROM N8N RESPONSE ===
+        final_answer = None
+        agent_used = "auto"
+        success_status = False
+        routing_info = "unknown"
+        
         if isinstance(n8n_response, dict):
-            answer = n8n_response.get('answer', n8n_response.get('response', str(n8n_response)))
-            agent_info = n8n_response.get('agent', 'n8n-workflow')
-            success = n8n_response.get('success', True)
-            routing_decision = n8n_response.get('routing_decision')
+            # Step 1: Try to get 'answer' field directly
+            raw_answer = n8n_response.get('answer')
+            
+            if raw_answer and raw_answer not in [None, 'None', 'null', '']:
+                logger.info(f"✅ Found 'answer' field: {str(raw_answer)[:100]}...")
+                final_answer = str(raw_answer)
+                success_status = True
+            else:
+                # Step 2: Try alternative fields
+                for alt_field in ['response', 'content', 'text', 'message']:
+                    alt_value = n8n_response.get(alt_field)
+                    if alt_value and alt_value not in [None, 'None', 'null', '']:
+                        logger.info(f"📝 Using '{alt_field}' field: {str(alt_value)[:50]}...")
+                        final_answer = str(alt_value)
+                        success_status = True
+                        break
+                
+                # Step 3: If still no answer, check nested objects
+                if not final_answer:
+                    for key, value in n8n_response.items():
+                        if isinstance(value, dict) and 'answer' in value:
+                            final_answer = str(value['answer'])
+                            logger.info(f"🔍 Found nested answer in '{key}': {final_answer[:50]}...")
+                            success_status = True
+                            break
+            
+            # Extract metadata
+            agent_used = n8n_response.get('agent', 'auto')
+            success_status = n8n_response.get('success', success_status)
+            routing_info = n8n_response.get('routing_decision', 'auto')
+            
         else:
-            answer = str(n8n_response)
-            agent_info = 'n8n-workflow'
-            success = True
-            routing_decision = None
+            logger.error(f"❌ n8n response is not a dict: {type(n8n_response)}")
+            final_answer = f"Received non-dict response from n8n: {type(n8n_response)}"
         
-        # Add tenant context to answer if successful
-        if success and tenant_config.name:
-            answer = f"{answer}\n\n---\n*ข้อมูลจาก: {tenant_config.name}*"
+        # === CLEAN UP THE ANSWER ===
+        if final_answer:
+            # Convert escaped newlines
+            final_answer = final_answer.replace('\\n', '\n')
+            
+            # Handle Thai text encoding if needed
+            if isinstance(final_answer, bytes):
+                final_answer = final_answer.decode('utf-8', errors='ignore')
+            
+            # Clean up whitespace
+            final_answer = final_answer.strip()
+            
+            # Remove footer metadata if desired (optional)
+            if '\n---\n*ข้อมูลจาก:' in final_answer:
+                main_content = final_answer.split('\n---\n*ข้อมูลจาก:')[0].strip()
+                footer_content = final_answer.split('\n---\n*ข้อมูลจาก:')[1].strip()
+                # Keep both parts but clean them up
+                final_answer = f"{main_content}\n\n---\n*{footer_content}*"
         
-        # Format as OpenAI response
+        # === FALLBACK IF NO ANSWER ===
+        if not final_answer or final_answer.strip() == "":
+            logger.error("❌ No valid answer extracted from n8n response")
+            final_answer = f"ขออภัย ไม่สามารถดึงคำตอบจากระบบได้\n\nDebug: n8n keys = {list(n8n_response.keys()) if isinstance(n8n_response, dict) else 'No dict'}"
+            success_status = False
+        
+        # === LOG FINAL RESULT ===
+        logger.info(f"🎯 Final answer ({len(final_answer)} chars): {final_answer[:100]}...")
+        logger.info(f"✅ Success: {success_status}")
+        
+        # === CREATE OPENAI RESPONSE ===
         openai_response = {
             "id": f"chatcmpl-{tenant_id}-{int(time.time())}",
             "object": "chat.completion",
@@ -363,42 +371,45 @@ async def chat_completions(request: ChatCompletionRequest):
                     "index": 0,
                     "message": {
                         "role": "assistant",
-                        "content": answer
+                        "content": final_answer
                     },
                     "finish_reason": "stop"
                 }
             ],
             "usage": {
                 "prompt_tokens": len(user_message.split()),
-                "completion_tokens": len(answer.split()),
-                "total_tokens": len(user_message.split()) + len(answer.split())
+                "completion_tokens": len(final_answer.split()),
+                "total_tokens": len(user_message.split()) + len(final_answer.split())
             },
             "metadata": {
                 "tenant_id": tenant_id,
                 "tenant_name": tenant_config.name,
-                "agent_used": agent_info,
-                "agent_type_requested": agent_type,
+                "agent_used": agent_used,
                 "workflow": "n8n",
-                "success": success,
-                "routing_decision": routing_decision,
+                "success": success_status,
+                "routing_decision": routing_info,
                 "webhook_url": webhook_url,
                 "timestamp": datetime.now().isoformat(),
-                "original_response": n8n_response if isinstance(n8n_response, dict) else None
+                "debug_info": {
+                    "n8n_response_keys": list(n8n_response.keys()) if isinstance(n8n_response, dict) else "Not dict",
+                    "answer_length": len(final_answer) if final_answer else 0,
+                    "extraction_method": "direct_answer_field" if n8n_response.get('answer') else "fallback_method"
+                }
             }
         }
         
-        logger.info(f"Successfully processed request for tenant {tenant_id}, agent: {agent_info}")
+        logger.info(f"📤 Sending response to OpenWebUI with content length: {len(final_answer)}")
         return openai_response
         
     except aiohttp.ClientError as e:
-        logger.error(f"Connection error to n8n for tenant {tenant_id}: {str(e)}")
+        logger.error(f"🌐 Connection error to n8n: {str(e)}")
         raise HTTPException(
             status_code=503,
-            detail=f"Cannot connect to n8n webhook for tenant {tenant_id}: {str(e)}"
+            detail=f"Cannot connect to n8n webhook: {str(e)}"
         )
     except Exception as e:
-        logger.error(f"Error in chat completion for tenant {tenant_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"💥 Unexpected error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.get("/v1/models/{model_id}")
 async def get_model(model_id: str):

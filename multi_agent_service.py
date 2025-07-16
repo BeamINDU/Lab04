@@ -9,7 +9,7 @@ import uvicorn
 import logging
 from datetime import datetime
 
-# Import our multi-tenant components
+# Import our simplified components
 from aggregator_agent import AggregatorAgent
 from tenant_manager import (
     tenant_manager, 
@@ -25,8 +25,7 @@ logger = logging.getLogger(__name__)
 # Pydantic models
 class RAGQuery(BaseModel):
     query: str
-    agent_type: Optional[str] = "auto"  # auto, postgres, knowledge_base, hybrid
-    tenant_id: Optional[str] = None  # Can override header
+    tenant_id: Optional[str] = None
 
 class RAGResponse(BaseModel):
     answer: str
@@ -35,7 +34,7 @@ class RAGResponse(BaseModel):
     success: bool
     tenant_id: str
     tenant_name: str
-    routing_decision: Optional[str] = None
+    data_source_used: Optional[str] = None
     timestamp: datetime
 
 class ChatMessage(BaseModel):
@@ -44,21 +43,21 @@ class ChatMessage(BaseModel):
 
 class ChatCompletionRequest(BaseModel):
     messages: List[ChatMessage]
-    model: Optional[str] = "siamtech-multi-agent"
+    model: Optional[str] = "siamtech-auto-agent"
     max_tokens: Optional[int] = 1000
-    tenant_id: Optional[str] = None  # Can override header
+    tenant_id: Optional[str] = None
 
 class TenantInfo(BaseModel):
     tenant_id: str
     name: str
-    enabled_agents: List[str]
+    agent_type: str
     settings: dict
 
 # FastAPI app
 app = FastAPI(
-    title="SiamTech Multi-Tenant RAG Service",
-    description="Multi-Agent RAG Service with PostgreSQL and Knowledge Base - Multi-Tenant Support",
-    version="3.0.0"
+    title="SiamTech Auto Agent Service",
+    description="Simplified AI Agent with Smart Routing - Multi-Tenant Support",
+    version="4.0.0"
 )
 
 # CORS
@@ -70,7 +69,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize Aggregator Agent
+# Initialize Auto Agent
 aggregator = AggregatorAgent()
 
 # Dependency to get tenant ID
@@ -79,20 +78,21 @@ def get_tenant_id(
     tenant_id_param: Optional[str] = None
 ) -> str:
     """Get tenant ID from header or parameter"""
-    tenant_id = tenant_id_param or x_tenant_id or tenant_manager.default_tenant
+    tenant_id = x_tenant_id or tenant_id_param or tenant_manager.default_tenant
     
     # Validate tenant ID
     if not validate_tenant_id(tenant_id):
         logger.warning(f"Invalid tenant ID: {tenant_id}, using default: {tenant_manager.default_tenant}")
         tenant_id = tenant_manager.default_tenant
     
+    logger.info(f"Using tenant ID: {tenant_id}")  # Add logging
     return tenant_id
 
 @app.on_event("startup")
 async def startup_event():
-    print("🚀 SiamTech Multi-Tenant RAG Service starting...")
-    print("🤖 Agents available: PostgreSQL, Knowledge Base")
-    print("🎯 Aggregator Agent initialized")
+    print("🚀 SiamTech Auto Agent Service starting...")
+    print("🤖 Single Auto Agent with Smart Routing")
+    print("🎯 Automatically chooses between Database and Knowledge Base")
     print("🏢 Available Tenants:")
     
     tenants = list_available_tenants()
@@ -105,11 +105,12 @@ async def startup_event():
 async def health_check():
     return {
         "status": "healthy",
-        "service": "Multi-Tenant RAG",
-        "agents": ["postgres", "knowledge_base", "aggregator"],
-        "version": "3.0.0",
+        "service": "Auto Agent",
+        "agent_type": "smart_routing",
+        "version": "4.0.0",
         "tenants": list(list_available_tenants().keys()),
-        "default_tenant": tenant_manager.default_tenant
+        "default_tenant": tenant_manager.default_tenant,
+        "description": "Single Auto Agent with intelligent routing to database or knowledge base"
     }
 
 @app.get("/tenants", response_model=List[TenantInfo])
@@ -120,19 +121,11 @@ async def list_tenants():
     for tenant_id, name in list_available_tenants().items():
         try:
             config = get_tenant_config(tenant_id)
-            enabled_agents = []
-            
-            if config.settings.get('enable_postgres_agent', True):
-                enabled_agents.append('postgres')
-            if config.settings.get('enable_knowledge_base_agent', True):
-                enabled_agents.append('knowledge_base')
-            if config.settings.get('allow_hybrid_search', True):
-                enabled_agents.append('hybrid')
             
             tenants.append(TenantInfo(
                 tenant_id=tenant_id,
                 name=name,
-                enabled_agents=enabled_agents,
+                agent_type="auto_agent",
                 settings=config.settings
             ))
         except Exception as e:
@@ -142,7 +135,7 @@ async def list_tenants():
 
 @app.get("/tenants/{tenant_id}/status")
 async def get_tenant_status(tenant_id: str):
-    """Get status of agents for specific tenant"""
+    """Get status of auto agent for specific tenant"""
     try:
         if not validate_tenant_id(tenant_id):
             raise HTTPException(status_code=404, detail=f"Tenant {tenant_id} not found")
@@ -156,58 +149,44 @@ async def get_tenant_status(tenant_id: str):
 
 @app.get("/v1/models")
 async def list_models():
-    """OpenAI compatible models endpoint with tenant support"""
+    """OpenAI compatible models endpoint - simplified to Auto Agent only"""
     models = []
     
-    # Base models
-    base_models = [
-        {
-            "id": "siamtech-multi-agent",
-            "description": "Multi-Agent RAG with Auto-routing (Multi-tenant)"
-        },
-        {
-            "id": "siamtech-postgres-agent",
-            "description": "PostgreSQL Agent only (Multi-tenant)"
-        },
-        {
-            "id": "siamtech-knowledge-agent",
-            "description": "Knowledge Base Agent only (Multi-tenant)"
-        },
-        {
-            "id": "siamtech-hybrid-agent",
-            "description": "Hybrid Search (PostgreSQL + Knowledge Base) (Multi-tenant)"
-        }
-    ]
+    # Single model type for all tenants
+    base_model = {
+        "id": "siamtech-auto-agent",
+        "description": "Smart Auto Agent (Database + Knowledge Base with intelligent routing)"
+    }
     
     # Add tenant-specific models
     tenants = list_available_tenants()
     for tenant_id, tenant_name in tenants.items():
-        for base_model in base_models:
-            models.append({
-                "id": f"{base_model['id']}-{tenant_id}",
-                "object": "model",
-                "created": 1234567890,
-                "owned_by": "siamtech",
-                "permission": [],
-                "root": base_model['id'],
-                "parent": None,
-                "description": f"{base_model['description']} - {tenant_name}",
-                "tenant_id": tenant_id,
-                "tenant_name": tenant_name
-            })
-    
-    # Add base models (will use default tenant or header)
-    for base_model in base_models:
         models.append({
-            "id": base_model['id'],
+            "id": f"siamtech-auto-agent-{tenant_id}",
             "object": "model",
             "created": 1234567890,
             "owned_by": "siamtech",
             "permission": [],
-            "root": base_model['id'],
+            "root": "siamtech-auto-agent",
             "parent": None,
-            "description": base_model['description']
+            "description": f"Auto Agent for {tenant_name} - Smart routing between database and knowledge base",
+            "tenant_id": tenant_id,
+            "tenant_name": tenant_name,
+            "agent_type": "auto"
         })
+    
+    # Add base model (will use default tenant or header)
+    models.append({
+        "id": "siamtech-auto-agent",
+        "object": "model",
+        "created": 1234567890,
+        "owned_by": "siamtech",
+        "permission": [],
+        "root": "siamtech-auto-agent",
+        "parent": None,
+        "description": "Smart Auto Agent with intelligent routing",
+        "agent_type": "auto"
+    })
     
     return {
         "object": "list",
@@ -216,7 +195,7 @@ async def list_models():
 
 @app.post("/rag-query", response_model=RAGResponse)
 async def rag_query(request: RAGQuery, tenant_id: str = Depends(get_tenant_id)):
-    """RAG query endpoint with multi-tenant support"""
+    """RAG query endpoint with auto agent"""
     try:
         # Override tenant_id if specified in request
         if request.tenant_id:
@@ -224,35 +203,27 @@ async def rag_query(request: RAGQuery, tenant_id: str = Depends(get_tenant_id)):
             if not validate_tenant_id(tenant_id):
                 raise HTTPException(status_code=400, detail=f"Invalid tenant ID: {tenant_id}")
         
-        logger.info(f"Processing RAG query for tenant: {tenant_id}, agent_type: {request.agent_type}")
+        logger.info(f"Processing auto agent query for tenant: {tenant_id}")
         
         # Get tenant info
         tenant_config = get_tenant_config(tenant_id)
         
-        # Route to appropriate agent
-        if request.agent_type == "postgres":
-            result = await aggregator.query_postgres_agent(request.query, tenant_id)
-        elif request.agent_type == "knowledge_base":
-            result = await aggregator.query_knowledge_base_agent(request.query, tenant_id)
-        elif request.agent_type == "hybrid":
-            result = await aggregator.hybrid_search(request.query, tenant_id)
-        else:
-            # Auto routing
-            result = await aggregator.process_question(request.query, tenant_id)
+        # Process with Auto Agent
+        result = await aggregator.process_question(request.query, tenant_id)
         
         return RAGResponse(
             answer=result["answer"],
-            source=result.get("source", "Unknown"),
-            agent=result.get("agent", "unknown"),
+            source=result.get("source", "Auto Agent"),
+            agent="auto",
             success=result.get("success", True),
             tenant_id=tenant_id,
             tenant_name=tenant_config.name,
-            routing_decision=result.get("routing_decision"),
+            data_source_used=result.get("data_source_used"),
             timestamp=datetime.now()
         )
         
     except Exception as e:
-        logger.error(f"Error in RAG query for tenant {tenant_id}: {str(e)}")
+        logger.error(f"Error in auto agent query for tenant {tenant_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/v1/chat/completions")
@@ -260,7 +231,7 @@ async def openai_compatible(
     request: ChatCompletionRequest, 
     tenant_id: str = Depends(get_tenant_id)
 ):
-    """OpenAI compatible endpoint for Open WebUI with multi-tenant support"""
+    """OpenAI compatible endpoint for Open WebUI with auto agent"""
     try:
         if not request.messages:
             raise HTTPException(status_code=400, detail="No messages provided")
@@ -271,12 +242,13 @@ async def openai_compatible(
             if not validate_tenant_id(tenant_id):
                 raise HTTPException(status_code=400, detail=f"Invalid tenant ID: {tenant_id}")
         
-        # Extract tenant from model name if specified (e.g., "siamtech-multi-agent-company-b")
-        model_parts = request.model.split('-')
-        if len(model_parts) >= 4 and model_parts[-2] == 'company':
-            model_tenant_id = f"company-{model_parts[-1]}"
-            if validate_tenant_id(model_tenant_id):
-                tenant_id = model_tenant_id
+        # Extract tenant from model name if specified
+        if "-" in request.model:
+            model_parts = request.model.split('-')
+            if len(model_parts) >= 4 and model_parts[-2] == 'company':
+                model_tenant_id = f"company-{model_parts[-1]}"
+                if validate_tenant_id(model_tenant_id):
+                    tenant_id = model_tenant_id
         
         user_message = request.messages[-1].content
         
@@ -285,30 +257,12 @@ async def openai_compatible(
         # Get tenant info
         tenant_config = get_tenant_config(tenant_id)
         
-        # Determine agent type from model selection
-        agent_type = "auto"
-        if "postgres" in request.model.lower():
-            agent_type = "postgres"
-        elif "knowledge" in request.model.lower():
-            agent_type = "knowledge_base"
-        elif "hybrid" in request.model.lower():
-            agent_type = "hybrid"
-        elif "multi-agent" in request.model.lower():
-            agent_type = "auto"
-        
-        # Process with appropriate agent
-        if agent_type == "postgres":
-            result = await aggregator.query_postgres_agent(user_message, tenant_id)
-        elif agent_type == "knowledge_base":
-            result = await aggregator.query_knowledge_base_agent(user_message, tenant_id)
-        elif agent_type == "hybrid":
-            result = await aggregator.hybrid_search(user_message, tenant_id)
-        else:
-            result = await aggregator.process_question(user_message, tenant_id)
+        # Process with Auto Agent (always uses smart routing)
+        result = await aggregator.process_question(user_message, tenant_id)
         
         # Format as OpenAI response
         response = {
-            "id": f"chatcmpl-{tenant_id}-{int(datetime.now().timestamp())}",
+            "id": f"chatcmpl-auto-{tenant_id}-{int(datetime.now().timestamp())}",
             "object": "chat.completion",
             "created": int(datetime.now().timestamp()),
             "model": request.model,
@@ -330,11 +284,12 @@ async def openai_compatible(
             "metadata": {
                 "tenant_id": tenant_id,
                 "tenant_name": tenant_config.name,
-                "agent_used": result.get("agent", "unknown"),
-                "source": result.get("source", "unknown"),
-                "routing_decision": result.get("routing_decision"),
+                "agent_type": "auto",
+                "data_source_used": result.get("data_source_used", "auto"),
+                "source": result.get("source", "Auto Agent"),
                 "success": result.get("success", True),
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
+                "routing": "smart_auto"
             }
         }
         
@@ -346,7 +301,7 @@ async def openai_compatible(
 
 @app.get("/agents/status")
 async def agents_status(tenant_id: str = Depends(get_tenant_id)):
-    """Check status of all agents for specific tenant"""
+    """Check status of auto agent for specific tenant"""
     try:
         status = await aggregator.get_tenant_agent_status(tenant_id)
         return status
@@ -354,63 +309,37 @@ async def agents_status(tenant_id: str = Depends(get_tenant_id)):
         logger.error(f"Error getting agent status for tenant {tenant_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/agents/metrics")
-async def agents_metrics(tenant_id: str = Depends(get_tenant_id)):
-    """Get performance metrics for specific tenant"""
-    # This would be implemented with actual metrics collection
-    # For now, return placeholder data
-    return {
-        "tenant_id": tenant_id,
-        "total_queries": 0,
-        "postgres_queries": 0,
-        "knowledge_base_queries": 0,
-        "hybrid_queries": 0,
-        "avg_response_time": 0,
-        "success_rate": 0,
-        "last_24h": {
-            "queries": 0,
-            "errors": 0,
-            "avg_response_time": 0
-        }
-    }
-
 @app.post("/tenants/{tenant_id}/test")
 async def test_tenant(tenant_id: str):
-    """Test all agents for specific tenant"""
+    """Test auto agent for specific tenant"""
     try:
         if not validate_tenant_id(tenant_id):
             raise HTTPException(status_code=404, detail=f"Tenant {tenant_id} not found")
         
         tenant_config = get_tenant_config(tenant_id)
         
-        # Test questions
+        # Test questions for auto agent
         test_questions = [
-            {"question": "มีพนักงานกี่คน?", "expected_agent": "postgres"},
-            {"question": "บริษัททำธุรกิจอะไร?", "expected_agent": "knowledge_base"},
-            {"question": "ข้อมูลทั่วไปของบริษัท", "expected_agent": "hybrid"}
+            {"question": "How many employees are there?", "expected_source": "database"},
+            {"question": "What services does the company provide?", "expected_source": "documents"},
+            {"question": "Tell me about the company and employee statistics", "expected_source": "both"}
         ]
         
         results = {
             "tenant_id": tenant_id,
             "tenant_name": tenant_config.name,
+            "agent_type": "auto",
             "tests": []
         }
         
         for test in test_questions:
             try:
-                if test["expected_agent"] == "postgres":
-                    result = await aggregator.query_postgres_agent(test["question"], tenant_id)
-                elif test["expected_agent"] == "knowledge_base":
-                    result = await aggregator.query_knowledge_base_agent(test["question"], tenant_id)
-                elif test["expected_agent"] == "hybrid":
-                    result = await aggregator.hybrid_search(test["question"], tenant_id)
-                else:
-                    result = await aggregator.process_question(test["question"], tenant_id)
+                result = await aggregator.process_question(test["question"], tenant_id)
                 
                 results["tests"].append({
                     "question": test["question"],
-                    "expected_agent": test["expected_agent"],
-                    "actual_agent": result.get("agent"),
+                    "expected_source": test["expected_source"],
+                    "actual_source": result.get("data_source_used"),
                     "success": result.get("success", False),
                     "answer_length": len(result.get("answer", "")),
                     "has_answer": bool(result.get("answer", "").strip())
@@ -419,7 +348,7 @@ async def test_tenant(tenant_id: str):
             except Exception as e:
                 results["tests"].append({
                     "question": test["question"],
-                    "expected_agent": test["expected_agent"],
+                    "expected_source": test["expected_source"],
                     "success": False,
                     "error": str(e)
                 })
@@ -429,6 +358,26 @@ async def test_tenant(tenant_id: str):
     except Exception as e:
         logger.error(f"Error testing tenant {tenant_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/info")
+async def get_system_info():
+    """Get system information"""
+    return {
+        "service_name": "SiamTech Auto Agent",
+        "version": "4.0.0",
+        "agent_type": "single_auto_agent",
+        "description": "Simplified AI system with one intelligent agent that automatically routes to database or knowledge base",
+        "features": [
+            "Smart routing between database and knowledge base",
+            "Multi-tenant support",
+            "OpenAI compatible API",
+            "Simplified architecture"
+        ],
+        "data_sources": ["PostgreSQL Database", "AWS Bedrock Knowledge Base"],
+        "routing_strategy": "intelligent_keyword_and_ai",
+        "tenants": list(list_available_tenants().keys()),
+        "default_tenant": tenant_manager.default_tenant
+    }
 
 @app.post("/admin/reload-config")
 async def reload_tenant_config():
@@ -460,19 +409,17 @@ async def get_tenant_stats():
                 
                 stats[tenant_id] = {
                     "name": config.name,
-                    "postgres_status": status.get("postgres_agent", {}).get("status"),
-                    "knowledge_base_status": status.get("knowledge_base_agent", {}).get("status"),
-                    "enabled_agents": [
-                        agent for agent, enabled in [
-                            ("postgres", config.settings.get("enable_postgres_agent", True)),
-                            ("knowledge_base", config.settings.get("enable_knowledge_base_agent", True)),
-                            ("hybrid", config.settings.get("allow_hybrid_search", True))
-                        ] if enabled
-                    ],
+                    "agent_type": "auto",
+                    "database_status": status.get("database", {}).get("status"),
+                    "knowledge_base_status": status.get("knowledge_base", {}).get("status"),
+                    "auto_agent_status": status.get("auto_agent", {}).get("status"),
                     "settings": {
                         "max_tokens": config.settings.get("max_tokens"),
                         "temperature": config.settings.get("temperature"),
-                        "response_language": config.settings.get("response_language")
+                        "response_language": config.settings.get("response_language"),
+                        "database_enabled": config.settings.get("enable_postgres_agent", True),
+                        "knowledge_base_enabled": config.settings.get("enable_knowledge_base_agent", True),
+                        "hybrid_search_enabled": config.settings.get("allow_hybrid_search", True)
                     }
                 }
             except Exception as e:
@@ -481,6 +428,7 @@ async def get_tenant_stats():
         return {
             "total_tenants": len(list_available_tenants()),
             "default_tenant": tenant_manager.default_tenant,
+            "agent_architecture": "single_auto_agent",
             "tenant_stats": stats,
             "timestamp": datetime.now().isoformat()
         }
@@ -490,21 +438,27 @@ async def get_tenant_stats():
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == '__main__':
-    print(f"🚀 SiamTech Multi-Tenant RAG Service")
+    print(f"🚀 SiamTech Auto Agent Service")
     print(f"🔗 API Documentation: http://localhost:5000/docs")
-    print(f"🎯 Agents: PostgreSQL + Knowledge Base + Aggregator")
+    print(f"🎯 Single Auto Agent with Smart Routing")
     print(f"🏢 Available Tenants:")
     
     tenants = list_available_tenants()
     for tenant_id, name in tenants.items():
         print(f"   - {tenant_id}: {name}")
     
-    print(f"💡 Models available:")
-    print(f"   - siamtech-multi-agent (auto-routing)")
-    print(f"   - siamtech-postgres-agent (database only)")
-    print(f"   - siamtech-knowledge-agent (documents only)")
-    print(f"   - siamtech-hybrid-agent (both agents)")
-    print(f"   - Add '-company-a', '-company-b', '-company-c' for tenant-specific models")
+    print(f"💡 Available model:")
+    print(f"   - siamtech-auto-agent (smart routing)")
+    print(f"   - siamtech-auto-agent-company-a (Bangkok HQ)")
+    print(f"   - siamtech-auto-agent-company-b (Chiang Mai)")
+    print(f"   - siamtech-auto-agent-company-c (International)")
+    print(f"")
+    print(f"🧠 How it works:")
+    print(f"   - Automatically detects if question needs database or documents")
+    print(f"   - Routes to PostgreSQL for: employee data, statistics, numbers")
+    print(f"   - Routes to Knowledge Base for: company info, policies, services")
+    print(f"   - Uses both sources for comprehensive questions")
+    print(f"   - Single API endpoint, smart backend routing")
     
     uvicorn.run(
         "multi_agent_service:app",
