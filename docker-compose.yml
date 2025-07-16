@@ -223,13 +223,14 @@ services:
       - rag-service
     restart: unless-stopped
     
-  # Open WebUI for Company A (Bangkok HQ)
+  # Open WebUI for Company A (Bangkok HQ) - FIXED
   open-webui-company-a:
     image: ghcr.io/open-webui/open-webui:main
     container_name: siamtech-webui-company-a
     ports:
       - "3000:8080"
     environment:
+      # ✅ ใช้ proxy ที่ถูกต้อง
       - OPENAI_API_BASE_URL=http://openwebui-proxy-company-a:8001/v1
       - OPENAI_API_KEY=sk-company-a
       - WEBUI_NAME=SiamTech Bangkok HQ - AI Assistant
@@ -246,7 +247,7 @@ services:
     restart: unless-stopped
 
   # =============================================================================
-  # COMPANY B SERVICES - CHIANG MAI REGIONAL (Ports 3100-3199)
+  # COMPANY B SERVICES - CHIANG MAI REGIONAL (Ports 3100-3199) - FIXED
   # =============================================================================
   
   # OpenWebUI Proxy for Company B
@@ -272,27 +273,33 @@ services:
       - rag-service
     restart: unless-stopped
     
-  # Open WebUI for Company B (Chiang Mai)
+  # Open WebUI for Company B (Chiang Mai) - FIXED
   open-webui-company-b:
     image: ghcr.io/open-webui/open-webui:main
     container_name: siamtech-webui-company-b
     ports:
       - "3100:8080"
     environment:
-      - OPENAI_API_BASE_URL=http://siamtech-rag-service:5000/v1
+      # ✅ แก้ไขแล้ว: ใช้ proxy แทน rag-service
+      - OPENAI_API_BASE_URL=http://openwebui-proxy-company-b:8001/v1
       - OPENAI_API_KEY=sk-company-b
       - WEBUI_NAME=SiamTech Chiang Mai - AI Assistant
-      - X_TENANT_ID=company-b  # Force tenant B
+      - WEBUI_URL=http://localhost:3100
+      - DEFAULT_USER_ROLE=user
+      - ENABLE_SIGNUP=true
+      - SHOW_ADMIN_DETAILS=false
+      # ❌ ลบ X_TENANT_ID เพราะ proxy จัดการให้แล้ว
     volumes:
       - open-webui-company-b-data:/app/backend/data
     networks:
       - siamtech_network
     depends_on:
-      - rag-service
+      # ✅ แก้ไขแล้ว: ขึ้นอยู่กับ proxy แทน rag-service
+      - openwebui-proxy-company-b
     restart: unless-stopped
 
   # =============================================================================
-  # COMPANY C SERVICES - INTERNATIONAL (Ports 3200-3299)
+  # COMPANY C SERVICES - INTERNATIONAL (Ports 3200-3299) - FIXED
   # =============================================================================
   
   # OpenWebUI Proxy for Company C
@@ -305,10 +312,8 @@ services:
       - "8201:8001"
     environment:
       - N8N_BASE_URL=http://n8n:5678
-      - N8N_WEBHOOK_URL=http://n8n:5678/webhook/company-c-chat
       - TENANT_CONFIG_FILE=/app/tenant_config.yaml
       - DEFAULT_TENANT=company-c
-      - FORCE_TENANT=company-c
       - FORCE_TENANT=company-c
       - REQUIRE_TENANT_HEADER=false
     volumes:
@@ -320,23 +325,29 @@ services:
       - rag-service
     restart: unless-stopped
     
-  # Open WebUI for Company C (International)
+  # Open WebUI for Company C (International) - FIXED
   open-webui-company-c:
     image: ghcr.io/open-webui/open-webui:main
     container_name: siamtech-webui-company-c
     ports:
       - "3200:8080"
     environment:
-      - OPENAI_API_BASE_URL=http://siamtech-rag-service:5000/v1
+      # ✅ แก้ไขแล้ว: ใช้ proxy แทน rag-service
+      - OPENAI_API_BASE_URL=http://openwebui-proxy-company-c:8001/v1
       - OPENAI_API_KEY=sk-company-c
       - WEBUI_NAME=SiamTech International - AI Assistant
-      - X_TENANT_ID=company-c  # Force tenant C
+      - WEBUI_URL=http://localhost:3200
+      - DEFAULT_USER_ROLE=user
+      - ENABLE_SIGNUP=true
+      - SHOW_ADMIN_DETAILS=false
+      # ❌ ลบ X_TENANT_ID เพราะ proxy จัดการให้แล้ว
     volumes:
       - open-webui-company-c-data:/app/backend/data
     networks:
       - siamtech_network
     depends_on:
-      - rag-service
+      # ✅ แก้ไขแล้ว: ขึ้นอยู่กับ proxy แทน rag-service
+      - openwebui-proxy-company-c
     restart: unless-stopped
 
   # =============================================================================

@@ -51,7 +51,7 @@ class TenantSelectionRequest(BaseModel):
 app = FastAPI(
     title="Multi-Tenant OpenWebUI to n8n Proxy",
     description="Proxy service that forwards OpenWebUI requests to n8n webhooks with multi-tenant support",
-    version="2.0.0"
+    version="2.1.0"
 )
 
 # CORS
@@ -131,7 +131,7 @@ async def health_check():
         "n8n_base_url": N8N_BASE_URL,
         "default_tenant": DEFAULT_TENANT,
         "available_tenants": list(list_available_tenants().keys()),
-        "version": "2.0.0"
+        "version": "2.1.0"
     }
 
 @app.get("/tenants")
@@ -211,6 +211,7 @@ async def list_models():
         "object": "list",
         "data": [model]  # Only one Auto Agent model
     }
+
 @app.post("/v1/chat/completions")
 async def chat_completions(request: ChatCompletionRequest):
     """OpenAI compatible endpoint that forwards to tenant-specific n8n workflows - FIXED VERSION"""
@@ -289,76 +290,76 @@ async def chat_completions(request: ChatCompletionRequest):
                         detail=f"Invalid JSON response from n8n: {str(e)}"
                     )
         
-        # === EXTRACT ANSWER FROM N8N RESPONSE ===
+        # === EXTRACT ANSWER FROM N8N RESPONSE - FIXED VERSION ===
         final_answer = None
         agent_used = "auto"
         success_status = False
         routing_info = "unknown"
         
+        logger.info(f"🔍 n8n response structure: {type(n8n_response)}")
+        
         if isinstance(n8n_response, dict):
-            # Step 1: Try to get 'answer' field directly
-            raw_answer = n8n_response.get('answer')
+            logger.info(f"📋 n8n response keys: {list(n8n_response.keys())}")
             
-            if raw_answer and raw_answer not in [None, 'None', 'null', '']:
-                logger.info(f"✅ Found 'answer' field: {str(raw_answer)[:100]}...")
-                final_answer = str(raw_answer)
-                success_status = True
-            else:
-                # Step 2: Try alternative fields
-                for alt_field in ['response', 'content', 'text', 'message']:
-                    alt_value = n8n_response.get(alt_field)
-                    if alt_value and alt_value not in [None, 'None', 'null', '']:
-                        logger.info(f"📝 Using '{alt_field}' field: {str(alt_value)[:50]}...")
-                        final_answer = str(alt_value)
-                        success_status = True
-                        break
+            # ขั้นตอน 1: หาข้อมูลใน original_response ก่อน (เพราะนี่คือที่มีคำตอบจริง)
+            if 'original_response' in n8n_response:
+                original_resp = n8n_response['original_response']
+                logger.info(f"📦 Found original_response: {type(original_resp)}")
                 
-                # Step 3: If still no answer, check nested objects
-                if not final_answer:
-                    for key, value in n8n_response.items():
-                        if isinstance(value, dict) and 'answer' in value:
-                            final_answer = str(value['answer'])
-                            logger.info(f"🔍 Found nested answer in '{key}': {final_answer[:50]}...")
-                            success_status = True
-                            break
+                if isinstance(original_resp, dict) and 'answer' in original_resp:
+                    final_answer = original_resp['answer']
+                    success_status = original_resp.get('success', True)
+                    agent_used = original_resp.get('agent', 'auto')
+                    routing_info = original_resp.get('data_source_used', 'postgres')
+                    logger.info(f"✅ SUCCESS: Extracted from original_response.answer")
+                    logger.info(f"📝 Answer preview: {str(final_answer)[:100]}...")
             
-            # Extract metadata
-            agent_used = n8n_response.get('agent', 'auto')
-            success_status = n8n_response.get('success', success_status)
-            routing_info = n8n_response.get('routing_decision', 'auto')
+            # ขั้นตอน 2: ถ้าไม่พบใน original_response ให้หาใน root level
+            if not final_answer:
+                direct_answer = n8n_response.get('answer')
+                if direct_answer and str(direct_answer).strip() not in ['None', 'null', '']:
+                    final_answer = direct_answer
+                    success_status = True
+                    logger.info(f"✅ Found answer in root level")
             
+            # ขั้นตอน 3: ดึง metadata อื่นๆ
+            if n8n_response.get('success') is not None:
+                success_status = n8n_response['success'] and success_status
+            if n8n_response.get('agent'):
+                agent_used = n8n_response['agent']
+            if n8n_response.get('routing_decision'):
+                routing_info = n8n_response['routing_decision']
+        
         else:
-            logger.error(f"❌ n8n response is not a dict: {type(n8n_response)}")
-            final_answer = f"Received non-dict response from n8n: {type(n8n_response)}"
+            logger.error(f"❌ n8n response is not dict: {type(n8n_response)}")
+            final_answer = f"Invalid response format from n8n: {type(n8n_response)}"
         
-        # === CLEAN UP THE ANSWER ===
+        # === CLEAN UP ANSWER ===
         if final_answer:
-            # Convert escaped newlines
-            final_answer = final_answer.replace('\\n', '\n')
+            # แปลงเป็น string
+            final_answer = str(final_answer)
             
-            # Handle Thai text encoding if needed
-            if isinstance(final_answer, bytes):
-                final_answer = final_answer.decode('utf-8', errors='ignore')
+            # ทำความสะอาด
+            final_answer = final_answer.replace('\\n', '\n').strip()
             
-            # Clean up whitespace
-            final_answer = final_answer.strip()
-            
-            # Remove footer metadata if desired (optional)
-            if '\n---\n*ข้อมูลจาก:' in final_answer:
-                main_content = final_answer.split('\n---\n*ข้อมูลจาก:')[0].strip()
-                footer_content = final_answer.split('\n---\n*ข้อมูลจาก:')[1].strip()
-                # Keep both parts but clean them up
-                final_answer = f"{main_content}\n\n---\n*{footer_content}*"
+            # ตรวจสอบคำที่ไม่ต้องการ
+            if final_answer in ['None', 'null', 'undefined', '']:
+                final_answer = None
         
-        # === FALLBACK IF NO ANSWER ===
+        # === FALLBACK ===
         if not final_answer or final_answer.strip() == "":
-            logger.error("❌ No valid answer extracted from n8n response")
-            final_answer = f"ขออภัย ไม่สามารถดึงคำตอบจากระบบได้\n\nDebug: n8n keys = {list(n8n_response.keys()) if isinstance(n8n_response, dict) else 'No dict'}"
+            logger.error("❌ CRITICAL: No answer extracted!")
+            logger.error(f"🔍 Full n8n response: {json.dumps(n8n_response, ensure_ascii=False, indent=2)}")
+            
+            # สร้าง fallback answer
+            final_answer = f"ระบบได้รับข้อมูลจาก {tenant_config.name} แล้ว แต่ไม่สามารถแสดงผลได้\n\nกรุณาลองใหม่อีกครั้ง"
             success_status = False
         
         # === LOG FINAL RESULT ===
-        logger.info(f"🎯 Final answer ({len(final_answer)} chars): {final_answer[:100]}...")
-        logger.info(f"✅ Success: {success_status}")
+        logger.info(f"🎯 FINAL ANSWER: {final_answer[:100]}..." if len(final_answer) > 100 else f"🎯 FINAL ANSWER: {final_answer}")
+        logger.info(f"✅ Success Status: {success_status}")
+        logger.info(f"🤖 Agent Used: {agent_used}")
+        logger.info(f"🎯 Routing: {routing_info}")
         
         # === CREATE OPENAI RESPONSE ===
         openai_response = {
@@ -390,10 +391,12 @@ async def chat_completions(request: ChatCompletionRequest):
                 "routing_decision": routing_info,
                 "webhook_url": webhook_url,
                 "timestamp": datetime.now().isoformat(),
+                "proxy_version": "2.1.0",
                 "debug_info": {
                     "n8n_response_keys": list(n8n_response.keys()) if isinstance(n8n_response, dict) else "Not dict",
                     "answer_length": len(final_answer) if final_answer else 0,
-                    "extraction_method": "direct_answer_field" if n8n_response.get('answer') else "fallback_method"
+                    "extraction_method": "original_response" if 'original_response' in n8n_response else "root_level",
+                    "has_original_response": 'original_response' in n8n_response if isinstance(n8n_response, dict) else False
                 }
             }
         }
@@ -426,26 +429,12 @@ async def get_model(model_id: str):
             "owned_by": "siamtech",
             "description": "SiamTech AI Assistant via n8n Workflows"
         },
-        "siamtech-n8n-postgres": {
-            "id": "siamtech-n8n-postgres",
+        "siamtech-auto-agent": {
+            "id": "siamtech-auto-agent",
             "object": "model",
             "created": int(time.time()),
             "owned_by": "siamtech",
-            "description": "PostgreSQL Agent via n8n"
-        },
-        "siamtech-n8n-knowledge": {
-            "id": "siamtech-n8n-knowledge",
-            "object": "model",
-            "created": int(time.time()),
-            "owned_by": "siamtech",
-            "description": "Knowledge Base Agent via n8n"
-        },
-        "siamtech-n8n-hybrid": {
-            "id": "siamtech-n8n-hybrid",
-            "object": "model",
-            "created": int(time.time()),
-            "owned_by": "siamtech",
-            "description": "Hybrid Agent via n8n"
+            "description": "SiamTech Auto Agent via n8n Workflows"
         }
     }
     
@@ -616,7 +605,7 @@ async def get_metrics():
         "n8n_base_url": N8N_BASE_URL,
         "require_tenant_header": REQUIRE_TENANT_HEADER,
         "uptime": time.time(),  # This would be actual uptime in real implementation
-        "version": "2.0.0"
+        "version": "2.1.0"
     }
 
 if __name__ == '__main__':
@@ -638,10 +627,7 @@ if __name__ == '__main__':
     print(f"🔒 Require Tenant Header: {REQUIRE_TENANT_HEADER}")
     print(f"🎯 Forwarding OpenWebUI requests to tenant-specific n8n workflows")
     print(f"💡 Available models:")
-    print(f"   - siamtech-n8n-agent (main agent)")
-    print(f"   - siamtech-n8n-postgres (database agent)")
-    print(f"   - siamtech-n8n-knowledge (knowledge base agent)")
-    print(f"   - siamtech-n8n-hybrid (hybrid agent)")
+    print(f"   - siamtech-auto-agent (main agent)")
     print(f"   - Add '-company-a', '-company-b', '-company-c' for tenant-specific models")
     
     uvicorn.run(
