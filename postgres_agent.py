@@ -21,13 +21,14 @@ class PostgreSQLAgent:
             region_name=os.getenv('AWS_DEFAULT_REGION', 'ap-southeast-1')
         )
         
-        # Database schema information (same for all tenants)
+        # Enhanced database schema information with new tables
         self.schema_info = {
+            # Core tables
             "employees": {
                 "columns": [
                     {"name": "id", "type": "INTEGER", "description": "รหัสพนักงาน"},
                     {"name": "name", "type": "VARCHAR", "description": "ชื่อพนักงาน"},
-                    {"name": "department", "type": "VARCHAR", "description": "แผนก (IT, Sales, HR, Management)"},
+                    {"name": "department", "type": "VARCHAR", "description": "แผนก (Information Technology, Sales & Marketing, Human Resources, Management)"},
                     {"name": "position", "type": "VARCHAR", "description": "ตำแหน่งงาน"},
                     {"name": "salary", "type": "DECIMAL", "description": "เงินเดือน"},
                     {"name": "hire_date", "type": "DATE", "description": "วันที่เข้าทำงาน"},
@@ -56,6 +57,260 @@ class PostgreSQLAgent:
                     {"name": "allocation", "type": "DECIMAL", "description": "สัดส่วนงาน (0-1)"}
                 ],
                 "description": "ความสัมพันธ์ระหว่างพนักงานและโปรเจค"
+            },
+            
+            # Enhanced tables - Department Management
+            "departments": {
+                "columns": [
+                    {"name": "id", "type": "INTEGER", "description": "รหัสแผนก"},
+                    {"name": "name", "type": "VARCHAR", "description": "ชื่อแผนก"},
+                    {"name": "description", "type": "TEXT", "description": "รายละเอียดแผนก"},
+                    {"name": "manager_id", "type": "INTEGER", "description": "รหัสหัวหน้าแผนก"},
+                    {"name": "budget", "type": "DECIMAL", "description": "งบประมาณแผนก"},
+                    {"name": "location", "type": "VARCHAR", "description": "ที่ตั้งแผนก"},
+                    {"name": "established_date", "type": "DATE", "description": "วันที่ก่อตั้งแผนก"},
+                    {"name": "is_active", "type": "BOOLEAN", "description": "สถานะการใช้งาน"}
+                ],
+                "description": "ข้อมูลแผนกต่างๆ ในบริษัท"
+            },
+            
+            # Client Management
+            "clients": {
+                "columns": [
+                    {"name": "id", "type": "INTEGER", "description": "รหัสลูกค้า"},
+                    {"name": "name", "type": "VARCHAR", "description": "ชื่อลูกค้า"},
+                    {"name": "industry", "type": "VARCHAR", "description": "อุตสาหกรรม"},
+                    {"name": "contact_person", "type": "VARCHAR", "description": "ผู้ติดต่อ"},
+                    {"name": "email", "type": "VARCHAR", "description": "อีเมลลูกค้า"},
+                    {"name": "phone", "type": "VARCHAR", "description": "เบอร์โทรศัพท์"},
+                    {"name": "address", "type": "TEXT", "description": "ที่อยู่"},
+                    {"name": "website", "type": "VARCHAR", "description": "เว็บไซต์"},
+                    {"name": "contract_value", "type": "DECIMAL", "description": "มูลค่าสัญญา"},
+                    {"name": "status", "type": "VARCHAR", "description": "สถานะลูกค้า (active, inactive, prospect, churned)"},
+                    {"name": "first_project_date", "type": "DATE", "description": "วันที่เริ่มโปรเจคแรก"},
+                    {"name": "country", "type": "VARCHAR", "description": "ประเทศ (สำหรับลูกค้าต่างชาติ)"},
+                    {"name": "currency", "type": "VARCHAR", "description": "สกุลเงิน (สำหรับลูกค้าต่างชาติ)"}
+                ],
+                "description": "ข้อมูลลูกค้าของบริษัท"
+            },
+            
+            # Skills Management
+            "skills": {
+                "columns": [
+                    {"name": "id", "type": "INTEGER", "description": "รหัสทักษะ"},
+                    {"name": "name", "type": "VARCHAR", "description": "ชื่อทักษะ"},
+                    {"name": "category", "type": "VARCHAR", "description": "หมวดหมู่ (technical, soft, language, certification)"},
+                    {"name": "description", "type": "TEXT", "description": "รายละเอียดทักษะ"},
+                    {"name": "is_active", "type": "BOOLEAN", "description": "สถานะการใช้งาน"},
+                    {"name": "global_demand_level", "type": "VARCHAR", "description": "ระดับความต้องการในตลาดโลก (สำหรับ International Office)"}
+                ],
+                "description": "ทักษะและความสามารถต่างๆ"
+            },
+            "employee_skills": {
+                "columns": [
+                    {"name": "employee_id", "type": "INTEGER", "description": "รหัสพนักงาน"},
+                    {"name": "skill_id", "type": "INTEGER", "description": "รหัสทักษะ"},
+                    {"name": "proficiency_level", "type": "INTEGER", "description": "ระดับความชำนาญ (1-5)"},
+                    {"name": "acquired_date", "type": "DATE", "description": "วันที่ได้รับทักษะ"},
+                    {"name": "certified", "type": "BOOLEAN", "description": "มีใบรับรองหรือไม่"},
+                    {"name": "certification_date", "type": "DATE", "description": "วันที่ได้รับใบรับรอง"}
+                ],
+                "description": "ทักษะของพนักงานแต่ละคน"
+            },
+            
+            # Time and Expense Tracking
+            "timesheets": {
+                "columns": [
+                    {"name": "id", "type": "INTEGER", "description": "รหัสไทม์ชีต"},
+                    {"name": "employee_id", "type": "INTEGER", "description": "รหัสพนักงาน"},
+                    {"name": "project_id", "type": "INTEGER", "description": "รหัสโปรเจค"},
+                    {"name": "work_date", "type": "DATE", "description": "วันที่ทำงาน"},
+                    {"name": "hours_worked", "type": "DECIMAL", "description": "จำนวนชั่วโมงที่ทำงาน"},
+                    {"name": "task_description", "type": "TEXT", "description": "รายละเอียดงานที่ทำ"},
+                    {"name": "billable", "type": "BOOLEAN", "description": "เป็นชั่วโมงที่เรียกเก็บเงินได้หรือไม่"},
+                    {"name": "hourly_rate", "type": "DECIMAL", "description": "อัตราค่าจ้างต่อชั่วโมง"},
+                    {"name": "status", "type": "VARCHAR", "description": "สถานะ (draft, submitted, approved, rejected)"},
+                    {"name": "hourly_rate_usd", "type": "DECIMAL", "description": "อัตราค่าจ้างใน USD (สำหรับ International)"},
+                    {"name": "currency", "type": "VARCHAR", "description": "สกุลเงิน"},
+                    {"name": "client_timezone", "type": "VARCHAR", "description": "เขตเวลาของลูกค้า"}
+                ],
+                "description": "การบันทึกเวลาทำงานของพนักงาน"
+            },
+            "expenses": {
+                "columns": [
+                    {"name": "id", "type": "INTEGER", "description": "รหัสค่าใช้จ่าย"},
+                    {"name": "project_id", "type": "INTEGER", "description": "รหัสโปรเจค"},
+                    {"name": "employee_id", "type": "INTEGER", "description": "รหัสพนักงาน"},
+                    {"name": "category", "type": "VARCHAR", "description": "หมวดหมู่ (travel, equipment, software, training)"},
+                    {"name": "description", "type": "TEXT", "description": "รายละเอียดค่าใช้จ่าย"},
+                    {"name": "amount", "type": "DECIMAL", "description": "จำนวนเงิน"},
+                    {"name": "expense_date", "type": "DATE", "description": "วันที่เกิดค่าใช้จ่าย"},
+                    {"name": "status", "type": "VARCHAR", "description": "สถานะ (pending, approved, rejected, reimbursed)"},
+                    {"name": "currency", "type": "VARCHAR", "description": "สกุลเงิน"},
+                    {"name": "amount_usd", "type": "DECIMAL", "description": "จำนวนเงินใน USD"},
+                    {"name": "country", "type": "VARCHAR", "description": "ประเทศที่เกิดค่าใช้จ่าย"}
+                ],
+                "description": "ค่าใช้จ่ายในโปรเจค"
+            },
+            
+            # Meeting Management
+            "meetings": {
+                "columns": [
+                    {"name": "id", "type": "INTEGER", "description": "รหัสการประชุม"},
+                    {"name": "title", "type": "VARCHAR", "description": "หัวข้อการประชุม"},
+                    {"name": "description", "type": "TEXT", "description": "รายละเอียดการประชุม"},
+                    {"name": "meeting_date", "type": "TIMESTAMP", "description": "วันเวลาประชุม"},
+                    {"name": "duration_minutes", "type": "INTEGER", "description": "ระยะเวลาประชุม (นาที)"},
+                    {"name": "location", "type": "VARCHAR", "description": "สถานที่ประชุม"},
+                    {"name": "meeting_type", "type": "VARCHAR", "description": "ประเภทการประชุม (internal, client, vendor, training)"},
+                    {"name": "status", "type": "VARCHAR", "description": "สถานะ (scheduled, completed, cancelled)"},
+                    {"name": "organizer_id", "type": "INTEGER", "description": "ผู้จัดการประชุม"},
+                    {"name": "timezone", "type": "VARCHAR", "description": "เขตเวลา"},
+                    {"name": "meeting_platform", "type": "VARCHAR", "description": "แพลตฟอร์ม (zoom, teams, google_meet)"},
+                    {"name": "language", "type": "VARCHAR", "description": "ภาษาที่ใช้ในการประชุม"}
+                ],
+                "description": "การประชุมต่างๆ"
+            },
+            "meeting_attendees": {
+                "columns": [
+                    {"name": "meeting_id", "type": "INTEGER", "description": "รหัสการประชุม"},
+                    {"name": "employee_id", "type": "INTEGER", "description": "รหัสพนักงาน"},
+                    {"name": "attendance_status", "type": "VARCHAR", "description": "สถานะการเข้าร่วม (invited, confirmed, attended, absent)"},
+                    {"name": "role", "type": "VARCHAR", "description": "บทบาท (organizer, presenter, participant)"},
+                    {"name": "timezone", "type": "VARCHAR", "description": "เขตเวลาของผู้เข้าร่วม"}
+                ],
+                "description": "ผู้เข้าร่วมประชุม"
+            },
+            
+            # Asset Management
+            "equipment": {
+                "columns": [
+                    {"name": "id", "type": "INTEGER", "description": "รหัสอุปกรณ์"},
+                    {"name": "name", "type": "VARCHAR", "description": "ชื่อเรียกอุปกรณ์"},
+                    {"name": "category", "type": "VARCHAR", "description": "หมวดหมู่ (laptop, desktop, monitor, software_license)"},
+                    {"name": "brand", "type": "VARCHAR", "description": "ยี่ห้อ"},
+                    {"name": "model", "type": "VARCHAR", "description": "รุ่น"},
+                    {"name": "serial_number", "type": "VARCHAR", "description": "หมายเลขเครื่อง"},
+                    {"name": "purchase_date", "type": "DATE", "description": "วันที่ซื้อ"},
+                    {"name": "purchase_price", "type": "DECIMAL", "description": "ราคาซื้อ"},
+                    {"name": "status", "type": "VARCHAR", "description": "สถานะ (available, assigned, maintenance, retired)"},
+                    {"name": "assigned_to", "type": "INTEGER", "description": "มอบหมายให้พนักงาน"},
+                    {"name": "location", "type": "VARCHAR", "description": "ที่ตั้ง"},
+                    {"name": "country", "type": "VARCHAR", "description": "ประเทศ (สำหรับ International)"},
+                    {"name": "shipping_status", "type": "VARCHAR", "description": "สถานะการจัดส่ง"}
+                ],
+                "description": "อุปกรณ์และทรัพย์สินของบริษัท"
+            },
+            
+            # Training Management
+            "training": {
+                "columns": [
+                    {"name": "id", "type": "INTEGER", "description": "รหัสการอบรม"},
+                    {"name": "title", "type": "VARCHAR", "description": "หัวข้อการอบรม"},
+                    {"name": "description", "type": "TEXT", "description": "รายละเอียดการอบรม"},
+                    {"name": "provider", "type": "VARCHAR", "description": "ผู้จัดอบรม"},
+                    {"name": "category", "type": "VARCHAR", "description": "หมวดหมู่ (technical, soft_skills, certification)"},
+                    {"name": "start_date", "type": "DATE", "description": "วันเริ่มอบรม"},
+                    {"name": "end_date", "type": "DATE", "description": "วันสิ้นสุดอบรม"},
+                    {"name": "duration_hours", "type": "INTEGER", "description": "ระยะเวลาอบรม (ชั่วโมง)"},
+                    {"name": "cost", "type": "DECIMAL", "description": "ค่าใช้จ่าย"},
+                    {"name": "max_participants", "type": "INTEGER", "description": "จำนวนผู้เข้าร่วมสูงสุด"},
+                    {"name": "location", "type": "VARCHAR", "description": "สถานที่อบรม"},
+                    {"name": "training_type", "type": "VARCHAR", "description": "รูปแบบ (classroom, online, workshop)"},
+                    {"name": "status", "type": "VARCHAR", "description": "สถานะ (planned, ongoing, completed, cancelled)"},
+                    {"name": "language", "type": "VARCHAR", "description": "ภาษาที่ใช้อบรม"},
+                    {"name": "international_certification", "type": "BOOLEAN", "description": "ใบรับรองระหว่างประเทศ"}
+                ],
+                "description": "หลักสูตรอบรมต่างๆ"
+            },
+            "training_attendees": {
+                "columns": [
+                    {"name": "training_id", "type": "INTEGER", "description": "รหัสการอบรม"},
+                    {"name": "employee_id", "type": "INTEGER", "description": "รหัสพนักงาน"},
+                    {"name": "registration_date", "type": "DATE", "description": "วันที่ลงทะเบียน"},
+                    {"name": "attendance_status", "type": "VARCHAR", "description": "สถานะการเข้าร่วม (registered, attended, completed)"},
+                    {"name": "completion_date", "type": "DATE", "description": "วันที่ผ่านการอบรม"},
+                    {"name": "score", "type": "DECIMAL", "description": "คะแนนที่ได้"},
+                    {"name": "certificate_issued", "type": "BOOLEAN", "description": "ออกใบรับรองแล้วหรือไม่"},
+                    {"name": "feedback", "type": "TEXT", "description": "ความคิดเห็น"}
+                ],
+                "description": "ผู้เข้าร่วมอบรม"
+            },
+            
+            # International Office specific tables
+            "international_contracts": {
+                "columns": [
+                    {"name": "id", "type": "INTEGER", "description": "รหัสสัญญา"},
+                    {"name": "contract_number", "type": "VARCHAR", "description": "หมายเลขสัญญา"},
+                    {"name": "client_id", "type": "INTEGER", "description": "รหัสลูกค้า"},
+                    {"name": "project_id", "type": "INTEGER", "description": "รหัสโปรเจค"},
+                    {"name": "contract_type", "type": "VARCHAR", "description": "ประเภทสัญญา (fixed_price, time_and_materials)"},
+                    {"name": "total_value", "type": "DECIMAL", "description": "มูลค่ารวม"},
+                    {"name": "currency", "type": "VARCHAR", "description": "สกุลเงิน"},
+                    {"name": "total_value_usd", "type": "DECIMAL", "description": "มูลค่าใน USD"},
+                    {"name": "payment_terms", "type": "VARCHAR", "description": "เงื่อนไขการชำระเงิน"},
+                    {"name": "start_date", "type": "DATE", "description": "วันเริ่มสัญญา"},
+                    {"name": "end_date", "type": "DATE", "description": "วันสิ้นสุดสัญญา"},
+                    {"name": "governing_law", "type": "VARCHAR", "description": "กฎหมายที่ใช้บังคับ"},
+                    {"name": "status", "type": "VARCHAR", "description": "สถานะสัญญา (draft, active, completed, terminated)"}
+                ],
+                "description": "สัญญาระหว่างประเทศ (สำหรับ International Office)"
+            },
+            "international_payments": {
+                "columns": [
+                    {"name": "id", "type": "INTEGER", "description": "รหัสการชำระเงิน"},
+                    {"name": "contract_id", "type": "INTEGER", "description": "รหัสสัญญา"},
+                    {"name": "invoice_number", "type": "VARCHAR", "description": "หมายเลขใบแจ้งหนี้"},
+                    {"name": "amount", "type": "DECIMAL", "description": "จำนวนเงิน"},
+                    {"name": "currency", "type": "VARCHAR", "description": "สกุลเงิน"},
+                    {"name": "amount_usd", "type": "DECIMAL", "description": "จำนวนเงินใน USD"},
+                    {"name": "exchange_rate", "type": "DECIMAL", "description": "อัตราแลกเปลี่ยน"},
+                    {"name": "payment_method", "type": "VARCHAR", "description": "วิธีการชำระเงิน (wire_transfer, swift, paypal)"},
+                    {"name": "payment_date", "type": "DATE", "description": "วันที่ชำระเงิน"},
+                    {"name": "due_date", "type": "DATE", "description": "วันครบกำหนด"},
+                    {"name": "received_date", "type": "DATE", "description": "วันที่รับเงิน"},
+                    {"name": "status", "type": "VARCHAR", "description": "สถานะ (pending, received, overdue, cancelled)"}
+                ],
+                "description": "การชำระเงินระหว่างประเทศ (สำหรับ International Office)"
+            },
+            
+            # Views
+            "employee_performance": {
+                "columns": [
+                    {"name": "id", "type": "INTEGER", "description": "รหัสพนักงาน"},
+                    {"name": "name", "type": "VARCHAR", "description": "ชื่อพนักงาน"},
+                    {"name": "department", "type": "VARCHAR", "description": "แผนก"},
+                    {"name": "projects_count", "type": "INTEGER", "description": "จำนวนโปรเจคที่เข้าร่วม"},
+                    {"name": "total_hours_this_month", "type": "DECIMAL", "description": "ชั่วโมงทำงานเดือนนี้"},
+                    {"name": "skills_count", "type": "INTEGER", "description": "จำนวนทักษะ"},
+                    {"name": "equipment_assigned", "type": "INTEGER", "description": "อุปกรณ์ที่ได้รับมอบหมาย"}
+                ],
+                "description": "ประสิทธิภาพการทำงานของพนักงาน (View)"
+            },
+            "project_financial_summary": {
+                "columns": [
+                    {"name": "id", "type": "INTEGER", "description": "รหัสโปรเจค"},
+                    {"name": "name", "type": "VARCHAR", "description": "ชื่อโปรเจค"},
+                    {"name": "client", "type": "VARCHAR", "description": "ลูกค้า"},
+                    {"name": "budget", "type": "DECIMAL", "description": "งบประมาณ"},
+                    {"name": "labor_cost", "type": "DECIMAL", "description": "ค่าแรงงาน"},
+                    {"name": "expenses_total", "type": "DECIMAL", "description": "ค่าใช้จ่ายรวม"},
+                    {"name": "total_cost", "type": "DECIMAL", "description": "ต้นทุนรวม"},
+                    {"name": "remaining_budget", "type": "DECIMAL", "description": "งบประมาณคงเหลือ"},
+                    {"name": "team_size", "type": "INTEGER", "description": "ขนาดทีม"}
+                ],
+                "description": "สรุปการเงินโปรเจค (View)"
+            },
+            "department_statistics": {
+                "columns": [
+                    {"name": "id", "type": "INTEGER", "description": "รหัสแผนก"},
+                    {"name": "name", "type": "VARCHAR", "description": "ชื่อแผนก"},
+                    {"name": "budget", "type": "DECIMAL", "description": "งบประมาณแผนก"},
+                    {"name": "employee_count", "type": "INTEGER", "description": "จำนวนพนักงาน"},
+                    {"name": "avg_salary", "type": "DECIMAL", "description": "เงินเดือนเฉลี่ย"},
+                    {"name": "total_salary", "type": "DECIMAL", "description": "เงินเดือนรวม"}
+                ],
+                "description": "สถิติแผนก (View)"
             }
         }
 
@@ -106,14 +361,14 @@ class PostgreSQLAgent:
                 logger.debug(f"Database connection closed for tenant: {tenant_id}")
 
     def generate_sql(self, question: str, tenant_id: Optional[str] = None) -> str:
-        """สร้าง SQL จาก natural language question"""
+        """สร้าง SQL จาก natural language question - Enhanced for new schema"""
         if not tenant_id:
             tenant_id = self.get_current_tenant_id()
         
         # Get tenant info for context
         tenant_config = get_tenant_config(tenant_id)
         
-        # สร้าง schema description
+        # สร้าง enhanced schema description
         schema_desc = ""
         for table_name, table_info in self.schema_info.items():
             schema_desc += f"\nTable: {table_name}\n"
@@ -121,14 +376,21 @@ class PostgreSQLAgent:
             schema_desc += "Columns:\n"
             for col in table_info['columns']:
                 schema_desc += f"  - {col['name']} ({col['type']}): {col['description']}\n"
+            schema_desc += "\n"
         
         # Add tenant context to prompt
         tenant_context = f"""
 บริบทของบริษัท: {tenant_config.name}
 Database: {tenant_config.database_config['database']}
+
+ข้อมูลเพิ่มเติม:
+- Company A (Bangkok HQ): ข้อมูลสำนักงานใหญ่ กรุงเทพฯ
+- Company B (Chiang Mai): ข้อมูลสาขาเชียงใหม่ เน้นท่องเที่ยวและธุรกิจท้องถิ่น
+- Company C (International): ข้อมูลสำนักงานต่างประเทศ มีข้อมูล multi-currency และ timezone
 """
         
-        prompt = f"""คุณเป็น SQL expert ที่เชี่ยวชาญในการแปลงคำถามภาษาไทยเป็น SQL query
+        # Enhanced prompt with examples
+        prompt = f"""คุณเป็น SQL expert ที่เชี่ยวชาญในการแปลงคำถามภาษาไทยและอังกฤษเป็น SQL query
 
 {tenant_context}
 
@@ -140,8 +402,17 @@ Database Schema:
 กรุณาสร้าง SQL query ที่ถูกต้อง โดย:
 1. ใช้เฉพาะ tables และ columns ที่มีใน schema
 2. ตอบให้ตรงกับคำถาม
-3. ใช้ JOIN เมื่อจำเป็น
-4. ส่งคืนเฉพาะ SQL query เท่านั้น ไม่ต้องอธิบาย
+3. ใช้ JOIN เมื่อจำเป็น (เช่น LEFT JOIN สำหรับข้อมูลที่อาจไม่มี)
+4. ใช้ aggregate functions เมื่อต้องการสรุป (COUNT, SUM, AVG)
+5. ใช้ WHERE clause เมื่อต้องการกรองข้อมูล
+6. สำหรับ International Office: ใช้ _usd columns สำหรับการคำนวณ
+7. ส่งคืนเฉพาะ SQL query เท่านั้น ไม่ต้องอธิบาย
+
+ตัวอย่าง:
+- "พนักงานกี่คน?" → SELECT COUNT(*) FROM employees;
+- "เงินเดือนเฉลี่ยของแผนก IT?" → SELECT AVG(salary) FROM employees WHERE department = 'Information Technology';
+- "โปรเจคที่ยังไม่เสร็จ?" → SELECT * FROM projects WHERE status = 'active';
+- "พนักงานที่มีทักษะ React?" → SELECT e.name FROM employees e JOIN employee_skills es ON e.id = es.employee_id JOIN skills s ON es.skill_id = s.id WHERE s.name = 'React';
 
 SQL Query:"""
 

@@ -195,21 +195,15 @@ async def list_models():
 
 @app.post("/rag-query", response_model=RAGResponse)
 async def rag_query(request: RAGQuery, tenant_id: str = Depends(get_tenant_id)):
-    """RAG query endpoint with auto agent"""
+    """RAG query endpoint ที่รับจาก n8n"""
     try:
-        # Override tenant_id if specified in request
-        if request.tenant_id:
-            tenant_id = request.tenant_id
-            if not validate_tenant_id(tenant_id):
-                raise HTTPException(status_code=400, detail=f"Invalid tenant ID: {tenant_id}")
-        
-        logger.info(f"Processing auto agent query for tenant: {tenant_id}")
-        
-        # Get tenant info
-        tenant_config = get_tenant_config(tenant_id)
-        
-        # Process with Auto Agent
-        result = await aggregator.process_question(request.query, tenant_id)
+        # ถ้าไม่ได้ระบุ agent_type หรือระบุเป็น 'auto'
+        if not hasattr(request, 'agent_type') or request.agent_type in [None, 'auto']:
+            # ใช้ aggregator_agent ตัดสินใจ
+            result = await aggregator.process_question(request.query, tenant_id)
+        else:
+            # ใช้ agent ที่ระบุ (backward compatibility)
+            result = await process_specific_agent(request, tenant_id)
         
         return RAGResponse(
             answer=result["answer"],
@@ -217,13 +211,13 @@ async def rag_query(request: RAGQuery, tenant_id: str = Depends(get_tenant_id)):
             agent="auto",
             success=result.get("success", True),
             tenant_id=tenant_id,
-            tenant_name=tenant_config.name,
+            tenant_name=result.get("tenant_name", ""),
             data_source_used=result.get("data_source_used"),
             timestamp=datetime.now()
         )
         
     except Exception as e:
-        logger.error(f"Error in auto agent query for tenant {tenant_id}: {str(e)}")
+        logger.error(f"Error in auto agent query: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/v1/chat/completions")
