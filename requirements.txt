@@ -12,9 +12,10 @@ alembic==1.13.0
 boto3==1.34.0
 botocore==1.34.0
 
-# HTTP client for n8n communication
+# HTTP client for n8n communication AND Ollama
 aiohttp==3.9.0
 httpx==0.25.2
+requests==2.31.0  # เพิ่มสำหรับ Ollama Agent
 
 # Configuration and YAML support
 pyyaml==6.0.1

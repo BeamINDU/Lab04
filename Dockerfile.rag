@@ -26,7 +26,7 @@ COPY tenant_manager.py .
 COPY postgres_agent.py .
 COPY aggregator_agent.py .
 COPY multi_agent_service.py .
-
+COPY ollama_agent.py . 
 # Create logs directory
 RUN mkdir -p /app/logs
 

@@ -1,5 +1,13 @@
 default_tenant: company-a
 
+# Global Ollama Configuration
+ollama_settings:
+  base_url: "http://192.168.11.97:12430"  # Load Balancer Multi-GPU
+  default_model: "llama3.1:8b"
+  timeout: 300
+  temperature: 0.7
+  max_tokens: 2000
+
 tenants:
   company-a:
     name: "SiamTech Main Office"
@@ -12,26 +20,33 @@ tenants:
       user: postgres
       password: password123
     
-    knowledge_base:
-      id: KJGWQPHFSM
-      prefix: company-a
-      bucket: siamtech-kb-company-a
-      region: ap-southeast-1
-      search_type: SEMANTIC
-      max_results: 10
+    # เปลี่ยนจาก knowledge_base เป็น ollama
+    ollama:
+      base_url: "http://192.168.11.97:12430"
+      model: "llama3.1:8b"
+      temperature: 0.7
+      max_tokens: 1000
+      system_prompt: |
+        คุณเป็น AI Assistant ของบริษัท SiamTech สำนักงานใหญ่ กรุงเทพมหานคร
+        คุณช่วยตอบคำถามเกี่ยวกับบริษัท พนักงาน และข้อมูลองค์กร
+        ตอบเป็นภาษาไทยที่สุภาพและเป็นมิตร
+        บริษัทมีพนักงาน 25 คน เน้นโปรเจคขนาดใหญ่และลูกค้าระดับองค์กร
     
     api_keys:
+      ollama_url: "http://192.168.11.97:11430"
+      # เก็บ AWS keys ไว้เผื่อใช้งานอื่น
       bedrock: ${AWS_ACCESS_KEY_ID}
       bedrock_secret: ${AWS_SECRET_ACCESS_KEY}
       openai: ${OPENAI_API_KEY_COMPANY_A}
     
     settings:
-      max_tokens: 10
+      max_tokens: 1000
       temperature: 0.7
       allow_hybrid_search: true
       enable_postgres_agent: true
-      enable_knowledge_base_agent: false
-      default_agent_type: "postgres"
+      enable_ollama_agent: true        # เปิดใช้ Ollama
+      enable_knowledge_base_agent: false  # ปิด Knowledge Base
+      default_agent_type: "ollama"    # เปลี่ยนเป็น ollama
       response_language: "th"
     
     webhooks:
@@ -54,26 +69,31 @@ tenants:
       user: postgres
       password: password123
     
-    knowledge_base:
-      id: KJGWQPHFSM
-      prefix: company-b
-      bucket: siamtech-kb-company-b
-      region: ap-southeast-1
-      search_type: SEMANTIC
-      max_results: 10
+    ollama:
+      base_url: "http://192.168.11.97:12430"
+      model: "gemma2:9b"  # ใช้ model ต่างจาก company-a
+      temperature: 0.7
+      max_tokens: 800
+      system_prompt: |
+        คุณเป็น AI Assistant ของบริษัท SiamTech สาขาเชียงใหม่
+        คุณเชี่ยวชาญเรื่องท่องเที่ยว ธุรกิจท้องถิ่น และวัฒนธรรมล้านนา
+        ตอบเป็นภาษาไทยด้วยความเป็นมิตรแบบคนเหนือ
+        บริษัทสาขานี้มีพนักงาน 10 คน เน้นลูกค้าภาคเหนือและท่องเที่ยว
     
     api_keys:
+      ollama_url: "http://192.168.11.97:12430"
       bedrock: ${AWS_ACCESS_KEY_ID}
       bedrock_secret: ${AWS_SECRET_ACCESS_KEY}
       openai: ${OPENAI_API_KEY_COMPANY_B}
     
     settings:
-      max_tokens: 80
+      max_tokens: 800
       temperature: 0.7
       allow_hybrid_search: true
       enable_postgres_agent: true
+      enable_ollama_agent: true
       enable_knowledge_base_agent: false
-      default_agent_type: "postgres"
+      default_agent_type: "ollama"
       response_language: "th"
     
     webhooks:
@@ -86,49 +106,75 @@ tenants:
       address: "เชียงใหม่"
 
   company-c:
-    name: "SiamTech International"
-    description: "สำนักงานต่างประเทศ"
-    
-    database:
-      host: postgres-company-c
-      port: 5432
-      database: siamtech_company_c
-      user: postgres
-      password: password123
-    
-    knowledge_base:
-      id: KJGWQPHFSM
-      prefix: company-c
-      bucket: siamtech-kb-company-c
-      region: ap-southeast-1
-      search_type: SEMANTIC
-      max_results: 10
-    
-    api_keys:
-      bedrock: ${AWS_ACCESS_KEY_ID}
-      bedrock_secret: ${AWS_SECRET_ACCESS_KEY}
-      openai: ${OPENAI_API_KEY_COMPANY_C}
-    
-    settings:
-      max_tokens: 120
-      temperature: 0.6
-      allow_hybrid_search: true
-      enable_postgres_agent: true
-      enable_knowledge_base_agent: false
-      default_agent_type: "postgres"
-      response_language: "en"
-    
-    webhooks:
-      n8n_endpoint: "http://n8n:5678/webhook/company-c-chat"
-      health_check: "http://n8n:5678/webhook/company-c-health"
-    
-    contact_info:
-      email: "international@siamtech.co.th"
-      phone: "+66-2-123-4567"
-      address: "Bangkok, Thailand"
+      name: "SiamTech International"
+      description: "สำนักงานต่างประเทศ"
+      
+      database:
+        host: postgres-company-c
+        port: 5432
+        database: siamtech_company_c
+        user: postgres
+        password: password123
+      
+      # เปลี่ยนกลับไปใช้ knowledge_base แทน ollama
+      knowledge_base:
+        id: KJGWQPHFSM
+        prefix: company-c
+        bucket: siamtech-kb-company-c
+        region: ap-southeast-1
+        search_type: SEMANTIC
+        max_results: 10
+      
+      # ลบส่วน ollama ออก
+      # ollama:
+      #   base_url: "http://192.168.11.97:12430"
+      #   model: "qwen2:7b"
+      #   ...
+      
+      api_keys:
+        # ลบ ollama_url ออก
+        # ollama_url: "http://192.168.11.97:12430"
+        bedrock: ${AWS_ACCESS_KEY_ID}
+        bedrock_secret: ${AWS_SECRET_ACCESS_KEY}
+        openai: ${OPENAI_API_KEY_COMPANY_C}
+      
+      settings:
+        max_tokens: 1200
+        temperature: 0.6
+        allow_hybrid_search: true
+        enable_postgres_agent: true
+        enable_ollama_agent: false           # ปิด Ollama
+        enable_knowledge_base_agent: true    # เปิด Knowledge Base (AWS)
+        default_agent_type: "auto"           # หรือ "knowledge_base"
+        response_language: "en"
+      
+      webhooks:
+        n8n_endpoint: "http://n8n:5678/webhook/company-c-chat"
+        health_check: "http://n8n:5678/webhook/company-c-health"
+      
+      contact_info:
+        email: "international@siamtech.co.th"
+        phone: "+66-2-123-4567"
+        address: "Bangkok, Thailand"
 
-# Global Settings  
+# Global Settings สำหรับ Ollama
 global_settings:
+  # เพิ่ม Ollama config
+  ollama:
+    base_url: "http://192.168.11.97:12430"
+    default_model: "llama3.1:8b"
+    available_models:
+      - "llama3.1:8b"      # General purpose, ดีสำหรับภาษาไทย
+      - "llama3.1:70b"     # Large model สำหรับงานซับซ้อน
+      - "gemma2:9b"        # Google's model, เร็วและดี
+      - "gemma2:27b"       # Large Gemma
+      - "qwen2:7b"         # Alibaba's model, ดีสำหรับ multilingual
+      - "qwen2:72b"        # Large Qwen
+      - "mistral:7b"       # Reasoning และ logic
+      - "codellama:13b"    # Code generation
+      - "phi3:14b"         # Microsoft's model
+    
+  # เก็บ AWS config ไว้เผื่อใช้
   aws:
     region: ap-southeast-1
     bedrock_model: "apac.anthropic.claude-3-7-sonnet-20250219-v1:0"
@@ -146,5 +192,8 @@ global_settings:
 
 feature_flags:
   enable_hybrid_search: true
-  enable_streaming_responses: false
+  enable_streaming_responses: true
   enable_conversation_history: true
+  enable_ollama: true              # เปิดใช้ Ollama
+  enable_bedrock_fallback: false   # ปิด Bedrock fallback
+  enable_multi_gpu_load_balancing: true  # เปิด Multi-GPU load balancing

@@ -3,7 +3,7 @@ import asyncio
 from typing import Dict, Any, List, Optional
 import logging
 from postgres_agent import PostgreSQLAgent
-from ollama_agent import OllamaAgent 
+from ollama_agent import OllamaAgent  # เพิ่ม OllamaAgent
 from tenant_manager import get_tenant_config, get_tenant_database_config
 
 logger = logging.getLogger(__name__)
