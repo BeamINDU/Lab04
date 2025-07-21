@@ -13,7 +13,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_company_a_data:/var/lib/postgresql/data
-      - ./init-company-a.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./init-company-a.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     networks:
       - siamtech_network
     restart: unless-stopped
@@ -35,7 +35,7 @@ services:
       - "5433:5432"
     volumes:
       - postgres_company_b_data:/var/lib/postgresql/data
-      - ./init-company-b.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./init-company-b.sql:/docker-entrypoint-initdb.d/02-init.sql:ro
     networks:
       - siamtech_network
     restart: unless-stopped
@@ -57,7 +57,7 @@ services:
       - "5434:5432"
     volumes:
       - postgres_company_c_data:/var/lib/postgresql/data
-      - ./init-company-c.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./init-company-c.sql:/docker-entrypoint-initdb.d/03-init.sql:ro
     networks:
       - siamtech_network
     restart: unless-stopped
@@ -132,7 +132,6 @@ services:
       - REDIS_PORT=6379
     volumes:
       - n8n_data:/home/node/.n8n
-      - ./tenant_config.yaml:/home/node/.n8n/tenant_config.yaml:ro
     networks:
       - siamtech_network
     depends_on:
@@ -185,8 +184,6 @@ services:
       # Tenant Configuration
       - TENANT_CONFIG_FILE=/app/tenant_config.yaml
       - DEFAULT_TENANT=company-a
-    volumes:
-      - ./tenant_config.yaml:/app/tenant_config.yaml:ro
     networks:
       - siamtech_network
     depends_on:
@@ -214,8 +211,8 @@ services:
       - DEFAULT_TENANT=company-a
       - FORCE_TENANT=company-a 
       - REQUIRE_TENANT_HEADER=false
-    volumes:
-      - ./tenant_config.yaml:/app/tenant_config.yaml:ro
+    # volumes:
+    #   - ./tenant_config.yaml:/app/tenant_config.yaml:ro
     networks:
       - siamtech_network
     depends_on:
@@ -264,8 +261,8 @@ services:
       - DEFAULT_TENANT=company-b
       - FORCE_TENANT=company-b 
       - REQUIRE_TENANT_HEADER=false
-    volumes:
-      - ./tenant_config.yaml:/app/tenant_config.yaml:ro
+    # volumes:
+    #   - ./tenant_config.yaml:/app/tenant_config.yaml:ro
     networks:
       - siamtech_network
     depends_on:
@@ -316,8 +313,8 @@ services:
       - DEFAULT_TENANT=company-c
       - FORCE_TENANT=company-c
       - REQUIRE_TENANT_HEADER=false
-    volumes:
-      - ./tenant_config.yaml:/app/tenant_config.yaml:ro
+    # volumes:
+    #   - ./tenant_config.yaml:/app/tenant_config.yaml:ro
     networks:
       - siamtech_network
     depends_on:
