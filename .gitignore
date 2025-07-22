@@ -1,16 +1,337 @@
-# Ignore .env
-.env
+# ============================================================================
+# .gitignore for SiamTech Multi-Tenant AI System
+# ============================================================================
 
-# Byte-compiled / cache
+# =============================================================================
+# Docker Data Folders (Main exclusion)
+# =============================================================================
+data/
+data/*
+data/**/*
+
+# Specific data directories
+postgres-data/
+webui-data/
+redis-data/
+n8n-data/
+
+# =============================================================================
+# Python
+# =============================================================================
 __pycache__/
 *.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
 
 # Virtual environments
+.env
+.venv
+env/
 venv/
-.env/
+ENV/
+env.bak/
+venv.bak/
 
-# Node modules
-node_modules/
+# =============================================================================
+# Docker
+# =============================================================================
+# Docker Compose override files
+docker-compose.override.yml
+docker-compose.override.yaml
 
+# Docker volumes (if using named volumes)
+.docker-volumes/
+
+# Docker build cache
+.dockerignore
+
+# =============================================================================
+# Environment Variables & Secrets
+# =============================================================================
+.env
+.env.local
+.env.production
+.env.development
+.env.test
+*.env
+
+# AWS credentials
+.aws/
+aws-credentials.json
+
+# API keys
+api-keys.txt
+secrets.json
+config/secrets/
+
+# =============================================================================
 # Logs
+# =============================================================================
+logs/
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# =============================================================================
+# IDE & Editor Files
+# =============================================================================
+# Visual Studio Code
+.vscode/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# IntelliJ IDEA
+.idea/
+*.swp
+*.swo
+*~
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+.vim/
+
+# =============================================================================
+# Operating System
+# =============================================================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+
+# =============================================================================
+# Backup Files
+# =============================================================================
+# Backup files
+*.backup
+*.bak
+*.tmp
+*.temp
+*.old
+*~
+.backup/
+backup/
+backups/
+
+# Database backups
+*.sql.backup
+*.sql.bak
+dump-*.sql
+
+# Configuration backups
+*.conf.backup
+*.yaml.backup
+*.yml.backup
+
+# =============================================================================
+# Node.js (if using any)
+# =============================================================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# =============================================================================
+# Temporary Files
+# =============================================================================
+# Temporary directories
+tmp/
+temp/
+.tmp/
+.temp/
+
+# Cache directories
+.cache/
+cache/
+.npm/
+.yarn/
+
+# =============================================================================
+# Database Files
+# =============================================================================
+# SQLite
+*.sqlite
+*.sqlite3
+*.db
+
+# PostgreSQL
+*.pgsql
+
+# =============================================================================
+# AI/ML Models (if downloading any)
+# =============================================================================
+models/
+*.model
+*.bin
+*.safetensors
+ollama-models/
+
+# =============================================================================
+# SSL Certificates & Keys
+# =============================================================================
+*.pem
+*.key
+*.crt
+*.csr
+*.p12
+*.pfx
+certs/
+ssl/
+
+# =============================================================================
+# Monitoring & Metrics
+# =============================================================================
+# Prometheus
+prometheus-data/
+
+# Grafana
+grafana-data/
+
+# =============================================================================
+# Custom SiamTech Exclusions
+# =============================================================================
+# Test outputs
+test-output/
+test-results/
+
+# Debug files
+debug/
+debug.json
+trace.log
+
+# Development overrides
+docker-compose.dev.yml
+docker-compose.local.yml
+
+# Tenant-specific overrides
+tenant-*.yaml
+tenant-*.yml
+
+# Performance logs
+perf/
+performance/
+
+# Screenshots/recordings
+screenshots/
+recordings/
+
+# Documentation builds
+docs/_build/
+docs/build/
+
+# =============================================================================
+# Keep Important Files (Force Include)
+# =============================================================================
+# Force include important config files
+!docker-compose.yml
+!tenant_config.yaml
+!requirements.txt
+!Dockerfile*
+!.env.example
+!README.md
+
+# =============================================================================
+# NOTES
+# =============================================================================
+# This .gitignore is designed for the SiamTech Multi-Tenant AI System
+# 
+# Key exclusions:
+# 1. data/ folder - Contains all Docker volumes and persistent data
+# 2. Environment files - Protects secrets and API keys
+# 3. Python cache - Improves performance
+# 4. IDE files - Keeps repository clean
+# 5. Logs and temporary files - Reduces clutter
+# 
+# To check what files are being ignored:
+# git status --ignored
+# 
+# To force add an ignored file:
+# git add -f filename
+# 
+# To see which .gitignore rule is ignoring a file:
+# git check-ignore -v filename

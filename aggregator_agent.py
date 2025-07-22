@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional
 from enum import Enum
 from dataclasses import dataclass
 
-from postgres_agent import PostgreSQLAgent
+from postgres_agent import PostgreSQLAgent  # Updated version without AWS
 from ollama_agent import OllamaAgent
 from tenant_manager import get_tenant_config
 
@@ -23,23 +23,53 @@ class AgentResponse:
     error: Optional[str] = None
 
 class SmartRouter:
-    """Ultra-compact smart routing logic"""
+    """Smart routing logic - enhanced for better database detection"""
     
     DB_KEYWORDS = {
-        'employees', 'พนักงาน', 'salary', 'เงินเดือน', 'projects', 'โปรเจค',
-        'count', 'จำนวน', 'average', 'เฉลี่ย', 'budget', 'งบประมาณ', 
-        'department', 'แผนก', 'statistics', 'สถิติ', 'how many', 'กี่คน'
+        # Core database keywords (Thai)
+        'พนักงาน', 'employees', 'employee', 'คน', 'จำนวน', 'count', 'กี่คน',
+        'เงินเดือน', 'salary', 'เฉลี่ย', 'average', 'เท่าไหร่', 'how much',
+        'โปรเจค', 'project', 'projects', 'งาน', 'work',
+        'แผนก', 'department', 'departments', 'ฝ่าย',
+        'ลูกค้า', 'client', 'clients', 'customer',
+        'งบประมาณ', 'budget', 'cost', 'expense', 'ค่าใช้จ่าย',
+        'สถิติ', 'statistics', 'stat', 'report', 'รายงาน',
+        'ข้อมูล', 'data', 'information', 'info',
+        
+        # Question words that usually need database
+        'กี่', 'how many', 'เท่าไหร่', 'how much', 'มาก', 'น้อย',
+        'สูงสุด', 'ต่ำสุด', 'max', 'min', 'maximum', 'minimum',
+        'รวม', 'total', 'sum', 'ทั้งหมด', 'all',
+        
+        # Business terms
+        'บริษัท', 'company', 'organization', 'องค์กร',
+        'ทีม', 'team', 'กลุ่ม', 'group'
     }
     
     @classmethod
     def route(cls, question: str) -> AgentType:
-        """Determine routing based on keyword scoring"""
+        """Enhanced routing based on keyword scoring"""
         q_lower = question.lower()
+        
+        # Count database-related keywords
         score = sum(1 for kw in cls.DB_KEYWORDS if kw in q_lower)
         
-        if score >= 2: return AgentType.DATABASE
-        elif score == 1: return AgentType.HYBRID
-        else: return AgentType.OLLAMA
+        # Special patterns that definitely need database
+        db_patterns = [
+            'กี่คน', 'how many', 'จำนวน', 'count',
+            'เฉลี่ย', 'average', 'รวม', 'total',
+            'เงินเดือน', 'salary', 'งบประมาณ', 'budget'
+        ]
+        
+        # Check for definite database patterns
+        has_db_pattern = any(pattern in q_lower for pattern in db_patterns)
+        
+        if has_db_pattern or score >= 2:
+            return AgentType.DATABASE
+        elif score == 1:
+            return AgentType.HYBRID
+        else:
+            return AgentType.OLLAMA
 
 class AgentPool:
     """Efficient agent pool with lazy loading"""
@@ -59,17 +89,19 @@ class AgentPool:
         return self._ollama[tenant_id]
 
 class AutoAgent:
-    """Streamlined Multi-tenant AI Agent with smart routing"""
+    """Pure Ollama + PostgreSQL Multi-tenant AI Agent (No AWS)"""
     
     def __init__(self):
         self.pool = AgentPool()
         self.router = SmartRouter()
     
     async def process(self, question: str, tenant_id: str) -> Dict[str, Any]:
-        """Main processing pipeline - simple and fast"""
+        """Main processing pipeline - Ollama + PostgreSQL only"""
         try:
             config = get_tenant_config(tenant_id)
             route_type = self.router.route(question)
+            
+            logger.info(f"Routing '{question}' to {route_type.value} for tenant {tenant_id}")
             
             # Execute based on route
             if route_type == AgentType.DATABASE:
@@ -86,30 +118,48 @@ class AutoAgent:
             return self._format_error(str(e), tenant_id)
     
     async def _db_query(self, question: str, tenant_id: str, config) -> AgentResponse:
-        """Database query with fallback"""
+        """Database query using PostgreSQL + Ollama for SQL generation"""
         if not config.settings.get('enable_postgres_agent', True):
             return AgentResponse("Database queries disabled", "Config", False)
         
         try:
             agent = self.pool.get_postgres(tenant_id)
-            result = agent.query(question, tenant_id)
+            result = await agent.async_query(question, tenant_id)
             
             if result["success"]:
-                return AgentResponse(result["answer"], "Database")
+                return AgentResponse(result["answer"], "Database + Ollama SQL")
             else:
-                return AgentResponse(f"DB Error: {result.get('answer')}", "Database", False)
+                # Fallback to Ollama if database fails
+                logger.warning(f"Database query failed, falling back to Ollama for {tenant_id}")
+                return await self._ollama_query(question, tenant_id, config)
                 
         except Exception as e:
-            return AgentResponse(f"Database access failed: {e}", "Database", False)
+            logger.error(f"Database query error for {tenant_id}: {e}")
+            # Fallback to Ollama
+            return await self._ollama_query(question, tenant_id, config)
     
     async def _ollama_query(self, question: str, tenant_id: str, config) -> AgentResponse:
-        """Ollama query with fallback"""
+        """Ollama query with enhanced prompt"""
         if not config.settings.get('enable_ollama_agent', True):
             return AgentResponse("Ollama queries disabled", "Config", False)
         
         try:
             agent = self.pool.get_ollama(tenant_id)
-            result = await agent.async_query(question, tenant_id)
+            
+            # Enhanced prompt with company context
+            company_context = f"""คุณเป็น AI Assistant ของ {config.name}
+            
+บริบทบริษัท:
+- ชื่อ: {config.name}
+- ที่ตั้ง: {config.contact_info.get('address', 'ไม่ระบุ')}
+- โทร: {config.contact_info.get('phone', 'ไม่ระบุ')}
+
+หากถูกถามเกี่ยวกับข้อมูลบริษัทที่เฉพาะเจาะจง (เช่น จำนวนพนักงาน เงินเดือน โปรเจค) 
+ให้แนะนำให้ใช้คำถามที่ชัดเจนมากขึ้น เพื่อให้ระบบสามารถค้นหาข้อมูลจากฐานข้อมูลได้
+
+คำถาม: {question}"""
+
+            result = await agent.async_query(company_context, tenant_id)
             
             if result["success"]:
                 return AgentResponse(result["answer"], "Ollama AI")
@@ -120,42 +170,42 @@ class AutoAgent:
             return AgentResponse(f"AI access failed: {e}", "Ollama", False)
     
     async def _hybrid_query(self, question: str, tenant_id: str, config) -> AgentResponse:
-        """Parallel hybrid query with intelligent combining"""
+        """Parallel hybrid query - try database first, then Ollama"""
         if not config.settings.get('allow_hybrid_search', True):
             return await self._ollama_query(question, tenant_id, config)
         
-        # Run both concurrently
-        db_task = self._db_query(question, tenant_id, config)
-        ollama_task = self._ollama_query(question, tenant_id, config)
-        
-        db_resp, ollama_resp = await asyncio.gather(db_task, ollama_task, return_exceptions=True)
-        
-        # Handle exceptions
-        if isinstance(db_resp, Exception):
-            db_resp = AgentResponse(f"DB Error: {db_resp}", "Database", False)
-        if isinstance(ollama_resp, Exception):
-            ollama_resp = AgentResponse(f"AI Error: {ollama_resp}", "Ollama", False)
-        
-        # Smart combining
-        return self._combine_responses(db_resp, ollama_resp, config.name)
-    
-    def _combine_responses(self, db: AgentResponse, ollama: AgentResponse, tenant_name: str) -> AgentResponse:
-        """Intelligent response combination"""
-        db_ok = db.success and len(db.content.strip()) > 10 and "error" not in db.content.lower()
-        ollama_ok = ollama.success and len(ollama.content.strip()) > 10 and "error" not in ollama.content.lower()
-        
-        if db_ok and ollama_ok:
-            combined = f"📊 **Database**: {db.content}\n\n🤖 **AI**: {ollama.content}"
-            return AgentResponse(combined, "Database + AI")
-        elif db_ok:
-            return AgentResponse(f"📊 {db.content}", "Database")
-        elif ollama_ok:
-            return AgentResponse(f"🤖 {ollama.content}", "AI Assistant")
-        else:
-            return AgentResponse(
-                f"Sorry, couldn't find relevant information for {tenant_name}. Please try rephrasing.",
-                "No Data", False
-            )
+        try:
+            # Try database first for hybrid queries
+            db_response = await self._db_query(question, tenant_id, config)
+            
+            if db_response.success and len(db_response.content.strip()) > 20:
+                # Database query successful, enhance with Ollama context
+                try:
+                    agent = self.pool.get_ollama(tenant_id)
+                    
+                    enhancement_prompt = f"""ข้อมูลจากฐานข้อมูล {config.name}:
+{db_response.content}
+
+กรุณาปรับปรุงคำตอบนี้ให้เข้าใจง่ายและเป็นธรรมชาติมากขึ้น โดยคงข้อมูลที่สำคัญไว้ครบถ้วน"""
+
+                    enhancement_result = await agent.async_query(enhancement_prompt, tenant_id)
+                    
+                    if enhancement_result["success"]:
+                        enhanced_content = enhancement_result["answer"]
+                        return AgentResponse(enhanced_content, "Database + AI Enhancement")
+                    else:
+                        return db_response  # Return original database response
+                        
+                except Exception as e:
+                    logger.warning(f"Enhancement failed for {tenant_id}: {e}")
+                    return db_response  # Return original database response
+            else:
+                # Database failed or insufficient data, use Ollama
+                return await self._ollama_query(question, tenant_id, config)
+                
+        except Exception as e:
+            logger.error(f"Hybrid query error for {tenant_id}: {e}")
+            return await self._ollama_query(question, tenant_id, config)
     
     def _format_success(self, response: AgentResponse, tenant_id: str, tenant_name: str, route: str) -> Dict[str, Any]:
         return {
@@ -235,19 +285,23 @@ def create_aggregator_agent() -> AggregatorAgent:
 
 # Test runner
 async def test_agents():
-    """Compact test suite"""
+    """Test suite for Ollama + PostgreSQL"""
     agent = AutoAgent()
     tests = [
-        ("company-a", "How many employees?"),
-        ("company-a", "Hello, who are you?"),
-        ("company-b", "What's the average salary?"),
+        ("company-a", "มีพนักงานกี่คน?"),  # Should use database
+        ("company-a", "สวัสดี คุณเป็นใคร?"),  # Should use Ollama
+        ("company-a", "เงินเดือนเฉลี่ยเท่าไหร่?"),  # Should use database
+        ("company-b", "สาขาเชียงใหม่มีพนักงานกี่คน?"),  # Should use database
+        ("company-c", "Hello, who are you?"),  # Should use Ollama
     ]
     
     for tenant, question in tests:
         print(f"\n🏢 {tenant}: {question}")
         try:
             result = await agent.process(question, tenant)
-            print(f"✅ {result['data_source_used']}: {result['answer'][:100]}...")
+            print(f"🎯 Route: {result['data_source_used']}")
+            print(f"✅ Answer: {result['answer'][:100]}...")
+            print(f"📍 Source: {result['source']}")
         except Exception as e:
             print(f"❌ Error: {e}")
 

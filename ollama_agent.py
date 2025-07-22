@@ -37,7 +37,7 @@ class OllamaAgent:
             # Fallback to global config if not specified
             if not ollama_config:
                 ollama_config = {
-                    'base_url': 'http://192.168.11.97:11434',
+                    'base_url': 'http://192.168.11.97:12434',
                     'model': 'llama3.1:8b',
                     'temperature': 0.7,
                     'max_tokens': 1000
@@ -56,7 +56,7 @@ class OllamaAgent:
         
         try:
             config = self.get_tenant_ollama_config(tenant_id)
-            base_url = config.get('base_url', 'http://192.168.11.97:11434')
+            base_url = config.get('base_url', 'http://192.168.11.97:12434')
             
             # Test connection
             response = requests.get(f"{base_url}/api/tags", timeout=10)
@@ -99,7 +99,7 @@ class OllamaAgent:
             tenant_config = get_tenant_config(tenant_id)
             ollama_config = self.get_tenant_ollama_config(tenant_id)
             
-            base_url = ollama_config.get('base_url', 'http://192.168.11.97:11434')
+            base_url = ollama_config.get('base_url', 'http://192.168.11.97:12434')
             model = ollama_config.get('model', 'llama3.1:8b')
             temperature = kwargs.get('temperature', ollama_config.get('temperature', 0.7))
             max_tokens = kwargs.get('max_tokens', ollama_config.get('max_tokens', 1000))
@@ -209,7 +209,7 @@ class OllamaAgent:
         
         try:
             config = self.get_tenant_ollama_config(tenant_id)
-            base_url = config.get('base_url', 'http://192.168.11.97:11434')
+            base_url = config.get('base_url', 'http://192.168.11.97:12434')
             
             response = requests.get(f"{base_url}/api/tags", timeout=10)
             

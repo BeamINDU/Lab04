@@ -1,26 +1,11 @@
 default_tenant: company-a
 
-# === Efficient Setup - 3 Models Only ===
-recommended_models:
-  essential:
-    - name: "llama3.1:8b"
-      size: "4.7GB"
-      use: "ทั่วไป ภาษาไทย-อังกฤษ"
-      gpu: "main"
-    - name: "gemma2:9b" 
-      size: "5.4GB"
-      use: "เร็ว เสถียร"
-      gpu: "main"
-    - name: "phi3:mini"
-      size: "2.3GB" 
-      use: "เล็ก สำรอง"
-      gpu: "backup"
-
 tenants:
   company-a:
     name: "SiamTech Main Office"
     description: "สำนักงานใหญ่ กรุงเทพมหานคร"
     
+    # FIXED: Remove pool_size and max_overflow (not supported by psycopg2)
     database:
       host: postgres-company-a
       port: 5432
@@ -28,32 +13,42 @@ tenants:
       user: postgres
       password: password123
     
-    ollama:
-      base_url: "http://192.168.11.97:12434"
-      primary_model: "llama3.1:8b"
-      backup_model: "phi3:mini"
-      max_tokens: 1000
-      temperature: 0.7
-      system_prompt: |
-        คุณเป็น AI Assistant ของ SiamTech สำนักงานใหญ่ กรุงเทพมหานคร
-        ตอบเป็นภาษาไทยที่สุภาพและเป็นมิตร
-        เมื่อถูกถามเกี่ยวกับข้อมูลบริษัท ให้ตอบจากฐานข้อมูลที่มี
+    knowledge_base:
+      id: "dummy_kb_test_id"
+      prefix: "company-a"
+      bucket: "siamtech-kb-company-a" 
+      region: "ap-southeast-1"
+      search_type: "SEMANTIC"
+      max_results: 10
+    
+    api_keys:
+      bedrock: "dummy_test_key_12345"
+      bedrock_secret: "dummy_test_secret_67890"
     
     settings:
+      max_tokens: 1000
+      temperature: 0.7
+      allow_hybrid_search: true
       enable_postgres_agent: true
-      enable_ollama_agent: true
       enable_knowledge_base_agent: false
+      enable_ollama_agent: true
       default_agent_type: "auto"
       response_language: "th"
+    
+    webhooks:
+      n8n_endpoint: "http://n8n:5678/webhook/company-a-chat"
+      health_check: "http://n8n:5678/webhook/company-a-health"
     
     contact_info:
       email: "info@siamtech.co.th"
       phone: "02-123-4567"
+      address: "กรุงเทพมหานคร"
 
   company-b:
     name: "SiamTech Regional Office"
     description: "สาขาภาคเหนือ เชียงใหม่"
     
+    # FIXED: Remove pool_size and max_overflow
     database:
       host: postgres-company-b
       port: 5432
@@ -61,32 +56,42 @@ tenants:
       user: postgres
       password: password123
     
-    ollama:
-      base_url: "http://192.168.11.97:12434"
-      primary_model: "gemma2:9b"
-      backup_model: "phi3:mini"
-      max_tokens: 800
-      temperature: 0.7
-      system_prompt: |
-        คุณเป็น AI Assistant ของ SiamTech สาขาเชียงใหม่
-        เชี่ยวชาญเรื่องท่องเที่ยวและธุรกิจท้องถิ่น
-        ตอบเป็นภาษาไทยด้วยความเป็นมิตรแบบคนเหนือ
+    knowledge_base:
+      id: "dummy_kb_test_id"
+      prefix: "company-b"
+      bucket: "siamtech-kb-company-b"
+      region: "ap-southeast-1"
+      search_type: "SEMANTIC"
+      max_results: 10
+    
+    api_keys:
+      bedrock: "dummy_test_key_12345"
+      bedrock_secret: "dummy_test_secret_67890"
     
     settings:
+      max_tokens: 800
+      temperature: 0.7
+      allow_hybrid_search: true
       enable_postgres_agent: true
-      enable_ollama_agent: true
       enable_knowledge_base_agent: false
+      enable_ollama_agent: true
       default_agent_type: "auto"
       response_language: "th"
+    
+    webhooks:
+      n8n_endpoint: "http://n8n:5678/webhook/company-b-chat"
+      health_check: "http://n8n:5678/webhook/company-b-health"
     
     contact_info:
       email: "regional@siamtech.co.th"
       phone: "053-123-456"
+      address: "เชียงใหม่"
 
   company-c:
     name: "SiamTech International"
     description: "สำนักงานต่างประเทศ"
     
+    # FIXED: Remove pool_size and max_overflow
     database:
       host: postgres-company-c
       port: 5432
@@ -94,62 +99,40 @@ tenants:
       user: postgres
       password: password123
     
-    # Company C ใช้ AWS Bedrock แทน Ollama (ประหยัด GPU)
     knowledge_base:
-      id: ${KNOWLEDGE_BASE_ID}
-      region: ap-southeast-1
-      search_type: SEMANTIC
+      id: "dummy_kb_test_id"
+      prefix: "company-c"
+      bucket: "siamtech-kb-company-c"
+      region: "ap-southeast-1"
+      search_type: "SEMANTIC"
       max_results: 10
     
     api_keys:
-      bedrock: ${AWS_ACCESS_KEY_ID}
-      bedrock_secret: ${AWS_SECRET_ACCESS_KEY}
+      bedrock: "dummy_test_key_12345"
+      bedrock_secret: "dummy_test_secret_67890"
     
     settings:
+      max_tokens: 1200
+      temperature: 0.6
+      allow_hybrid_search: true
       enable_postgres_agent: true
-      enable_ollama_agent: false
-      enable_knowledge_base_agent: true
-      default_agent_type: "knowledge_base"
+      enable_knowledge_base_agent: false
+      enable_ollama_agent: true
+      default_agent_type: "auto"
       response_language: "en"
+    
+    webhooks:
+      n8n_endpoint: "http://n8n:5678/webhook/company-c-chat"
+      health_check: "http://n8n:5678/webhook/company-c-health"
     
     contact_info:
       email: "international@siamtech.co.th"
       phone: "+66-2-123-4567"
+      address: "Bangkok, Thailand"
 
-# === Global Settings ===
+# Global settings
 global_settings:
-  gpu_usage:
-    mode: "efficient"
-    total_gpus_used: 3
-    total_gpus_available: 5
-    efficiency_note: "Using only necessary GPUs for optimal power/performance"
-  
-  models:
-    auto_cleanup: true
-    max_concurrent_loads: 2
-    memory_limit_per_gpu: "20GB"
-  
-  monitoring:
-    enable_gpu_monitoring: true
-    enable_model_usage_tracking: true
-    log_level: "INFO"
-
-# === Deployment Strategy ===
-deployment:
-  main_instance:
-    gpus: ["0", "1"]
-    models: ["llama3.1:8b", "gemma2:9b"]
-    tenants: ["company-a", "company-b"]
-  
-  backup_instance:
-    gpus: ["2"]
-    models: ["phi3:mini"]
-    tenants: ["fallback"]
-  
-  external_services:
-    company_c: "AWS Bedrock (Claude)"
-    
-power_efficiency:
-  unused_gpus: ["3", "5"]
-  power_saving_mode: true
-  estimated_power_reduction: "40%"
+  fallback_agent: "ollama"
+  retry_count: 3
+  timeout_seconds: 30
+  enable_debug_logging: true
