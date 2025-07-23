@@ -13,247 +13,332 @@ from tenant_manager import get_tenant_config, get_tenant_database_config
 logger = logging.getLogger(__name__)
 
 # ============================================================================
-# Schema Registry - Same as before
+# Enhanced SQL Generator with Pattern Matching Fallback
 # ============================================================================
 
-class TableType(Enum):
-    CORE = "core"
-    ENHANCED = "enhanced"
-    VIEW = "view"
-
-@dataclass
-class TableInfo:
-    name: str
-    description: str
-    key_columns: List[str]
-    table_type: TableType
-
-class SchemaRegistry:
-    """Compact schema registry with essential tables only"""
+class SmartSQLGenerator:
+    """Smart SQL Generator - Pattern matching first, then Ollama"""
     
-    TABLES = {
-        # Core Business Tables
-        "employees": TableInfo(
-            "employees", "ข้อมูลพนักงาน (id, name, department, position, salary, hire_date, email)",
-            ["id", "name", "department", "position", "salary"], TableType.CORE
-        ),
-        "projects": TableInfo(
-            "projects", "โปรเจคบริษัท (id, name, client, budget, status, start_date, end_date, tech_stack)",
-            ["id", "name", "client", "budget", "status"], TableType.CORE
-        ),
-        "employee_projects": TableInfo(
-            "employee_projects", "พนักงานในโปรเจค (employee_id, project_id, role, allocation)",
-            ["employee_id", "project_id", "role"], TableType.CORE
-        ),
+    def __init__(self, tenant_id: str):
+        self.tenant_id = tenant_id
+        self.config = get_tenant_config(tenant_id)
         
-        # Enhanced Tables
-        "departments": TableInfo(
-            "departments", "แผนกองค์กร (id, name, manager_id, budget, location)",
-            ["id", "name", "manager_id", "budget"], TableType.ENHANCED
-        ),
-        "clients": TableInfo(
-            "clients", "ลูกค้า (id, name, industry, contact_person, contract_value)",
-            ["id", "name", "industry", "contract_value"], TableType.ENHANCED
-        ),
-        "timesheets": TableInfo(
-            "timesheets", "บันทึกเวลา (employee_id, project_id, work_date, hours_worked, hourly_rate)",
-            ["employee_id", "project_id", "hours_worked"], TableType.ENHANCED
-        ),
+        # Ollama configuration
+        self.ollama_config = self.config.settings.get('ollama', {})
+        if not self.ollama_config:
+            self.ollama_config = {
+                'base_url': 'http://192.168.11.97:12434',
+                'model': 'llama3.1:8b'
+            }
         
-        # Views
-        "employee_performance": TableInfo(
-            "employee_performance", "ประสิทธิภาพพนักงาน (VIEW)", 
-            ["name", "projects_count", "total_hours"], TableType.VIEW
-        ),
-        "project_financial_summary": TableInfo(
-            "project_financial_summary", "สรุปการเงินโปรเจค (VIEW)",
-            ["name", "budget", "total_cost"], TableType.VIEW
-        )
-    }
+        # Initialize tenant-specific schema
+        self.schema_info = self._get_tenant_schema()
     
-    @classmethod
-    def get_schema_prompt(cls) -> str:
-        """Generate compact schema description"""
-        tables = []
-        for name, info in cls.TABLES.items():
-            tables.append(f"{name}: {info.description}")
-        return "\n".join(tables)
-
-# ============================================================================
-# SQL Generator - Using Ollama instead of AWS Bedrock
-# ============================================================================
-
-# ============================================================================
-# Force Database Response - Override Ollama Safety Concerns
-# ============================================================================
-
-class OllamaSQLGenerator:
-    """Enhanced SQL generator that forces database responses"""
+    def _get_tenant_schema(self) -> Dict[str, Any]:
+        """Get tenant-specific database schema information"""
+        tenant_schemas = {
+            'company-a': {
+                'name': 'SiamTech Main Office (Bangkok)',
+                'core_tables': [
+                    'employees (id, name, department, position, salary, hire_date, email)',
+                    'projects (id, name, client, budget, status, start_date, end_date, tech_stack)',
+                    'employee_projects (employee_id, project_id, role, allocation)'
+                ],
+                'enhanced_tables': [
+                    'departments (id, name, manager_id, budget, location)',
+                    'timesheets (employee_id, project_id, work_date, hours_worked, hourly_rate, status)',
+                    'expenses (project_id, employee_id, amount, category, expense_date, status)',
+                    'meetings (id, title, meeting_date, organizer_id, project_id)',
+                    'equipment (id, name, category, assigned_to, status)',
+                    'training (id, title, start_date, end_date, cost)'
+                ],
+                'views': [
+                    'employee_performance (name, projects_count, total_hours)',
+                    'project_financial_summary (name, budget, total_cost)',
+                    'department_statistics (name, employee_count, avg_salary)'
+                ],
+                'specialties': ['Enterprise solutions', 'Large projects', 'Main office operations']
+            },
+            
+            'company-b': {
+                'name': 'SiamTech Regional Office (Chiang Mai)',
+                'core_tables': [
+                    'employees (id, name, department, position, salary, hire_date, email)',
+                    'projects (id, name, client, budget, status, start_date, end_date, tech_stack)',
+                    'employee_projects (employee_id, project_id, role, allocation)'
+                ],
+                'enhanced_tables': [
+                    'departments (id, name, manager_id, budget, location)',
+                    'clients (id, name, industry, contact_person, contract_value, region)',
+                    'skills (id, name, category, global_demand_level)',
+                    'employee_skills (employee_id, skill_id, proficiency_level, certified)',
+                    'timesheets (employee_id, project_id, work_date, hours_worked, hourly_rate)',
+                    'expenses (project_id, employee_id, amount, category, country)',
+                    'meetings (id, title, meeting_date, organizer_id, project_id, client_id)',
+                    'equipment (id, name, category, assigned_to, location, country)',
+                    'training (id, title, provider, category, cost, location)'
+                ],
+                'views': [
+                    'regional_performance (name, projects_count, total_hours, region)',
+                    'regional_project_summary (name, client, budget, region)',
+                    'regional_client_analysis (name, industry, sector_classification)'
+                ],
+                'specialties': ['Tourism industry', 'Regional projects', 'Northern Thailand market']
+            },
+            
+            'company-c': {
+                'name': 'SiamTech International (Global Operations)',
+                'core_tables': [
+                    'employees (id, name, department, position, salary, hire_date, email)',
+                    'projects (id, name, client, budget, status, start_date, end_date, tech_stack)',
+                    'employee_projects (employee_id, project_id, role, allocation)'
+                ],
+                'enhanced_tables': [
+                    'departments (id, name, manager_id, budget, location)',
+                    'clients (id, name, industry, country, timezone, currency, market_type)',
+                    'skills (id, name, category, global_demand_level)',
+                    'employee_skills (employee_id, skill_id, proficiency_level, certification_authority)',
+                    'timesheets (employee_id, project_id, work_date, hours_worked, hourly_rate_usd, currency, client_timezone)',
+                    'expenses (project_id, employee_id, amount, currency, amount_usd, country)',
+                    'meetings (id, title, meeting_date, timezone, meeting_platform, language)',
+                    'equipment (id, name, category, assigned_to, country, shipping_status)',
+                    'training (id, title, cost_usd, language, international_certification)'
+                ],
+                'international_tables': [
+                    'international_contracts (id, client_id, project_id, total_value_usd, currency, governing_law)',
+                    'international_payments (id, contract_id, amount_usd, currency, payment_method, status)',
+                    'company_info (company_name, branch_type, location, total_employees)'
+                ],
+                'views': [
+                    'international_team_performance (name, revenue_generated_usd, critical_skills)',
+                    'global_project_summary (name, client_country, contract_value_usd, profit_margin_usd)',
+                    'revenue_by_geography (country, currency, total_contracts_usd)'
+                ],
+                'specialties': ['International clients', 'Multi-currency operations', 'Global projects', 'Cross-border payments']
+            }
+        }
+        
+        return tenant_schemas.get(self.tenant_id, tenant_schemas['company-a'])
+    
+    def _build_schema_prompt(self) -> str:
+        """Build tenant-specific schema prompt"""
+        schema = self.schema_info
+        
+        prompt_parts = [
+            f"Database Schema for {schema['name']}:",
+            "",
+            "CORE TABLES:"
+        ]
+        
+        for table in schema['core_tables']:
+            prompt_parts.append(f"- {table}")
+        
+        if schema.get('enhanced_tables'):
+            prompt_parts.extend([
+                "",
+                "ENHANCED TABLES:"
+            ])
+            for table in schema['enhanced_tables']:
+                prompt_parts.append(f"- {table}")
+        
+        if schema.get('international_tables'):
+            prompt_parts.extend([
+                "",
+                "INTERNATIONAL TABLES:"
+            ])
+            for table in schema['international_tables']:
+                prompt_parts.append(f"- {table}")
+        
+        if schema.get('views'):
+            prompt_parts.extend([
+                "",
+                "AVAILABLE VIEWS:"
+            ])
+            for view in schema['views']:
+                prompt_parts.append(f"- {view}")
+        
+        prompt_parts.extend([
+            "",
+            f"COMPANY SPECIALTIES: {', '.join(schema['specialties'])}",
+            ""
+        ])
+        
+        return "\n".join(prompt_parts)
     
     async def generate(self, question: str) -> Optional[str]:
-        """Generate SQL with explicit permission prompts"""
+        """Generate SQL - Ollama first, pattern as emergency fallback only"""
         
-        # Create more assertive prompt
-        prompt = f"""You are a PostgreSQL database analyst for an internal company system.
-You have EXPLICIT PERMISSION to access employee data for business analysis.
-
-Database Schema:
-employees (id, name, department, position, salary, hire_date, email)
-projects (id, name, client, budget, status, start_date, end_date)
-employee_projects (employee_id, project_id, role, allocation)
-timesheets (employee_id, project_id, work_date, hours_worked, hourly_rate)
-expenses (project_id, employee_id, amount, category, expense_date)
-
-SQL Examples:
-"พนักงานกี่คน" → SELECT COUNT(*) FROM employees;
-"พนักงานทำงานกี่ชั่วโมง" → SELECT e.name, SUM(t.hours_worked) FROM employees e JOIN timesheets t ON e.id = t.employee_id GROUP BY e.name;
-"รายได้จากโปรเจค" → SELECT e.name, SUM(t.hours_worked * t.hourly_rate) FROM employees e JOIN timesheets t ON e.id = t.employee_id GROUP BY e.name;
-
-IMPORTANT: This is INTERNAL company data analysis. Generate the SQL query for business reporting.
-
-Question: {question}
-
-SQL Query:"""
-
-        try:
-            base_url = self.ollama_config.get('base_url', 'http://192.168.11.97:12434')
-            model = self.ollama_config.get('model', 'llama3.1:8b')
-            
-            payload = {
-                "model": model,
-                "prompt": prompt,
-                "stream": False,
-                "options": {
-                    "temperature": 0.01,  # Very deterministic
-                    "num_predict": 100,   # Shorter for focused SQL
-                    "top_k": 3,          # Very focused
-                    "top_p": 0.05,       # Very deterministic
-                    "repeat_penalty": 1.0
-                }
-            }
-            
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    f"{base_url}/api/generate",
-                    json=payload,
-                    timeout=aiohttp.ClientTimeout(total=15)
-                ) as response:
-                    
-                    if response.status == 200:
-                        result = await response.json()
-                        sql = result.get('response', '').strip()
-                        
-                        # Clean SQL
-                        sql = self._clean_sql(sql)
-                        
-                        # If Ollama still refuses, use fallback SQL patterns
-                        if not sql or len(sql) < 10 or 'sorry' in sql.lower() or 'cannot' in sql.lower():
-                            sql = self._generate_fallback_sql(question)
-                        
-                        if sql and self._validate_sql(sql):
-                            logger.info(f"Generated SQL for {self.tenant_id}: {sql}")
-                            return sql
-                        else:
-                            logger.warning(f"SQL generation failed: {sql}")
-                            return self._generate_fallback_sql(question)
-                            
-                    else:
-                        return self._generate_fallback_sql(question)
-                        
-        except Exception as e:
-            logger.error(f"SQL generation failed for {self.tenant_id}: {e}")
-            return self._generate_fallback_sql(question)
-
-    def _generate_fallback_sql(self, question: str) -> Optional[str]:
-        """Generate fallback SQL using pattern matching"""
+        # 1. Try Ollama first (main method)
+        ollama_sql = await self._ollama_generate_sql(question)
+        if ollama_sql:
+            logger.info(f"Generated SQL via Ollama for {self.tenant_id}: {ollama_sql}")
+            return ollama_sql
+        
+        # 2. Emergency fallback to pattern matching only for very basic queries
+        pattern_sql = self._emergency_pattern_fallback(question)
+        if pattern_sql:
+            logger.info(f"Generated SQL via emergency pattern for {self.tenant_id}: {pattern_sql}")
+            return pattern_sql
+        
+        logger.warning(f"No SQL generated for question: {question}")
+        return None
+    
+    def _emergency_pattern_fallback(self, question: str) -> Optional[str]:
+        """Emergency patterns - now includes complex queries"""
         q_lower = question.lower()
         
-        # Pattern matching for common queries
-        if 'พนักงาน' in q_lower and ('ทำงาน' in q_lower or 'ชั่วโมง' in q_lower):
-            return """SELECT e.name, SUM(t.hours_worked) as total_hours 
+        # Basic queries
+        if q_lower in ['มีพนักงานกี่คน', 'จำนวนพนักงาน']:
+            return "SELECT COUNT(*) FROM employees;"
+        elif q_lower in ['เงินเดือนเฉลี่ย']:
+            return "SELECT AVG(salary) FROM employees;"
+        elif q_lower in ['มีโปรเจคกี่โปรเจค', 'จำนวนโปรเจค']:
+            return "SELECT COUNT(*) FROM projects;"
+        
+        # Complex patterns for working hours and revenue
+        elif 'ทำงาน' in q_lower and 'ชั่วโมง' in q_lower and 'รายได้' in q_lower:
+            return """SELECT e.name, 
+                            COALESCE(SUM(t.hours_worked), 0) as ชั่วโมงทำงาน,
+                            COALESCE(SUM(t.hours_worked * t.hourly_rate), 0) as รายได้
                      FROM employees e 
                      LEFT JOIN timesheets t ON e.id = t.employee_id 
-                     GROUP BY e.name 
-                     ORDER BY total_hours DESC;"""
+                     WHERE t.status = 'approved' OR t.status IS NULL
+                     GROUP BY e.id, e.name 
+                     ORDER BY รายได้ DESC;"""
         
-        elif 'รายได้' in q_lower or 'เงิน' in q_lower:
-            return """SELECT e.name, SUM(t.hours_worked * t.hourly_rate) as revenue,
-                            p.name as project, p.client
+        elif 'ทำงาน' in q_lower and 'ชั่วโมง' in q_lower:
+            return """SELECT e.name, COALESCE(SUM(t.hours_worked), 0) as ชั่วโมงทำงาน
                      FROM employees e 
-                     JOIN timesheets t ON e.id = t.employee_id 
-                     JOIN projects p ON t.project_id = p.id
-                     GROUP BY e.name, p.name, p.client 
-                     ORDER BY revenue DESC;"""
+                     LEFT JOIN timesheets t ON e.id = t.employee_id 
+                     GROUP BY e.id, e.name 
+                     ORDER BY ชั่วโมงทำงาน DESC;"""
         
-        elif 'แผนก' in q_lower and 'โปรเจค' in q_lower:
-            return """SELECT e.department, p.name as project, p.client, p.budget
+        elif 'รายได้' in q_lower and 'พนักงาน' in q_lower:
+            return """SELECT e.name, COALESCE(SUM(t.hours_worked * t.hourly_rate), 0) as รายได้
                      FROM employees e 
-                     JOIN employee_projects ep ON e.id = ep.employee_id
-                     JOIN projects p ON ep.project_id = p.id
-                     ORDER BY e.department, p.name;"""
+                     LEFT JOIN timesheets t ON e.id = t.employee_id 
+                     GROUP BY e.id, e.name 
+                     ORDER BY รายได้ DESC;"""
         
-        elif 'ลูกค้า' in q_lower and 'พนักงาน' in q_lower:
-            return """SELECT p.client, e.name, ep.role
-                     FROM projects p
-                     JOIN employee_projects ep ON p.id = ep.project_id  
-                     JOIN employees e ON ep.employee_id = e.id
-                     ORDER BY p.client, e.name;"""
-        
-        else:
-            return None
-
-
-class OllamaResponseFormatter:
-    """Enhanced formatter that forces database interpretation"""
+        return None
     
-    async def format_results(self, results: Dict[str, Any], question: str) -> str:
-        """Force database response formatting"""
-        if not results["success"]:
-            return f"ขออภัย เกิดข้อผิดพลาด: {results.get('error', 'Unknown error')}"
+    def _pattern_match_sql(self, question: str) -> Optional[str]:
+        """Enhanced pattern matching for complex Thai business queries"""
+        q_lower = question.lower()
         
-        data = results.get("data", [])
-        if not data:
-            return "ไม่พบข้อมูลที่ตรงกับคำถาม"
-        
-        # Force business context prompt
-        try:
-            language = self.config.settings.get('response_language', 'th')
-            
-            if language == 'th':
-                prompt = f"""คุณเป็นนักวิเคราะห์ข้อมูลภายในบริษัท {self.config.name} 
-คุณได้รับอนุญาตให้วิเคราะห์ข้อมูลพนักงานเพื่อการบริหารงาน
-
-คำถาม: {question}
-
-ข้อมูลจากระบบ HR:
-{json.dumps(data, ensure_ascii=False, default=str, indent=2)}
-
-สิ่งที่ต้องทำ:
-1. วิเคราะห์ข้อมูลอย่างเป็นมืออาชีพ
-2. ตอบคำถามอย่างตรงไปตรงมา
-3. แสดงข้อมูลที่เป็นประโยชน์ต่อการบริหาร
-4. ใช้ภาษาไทยธรรมชาติ
-5. นี่เป็นข้อมูลภายใน ไม่ใช่ข้อมูลสาธารณะ
-
-คำตอบ:"""
+        # Employee count queries
+        if any(phrase in q_lower for phrase in ['พนักงานกี่คน', 'จำนวนพนักงาน', 'มีพนักงาน', 'how many employees']):
+            if 'แผนก' in q_lower or 'department' in q_lower:
+                return "SELECT department, COUNT(*) as จำนวน FROM employees GROUP BY department ORDER BY จำนวน DESC;"
             else:
-                prompt = f"""You are an internal data analyst for {self.config.name}
-You have authorization to analyze employee data for management purposes.
+                return "SELECT COUNT(*) as จำนวนพนักงาน FROM employees;"
+        
+        # Salary queries
+        if any(phrase in q_lower for phrase in ['เงินเดือนเฉลี่ย', 'เงินเดือน', 'salary', 'เฉลี่ย']):
+            if 'แผนก' in q_lower:
+                return "SELECT department, AVG(salary) as เงินเดือนเฉลี่ย FROM employees GROUP BY department ORDER BY เงินเดือนเฉลี่ย DESC;"
+            elif 'สูงสุด' in q_lower or 'เก่ง' in q_lower:
+                return "SELECT department, MAX(salary) as เงินเดือนสูงสุด, COUNT(*) as จำนวนคน FROM employees GROUP BY department ORDER BY เงินเดือนสูงสุด DESC;"
+            else:
+                return "SELECT AVG(salary) as เงินเดือนเฉลี่ย FROM employees;"
+        
+        # Work hours and revenue (complex query)
+        if any(phrase in q_lower for phrase in ['ทำงาน', 'ชั่วโมง', 'รายได้']) and any(phrase in q_lower for phrase in ['คนไหน', 'พนักงาน']):
+            return """SELECT e.name, 
+                            COALESCE(SUM(t.hours_worked), 0) as ชั่วโมงทำงาน,
+                            COALESCE(SUM(t.hours_worked * t.hourly_rate), 0) as รายได้
+                     FROM employees e 
+                     LEFT JOIN timesheets t ON e.id = t.employee_id 
+                     WHERE t.status = 'approved' OR t.status IS NULL
+                     GROUP BY e.id, e.name 
+                     ORDER BY รายได้ DESC;"""
+        
+        # Project count
+        if any(phrase in q_lower for phrase in ['โปรเจคกี่', 'จำนวนโปรเจค', 'มีโปรเจค', 'how many projects']):
+            return "SELECT COUNT(*) as จำนวนโปรเจค FROM projects;"
+        
+        # Active projects
+        if any(phrase in q_lower for phrase in ['โปรเจคที่กำลัง', 'active', 'กำลังทำ']):
+            return "SELECT name, client, budget FROM projects WHERE status = 'active' ORDER BY budget DESC;"
+        
+        # Complex project analysis
+        if 'โปรเจค' in q_lower and any(phrase in q_lower for phrase in ['ทีมงาน', 'งบประมาณ', 'มาก']):
+            return """SELECT p.name, p.client, p.budget, COUNT(ep.employee_id) as ขนาดทีม
+                     FROM projects p 
+                     LEFT JOIN employee_projects ep ON p.id = ep.project_id
+                     GROUP BY p.id, p.name, p.client, p.budget
+                     ORDER BY ขนาดทีม DESC, p.budget DESC;"""
+        
+        # Department percentage
+        if 'แผนก' in q_lower and ('เปอร์เซ็นต์' in q_lower or 'percent' in q_lower):
+            return """SELECT department, 
+                            COUNT(*) as จำนวน,
+                            ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM employees), 1) as เปอร์เซ็นต์
+                     FROM employees 
+                     GROUP BY department 
+                     ORDER BY จำนวน DESC;"""
+        
+        # Client budget analysis
+        if 'ลูกค้า' in q_lower and 'งบประมาณ' in q_lower:
+            return """SELECT p.client, 
+                            SUM(p.budget) as งบประมาณรวม,
+                            COUNT(DISTINCT ep.employee_id) as จำนวนพนักงาน
+                     FROM projects p
+                     LEFT JOIN employee_projects ep ON p.id = ep.project_id
+                     GROUP BY p.client
+                     ORDER BY งบประมาณรวม DESC;"""
+        
+        # Multiple projects per employee
+        if 'พนักงาน' in q_lower and ('2 โปรเจค' in q_lower or 'หลายโปรเจค' in q_lower):
+            return """SELECT e.name, 
+                            COUNT(ep.project_id) as จำนวนโปรเจค,
+                            STRING_AGG(DISTINCT ep.role, ', ') as บทบาท
+                     FROM employees e
+                     JOIN employee_projects ep ON e.id = ep.employee_id
+                     GROUP BY e.id, e.name
+                     HAVING COUNT(ep.project_id) > 1
+                     ORDER BY จำนวนโปรเจค DESC;"""
+        
+        # Department info
+        if 'แผนก' in q_lower and any(phrase in q_lower for phrase in ['กี่แผนก', 'จำนวนแผนก']):
+            return "SELECT COUNT(DISTINCT department) as จำนวนแผนก FROM employees;"
+        
+        # Budget queries
+        if any(phrase in q_lower for phrase in ['งบประมาณ', 'budget', 'ค่าใช้จ่าย']):
+            if 'รวม' in q_lower or 'total' in q_lower:
+                return "SELECT SUM(budget) as งบประมาณรวม FROM projects WHERE status = 'active';"
+            else:
+                return "SELECT name, client, budget FROM projects WHERE status = 'active' ORDER BY budget DESC;"
+        
+        # Client queries
+        if any(phrase in q_lower for phrase in ['ลูกค้า', 'client', 'กี่ลูกค้า']):
+            return "SELECT COUNT(DISTINCT client) as จำนวนลูกค้า FROM projects;"
+        
+        return None
+    
+    async def _ollama_generate_sql(self, question: str) -> Optional[str]:
+        """Simplified SQL generation - shorter, clearer prompt"""
+        
+        prompt = f"""Generate PostgreSQL query for: {question}
 
-Question: {question}
+Tables for {self.schema_info['name']}:
+- employees (id, name, department, position, salary, hire_date, email)
+- projects (id, name, client, budget, status, start_date, end_date)
+- employee_projects (employee_id, project_id, role, allocation)
+- timesheets (employee_id, project_id, work_date, hours_worked, hourly_rate, status)
 
-HR System Data:
-{json.dumps(data, ensure_ascii=False, default=str, indent=2)}
+GROUP BY Rule: If SELECT has both aggregate (SUM, COUNT) and regular columns, put ALL regular columns in GROUP BY
 
-Requirements:
-1. Analyze data professionally
-2. Answer directly and factually  
-3. Show information useful for management
-4. Use natural English
-5. This is internal data, not public information
+Examples:
+Q: พนักงานทำงานกี่ชั่วโมง
+A: SELECT e.name, SUM(t.hours_worked) FROM employees e LEFT JOIN timesheets t ON e.id = t.employee_id GROUP BY e.id, e.name;
 
-Answer:"""
-            
+Q: พนักงานได้รายได้เท่าไหร่  
+A: SELECT e.name, SUM(t.hours_worked * t.hourly_rate) FROM employees e LEFT JOIN timesheets t ON e.id = t.employee_id GROUP BY e.id, e.name;
+
+SQL only:"""
+
+        try:
             base_url = self.ollama_config.get('base_url', 'http://192.168.11.97:12434')
             model = self.ollama_config.get('model', 'llama3.1:8b')
             
@@ -262,13 +347,15 @@ Answer:"""
                 "prompt": prompt,
                 "stream": False,
                 "options": {
-                    "temperature": 0.3,    # Lower for more factual responses
-                    "num_predict": 400,
-                    "top_k": 20,
-                    "top_p": 0.7,
+                    "temperature": 0.1,
+                    "num_predict": 150,  # Shorter
+                    "top_k": 10,
+                    "top_p": 0.3,
                     "repeat_penalty": 1.1
                 }
             }
+            
+            logger.info(f"Generating simplified SQL for: {question}")
             
             async with aiohttp.ClientSession() as session:
                 async with session.post(
@@ -279,84 +366,324 @@ Answer:"""
                     
                     if response.status == 200:
                         result = await response.json()
-                        formatted_answer = result.get('response', '').strip()
+                        sql = result.get('response', '').strip()
                         
-                        # Check if Ollama is still being "safe"
-                        safety_phrases = [
-                            'ไม่สามารถ', 'cannot', 'sorry', 'ขอโทษ', 
-                            'ละเอียดอ่อน', 'sensitive', 'privacy',
-                            'ไม่เหมาะสม', 'inappropriate'
-                        ]
+                        logger.info(f"Raw Ollama response: {sql}")
                         
-                        if any(phrase in formatted_answer.lower() for phrase in safety_phrases):
-                            # Force direct data presentation
-                            return self._force_direct_response(data, question)
+                        # Clean and validate SQL
+                        sql = self._clean_sql(sql)
                         
-                        if formatted_answer and len(formatted_answer) > 10:
-                            return formatted_answer
+                        if sql and self._validate_sql(sql):
+                            logger.info(f"Generated valid SQL: {sql}")
+                            return sql
                         else:
-                            return self._force_direct_response(data, question)
+                            logger.warning(f"SQL validation failed: {sql}")
+                            return None
                     else:
-                        return self._force_direct_response(data, question)
+                        logger.error(f"Ollama HTTP error: {response.status}")
+                        return None
             
         except Exception as e:
-            logger.error(f"Response formatting failed for {self.tenant_id}: {e}")
-            return self._force_direct_response(data, question)
+            logger.error(f"Simplified SQL generation failed: {e}")
+            return None
     
-    def _force_direct_response(self, data: List[Dict], question: str) -> str:
-        """Force direct data response when Ollama refuses"""
+    def _get_tenant_examples(self) -> str:
+        """Get tenant-specific SQL examples with correct GROUP BY"""
+        examples = {
+            'company-a': [
+                '"มีพนักงานกี่คน" → SELECT COUNT(*) FROM employees;',
+                '"เงินเดือนเฉลี่ย" → SELECT AVG(salary) FROM employees;',
+                '"พนักงานและชั่วโมงทำงาน" → SELECT e.name, COALESCE(SUM(t.hours_worked), 0) FROM employees e LEFT JOIN timesheets t ON e.id = t.employee_id GROUP BY e.id, e.name;',
+                '"อุปกรณ์ที่มอบหมาย" → SELECT e.name, eq.name FROM employees e LEFT JOIN equipment eq ON e.id = eq.assigned_to;',
+                '"โปรเจคต่อแผนก" → SELECT e.department, COUNT(DISTINCT ep.project_id) FROM employees e JOIN employee_projects ep ON e.id = ep.employee_id GROUP BY e.department;'
+            ],
+            'company-b': [
+                '"มีพนักงานกี่คน" → SELECT COUNT(*) FROM employees;',
+                '"ลูกค้าภาคเหนือ" → SELECT name, industry FROM clients WHERE region = \'Northern Thailand\';',
+                '"ทักษะของพนักงาน" → SELECT e.name, STRING_AGG(s.name, \', \') FROM employees e JOIN employee_skills es ON e.id = es.employee_id JOIN skills s ON es.skill_id = s.id GROUP BY e.id, e.name;',
+                '"การอบรมและต้นทุน" → SELECT category, SUM(cost) FROM training GROUP BY category;',
+                '"พนักงานและรายได้" → SELECT e.name, COALESCE(SUM(t.hours_worked * t.hourly_rate), 0) FROM employees e LEFT JOIN timesheets t ON e.id = t.employee_id GROUP BY e.id, e.name;'
+            ],
+            'company-c': [
+                '"มีพนักงานกี่คน" → SELECT COUNT(*) FROM employees;',
+                '"รายได้ต่างประเทศ" → SELECT SUM(total_value_usd) FROM international_contracts WHERE status = \'active\';',
+                '"ลูกค้าต่อประเทศ" → SELECT country, COUNT(*) FROM clients GROUP BY country;',
+                '"การชำระเงินต่อสกุลเงิน" → SELECT currency, SUM(amount_usd) FROM international_payments WHERE status = \'received\' GROUP BY currency;',
+                '"พนักงานและทักษะระดับโลก" → SELECT e.name, COUNT(DISTINCT es.skill_id) FROM employees e JOIN employee_skills es ON e.id = es.employee_id JOIN skills s ON es.skill_id = s.id WHERE s.global_demand_level = \'critical\' GROUP BY e.id, e.name;'
+            ]
+        }
+        
+        tenant_examples = examples.get(self.tenant_id, examples['company-a'])
+        return '\n'.join(tenant_examples)
+    
+    def _fallback_sql(self, question: str) -> Optional[str]:
+        """Final fallback for basic queries"""
+        q_lower = question.lower()
+        
+        if 'พนักงาน' in q_lower:
+            return "SELECT COUNT(*) as จำนวนพนักงาน FROM employees;"
+        elif 'โปรเจค' in q_lower:
+            return "SELECT COUNT(*) as จำนวนโปรเจค FROM projects;"
+        
+        return None
+    
+    def _clean_sql(self, sql: str) -> str:
+        """Clean and extract SQL from response"""
+        if not sql:
+            return ""
+        
+        # Remove common prefixes/suffixes
+        sql = sql.strip()
+        
+        # Remove markdown code blocks
+        if '```' in sql:
+            lines = sql.split('\n')
+            sql_lines = []
+            in_code = False
+            for line in lines:
+                if line.strip().startswith('```'):
+                    in_code = not in_code
+                    continue
+                if in_code:
+                    sql_lines.append(line)
+            if sql_lines:
+                sql = '\n'.join(sql_lines).strip()
+        
+        # Remove common prefixes
+        prefixes_to_remove = [
+            'SQL:', 'sql:', 'Query:', 'query:', 
+            'SELECT query:', 'PostgreSQL:', 'Here is the SQL:',
+            'The SQL query is:', 'SQL query:'
+        ]
+        
+        for prefix in prefixes_to_remove:
+            if sql.startswith(prefix):
+                sql = sql[len(prefix):].strip()
+        
+        # Extract only the SQL part (first complete SELECT statement)
+        sql = sql.strip()
+        if sql.upper().startswith('SELECT'):
+            # Find the end of the SQL statement
+            if ';' in sql:
+                sql = sql.split(';')[0] + ';'
+            elif sql.count('\n') > 0:
+                # Take everything up to double newline or explanatory text
+                lines = sql.split('\n')
+                sql_lines = []
+                for line in lines:
+                    line = line.strip()
+                    if not line:
+                        break
+                    if any(word in line.lower() for word in ['explanation', 'this query', 'note:', 'คำอธิบาย']):
+                        break
+                    sql_lines.append(line)
+                sql = ' '.join(sql_lines)
+            
+            # Ensure it ends with semicolon
+            if not sql.endswith(';'):
+                sql += ';'
+        
+        return sql.strip()
+    
+    def _validate_sql(self, sql: str) -> bool:
+        """Enhanced SQL validation with PostgreSQL syntax checking"""
+        if not sql or len(sql) < 10:
+            return False
+        
+        sql_upper = sql.upper().strip()
+        
+        # Must start with SELECT
+        if not sql_upper.startswith('SELECT'):
+            return False
+        
+        # Must contain FROM
+        if 'FROM' not in sql_upper:
+            return False
+        
+        # Check for dangerous operations
+        dangerous = ['DROP', 'DELETE', 'INSERT', 'UPDATE', 'ALTER', 'CREATE', 'TRUNCATE']
+        if any(word in sql_upper for word in dangerous):
+            return False
+        
+        # Basic PostgreSQL syntax checks
+        
+        # Check GROUP BY rules - if GROUP BY exists, validate it
+        if 'GROUP BY' in sql_upper:
+            # This is a simplified check - in production you'd want more sophisticated parsing
+            select_part = sql_upper.split('FROM')[0].replace('SELECT', '').strip()
+            group_by_part = sql_upper.split('GROUP BY')[1].split('ORDER BY')[0].split('HAVING')[0].strip()
+            
+            # Look for common GROUP BY violations (simplified check)
+            if ',' in select_part and 'COUNT(' not in select_part and 'SUM(' not in select_part and 'AVG(' not in select_part:
+                # Has multiple SELECT columns but might not have proper GROUP BY
+                logger.warning(f"Potential GROUP BY issue in SQL: {sql}")
+        
+        # Check for balanced parentheses
+        if sql.count('(') != sql.count(')'):
+            logger.warning(f"Unbalanced parentheses in SQL: {sql}")
+            return False
+        
+        # Check for basic table names (they should exist in our schema)
+        valid_tables = ['employees', 'projects', 'employee_projects', 'timesheets', 'expenses', 'clients']
+        has_valid_table = any(table in sql.lower() for table in valid_tables)
+        if not has_valid_table:
+            logger.warning(f"No valid table names found in SQL: {sql}")
+            return False
+        
+        return True
+
+# ============================================================================
+# Enhanced Response Formatter
+# ============================================================================
+
+class SmartResponseFormatter:
+    """AI-powered response formatter - Let Ollama think and create answers"""
+    
+    def __init__(self, tenant_id: str):
+        self.tenant_id = tenant_id
+        self.config = get_tenant_config(tenant_id)
+        
+        # Ollama configuration
+        self.ollama_config = self.config.settings.get('ollama', {})
+        if not self.ollama_config:
+            self.ollama_config = {
+                'base_url': 'http://192.168.11.97:12434',
+                'model': 'llama3.1:8b'
+            }
+    
+    async def format_results(self, results: Dict[str, Any], question: str) -> str:
+        """Let Ollama AI create natural responses from database results"""
+        if not results["success"]:
+            return f"ขออภัย เกิดข้อผิดพลาด: {results.get('error', 'Unknown error')}"
+        
+        data = results.get("data", [])
+        if not data:
+            return "ไม่พบข้อมูลที่ตรงกับคำถาม"
+        
+        # Let Ollama think and create the answer
+        return await self._ollama_create_answer(data, question)
+    
+    async def _ollama_create_answer(self, data: List[Dict], question: str) -> str:
+        """Let Ollama AI think and create natural answers"""
+        
+        # Determine response language
+        language = self.config.settings.get('response_language', 'th')
+        
+        if language == 'th':
+            prompt = f"""คุณเป็น AI Assistant ของ {self.config.name} ที่เก่งในการอธิบายข้อมูลบริษัท
+
+คำถามจากผู้ใช้: {question}
+
+ข้อมูลจากฐานข้อมูลบริษัท:
+{json.dumps(data, ensure_ascii=False, default=str, indent=2)}
+
+สิ่งที่คุณต้องทำ:
+1. วิเคราะห์ข้อมูลที่ได้รับ
+2. ตอบคำถามด้วยภาษาที่เป็นธรรมชาติและน่าสนใจ
+3. ใช้ตัวเลขจากข้อมูลจริง แต่อธิบายในบริบทที่เข้าใจง่าย
+4. สามารถใช้ emoji เพื่อความน่าสนใจ
+5. ตอบให้ครบถ้วนและมีประโยชน์
+
+ตัวอย่าง:
+- ถ้าข้อมูลเป็นจำนวนพนักงาน ให้อธิบายว่าเป็นทีมขนาดไหน
+- ถ้าเป็นเงินเดือน ให้อธิบายในบริบทของตลาดงาน
+- ถ้าเป็นโปรเจค ให้อธิบายถึงความหลากหลาย
+
+คำตอบ:"""
+        else:
+            prompt = f"""You are an AI Assistant for {self.config.name} who excels at explaining company data
+
+User Question: {question}
+
+Company Database Information:
+{json.dumps(data, ensure_ascii=False, default=str, indent=2)}
+
+Your tasks:
+1. Analyze the received data
+2. Answer with natural and engaging language
+3. Use real numbers from data but explain in an understandable context
+4. You can use emojis for engagement
+5. Provide complete and useful answers
+
+Examples:
+- If data shows employee count, explain what size team this represents
+- If salary data, explain in job market context
+- If project data, explain about diversity and scope
+
+Answer:"""
+        
+        try:
+            base_url = self.ollama_config.get('base_url', 'http://192.168.11.97:12434')
+            model = self.ollama_config.get('model', 'llama3.1:8b')
+            
+            payload = {
+                "model": model,
+                "prompt": prompt,
+                "stream": False,
+                "options": {
+                    "temperature": 0.8,      # More creative
+                    "num_predict": 400,      # More space for detailed answers
+                    "top_k": 50,
+                    "top_p": 0.9,
+                    "repeat_penalty": 1.1,
+                    "stop": ["คำถาม:", "Question:", "ข้อมูล:", "Database:"]
+                }
+            }
+            
+            logger.info(f"Sending prompt to Ollama for {self.tenant_id}")
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{base_url}/api/generate",
+                    json=payload,
+                    timeout=aiohttp.ClientTimeout(total=30)  # More time
+                ) as response:
+                    
+                    if response.status == 200:
+                        result = await response.json()
+                        ai_answer = result.get('response', '').strip()
+                        
+                        logger.info(f"Ollama response length: {len(ai_answer)} chars")
+                        
+                        if ai_answer and len(ai_answer) > 15:  # Lower threshold
+                            cleaned_answer = self._post_process_answer(ai_answer)
+                            logger.info(f"Returning Ollama answer: {cleaned_answer[:100]}...")
+                            return cleaned_answer
+                        else:
+                            logger.warning(f"Ollama answer too short: '{ai_answer}', using fallback")
+                            return self._emergency_fallback(data, question)
+                    else:
+                        logger.error(f"Ollama HTTP error: {response.status}")
+                        return self._emergency_fallback(data, question)
+            
+        except Exception as e:
+            logger.error(f"Ollama response generation failed for {self.tenant_id}: {e}")
+            return self._emergency_fallback(data, question)
+    
+    def _post_process_answer(self, answer: str) -> str:
+        """Minimal post-processing - let AI answer stand as-is"""
+        return answer.strip()
+    
+    def _emergency_fallback(self, data: List[Dict], question: str) -> str:
+        """Raw data only - let Ollama handle all formatting"""
         if not data:
             return "ไม่พบข้อมูล"
         
-        # Analyze question type and format accordingly
-        q_lower = question.lower()
-        
-        if 'ทำงาน' in q_lower and 'ชั่วโมง' in q_lower and 'รายได้' in q_lower:
-            # Work hours + revenue analysis
-            result = "**วิเคราะห์การทำงานและรายได้ของพนักงาน:**\n\n"
-            for i, row in enumerate(data[:10], 1):  # Top 10
-                name = row.get('name', 'ไม่ระบุ')
-                hours = row.get('total_hours', 0) or 0
-                revenue = row.get('revenue', 0) or 0
-                project = row.get('project', '')
-                client = row.get('client', '')
-                
-                result += f"{i}. **{name}**\n"
-                if hours > 0:
-                    result += f"   - ชั่วโมงทำงาน: {hours:,.1f} ชั่วโมง\n"
-                if revenue > 0:
-                    result += f"   - รายได้: {revenue:,.0f} บาท\n"
-                if project:
-                    result += f"   - โปรเจค: {project}\n"
-                if client:
-                    result += f"   - ลูกค้า: {client}\n"
-                result += "\n"
-            
-            return result.strip()
-        
-        elif len(data) == 1 and len(data[0]) == 1:
-            # Single value
+        # Return raw data as simple text for Ollama to process
+        if len(data) == 1 and len(data[0]) == 1:
             key, value = next(iter(data[0].items()))
-            return f"ผลลัพธ์: {value}"
+            return str(value)
         
-        else:
-            # General table format
-            result = "**ข้อมูลที่พบ:**\n\n"
-            for i, row in enumerate(data[:10], 1):
-                result += f"{i}. "
-                row_items = []
-                for k, v in row.items():
-                    if v is not None:
-                        row_items.append(f"{k}: {v}")
-                result += ", ".join(row_items) + "\n"
-            
-            if len(data) > 10:
-                result += f"\n... และอีก {len(data) - 10} รายการ"
-            
-            return result.strip()
+        # For multiple records, return simple list
+        result = ""
+        for row in data:
+            row_text = ", ".join([f"{k}: {v}" for k, v in row.items()])
+            result += f"{row_text}\n"
+        
+        return result.strip()
 
 # ============================================================================
-# Database Manager - Same as before
+# Database Manager (same as before)
 # ============================================================================
 
 class DatabaseManager:
@@ -442,243 +769,36 @@ class DatabaseManager:
             }
 
 # ============================================================================
-# Response Formatter - Using Ollama instead of AWS
-# ============================================================================
-
-class OllamaResponseFormatter:
-    """Enhanced response formatting with better prompts and context"""
-    
-    def __init__(self, tenant_id: str):
-        self.tenant_id = tenant_id
-        self.config = get_tenant_config(tenant_id)
-        
-        # Get Ollama configuration
-        self.ollama_config = self.config.settings.get('ollama', {})
-        if not self.ollama_config:
-            self.ollama_config = {
-                'base_url': 'http://192.168.11.97:12434',
-                'model': 'llama3.1:8b',
-                'temperature': 0.7
-            }
-
-    def create_context_prompt(self, question: str, data: List[Dict]) -> str:
-        """Create context-aware prompt for better responses"""
-        
-        # Analyze data structure to understand what we're dealing with
-        data_summary = self._analyze_data_structure(data)
-        
-        language = self.config.settings.get('response_language', 'th')
-        
-        if language == 'th':
-            prompt = f"""คุณเป็น AI Assistant ของ {self.config.name}
-
-คำถาม: {question}
-
-ข้อมูลจากฐานข้อมูล:
-{json.dumps(data, ensure_ascii=False, default=str, indent=2)}
-
-วิเคราะห์ข้อมูล: {data_summary}
-
-กรุณาตอบคำถามโดย:
-✅ ใช้ข้อมูลจากฐานข้อมูลเป็นหลัก
-✅ ตอบเป็นภาษาไทยที่เป็นธรรมชาติ
-✅ แสดงตัวเลขและข้อมูลสำคัญชัดเจน
-✅ จัดรูปแบบให้อ่านง่าย (ใช้ bullet points หรือ numbering เมื่อเหมาะสม)
-✅ ตอบตรงประเด็นกับคำถาม
-❌ ไม่ต้องบอกว่า "ผลลัพธ์จาก..." หรือ "ข้อมูลจาก..."
-❌ ไม่ต้องอธิบายเกี่ยวกับฐานข้อมูลหรือการ query
-
-คำตอบ:"""
-        else:
-            prompt = f"""You are an AI Assistant for {self.config.name}
-
-Question: {question}
-
-Database results:
-{json.dumps(data, ensure_ascii=False, default=str, indent=2)}
-
-Data analysis: {data_summary}
-
-Please answer by:
-✅ Using the database information as primary source
-✅ Responding in natural English
-✅ Showing numbers and key information clearly
-✅ Formatting for readability (use bullet points or numbering when appropriate)
-✅ Directly addressing the question
-❌ Don't say "Result from..." or "Data from..."
-❌ Don't explain about database or querying process
-
-Answer:"""
-        
-        return prompt
-
-    def _analyze_data_structure(self, data: List[Dict]) -> str:
-        """Analyze data structure to provide better context"""
-        if not data:
-            return "No data found"
-        
-        # Count records
-        record_count = len(data)
-        
-        # Analyze columns
-        if data:
-            columns = list(data[0].keys())
-            
-            # Detect data types
-            analysis = []
-            
-            if 'count' in columns:
-                analysis.append("This is a COUNT query result")
-            
-            if any(col in columns for col in ['sum', 'total', 'avg', 'average']):
-                analysis.append("This contains aggregated calculations")
-            
-            if any(col in columns for col in ['name', 'department', 'position']):
-                analysis.append("This contains employee information")
-            
-            if any(col in columns for col in ['project', 'client', 'budget']):
-                analysis.append("This contains project information")
-            
-            if any(col in columns for col in ['hours_worked', 'salary', 'amount']):
-                analysis.append("This contains financial/time data")
-            
-            analysis_text = f"{record_count} records with {len(columns)} columns. " + ". ".join(analysis)
-        else:
-            analysis_text = f"{record_count} records"
-        
-        return analysis_text
-
-    async def format_results(self, results: Dict[str, Any], question: str) -> str:
-        """Enhanced result formatting with better prompts"""
-        if not results["success"]:
-            return f"ขออภัย เกิดข้อผิดพลาด: {results.get('error', 'Unknown error')}"
-        
-        data = results.get("data", [])
-        if not data:
-            return "ไม่พบข้อมูลที่ตรงกับคำถาม"
-        
-        # Use enhanced prompting for ALL responses (no shortcuts)
-        try:
-            prompt = self.create_context_prompt(question, data)
-            
-            base_url = self.ollama_config.get('base_url', 'http://192.168.11.97:12434')
-            model = self.ollama_config.get('model', 'llama3.1:8b')
-            
-            payload = {
-                "model": model,
-                "prompt": prompt,
-                "stream": False,
-                "options": {
-                    "temperature": 0.6,    # Slightly lower for more consistent formatting
-                    "num_predict": 500,    # More space for detailed responses
-                    "top_k": 30,
-                    "top_p": 0.8,
-                    "repeat_penalty": 1.1
-                }
-            }
-            
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    f"{base_url}/api/generate",
-                    json=payload,
-                    timeout=aiohttp.ClientTimeout(total=25)
-                ) as response:
-                    
-                    if response.status == 200:
-                        result = await response.json()
-                        formatted_answer = result.get('response', '').strip()
-                        
-                        if formatted_answer and len(formatted_answer) > 10:
-                            return self._post_process_response(formatted_answer)
-                        else:
-                            return self._emergency_fallback(data, question)
-                    else:
-                        return self._emergency_fallback(data, question)
-            
-        except Exception as e:
-            logger.error(f"Response formatting failed for {self.tenant_id}: {e}")
-            return self._emergency_fallback(data, question)
-    
-    def _post_process_response(self, response: str) -> str:
-        """Post-process the response for better formatting"""
-        # Clean up common issues
-        response = response.strip()
-        
-        # Remove redundant phrases
-        redundant_phrases = [
-            "ตามข้อมูลที่ได้จากฐานข้อมูล",
-            "จากข้อมูลที่แสดง",
-            "ตามข้อมูลที่มี",
-            "Based on the database information",
-            "According to the data"
-        ]
-        
-        for phrase in redundant_phrases:
-            if response.startswith(phrase):
-                response = response[len(phrase):].strip()
-                if response.startswith(','):
-                    response = response[1:].strip()
-        
-        return response
-    
-    def _emergency_fallback(self, data: List[Dict], question: str) -> str:
-        """Improved emergency fallback"""
-        if len(data) == 1 and len(data[0]) == 1:
-            # Single value response
-            key, value = next(iter(data[0].items()))
-            
-            if 'count' in key.lower():
-                return f"จำนวนทั้งหมด: {value}"
-            elif 'sum' in key.lower() or 'total' in key.lower():
-                return f"รวมทั้งหมด: {value:,}"
-            elif 'avg' in key.lower() or 'average' in key.lower():
-                return f"ค่าเฉลี่ย: {value:,.2f}"
-            else:
-                return f"{value}"
-        
-        elif len(data) <= 5:
-            # Small result set - show details
-            result = "ข้อมูลที่พบ:\n"
-            for i, row in enumerate(data, 1):
-                row_text = ", ".join([f"{k}: {v}" for k, v in row.items()])
-                result += f"{i}. {row_text}\n"
-            return result.strip()
-        
-        else:
-            # Large result set - show summary
-            return f"พบข้อมูล {len(data)} รายการ"
-
-# ============================================================================
-# Main PostgreSQL Agent - No AWS Dependencies
+# Enhanced PostgreSQL Agent
 # ============================================================================
 
 class PostgreSQLAgent:
-    """PostgreSQL agent using Ollama for SQL generation and response formatting"""
+    """Enhanced PostgreSQL agent with smart SQL generation"""
     
     def __init__(self, tenant_id: str):
         self.tenant_id = tenant_id
-        self.sql_generator = OllamaSQLGenerator(tenant_id)
+        self.sql_generator = SmartSQLGenerator(tenant_id)
         self.db_manager = DatabaseManager(tenant_id)
-        self.formatter = OllamaResponseFormatter(tenant_id)
+        self.formatter = SmartResponseFormatter(tenant_id)
     
     async def async_query(self, question: str, tenant_id: Optional[str] = None) -> Dict[str, Any]:
-        """Async query method - streamlined pipeline"""
+        """Enhanced async query with better error handling"""
         tenant_id = tenant_id or self.tenant_id
         
         try:
-            # 1. Generate SQL using Ollama
+            # 1. Generate SQL
             sql = await self.sql_generator.generate(question)
             if not sql:
                 return {
                     "success": False,
-                    "answer": "ไม่สามารถสร้าง SQL query ได้",
+                    "answer": "ไม่สามารถสร้าง SQL query สำหรับคำถามนี้ได้ กรุณาลองถามในรูปแบบอื่น",
                     "tenant_id": tenant_id
                 }
             
             # 2. Execute query
             results = self.db_manager.execute_query(sql)
             
-            # 3. Format response using Ollama
+            # 3. Format response
             if results["success"]:
                 answer = await self.formatter.format_results(results, question)
                 return {
@@ -686,18 +806,19 @@ class PostgreSQLAgent:
                     "answer": answer,
                     "sql": sql,
                     "data": results["data"],
-                    "tenant_id": tenant_id
+                    "tenant_id": tenant_id,
+                    "generation_method": "smart_sql"
                 }
             else:
                 return {
                     "success": False,
-                    "answer": f"เกิดข้อผิดพลาด: {results.get('error')}",
+                    "answer": f"เกิดข้อผิดพลาดในการดึงข้อมูล: {results.get('error')}",
                     "sql": sql,
                     "tenant_id": tenant_id
                 }
                 
         except Exception as e:
-            logger.error(f"PostgreSQL Agent error for {tenant_id}: {e}")
+            logger.error(f"Enhanced PostgreSQL Agent error for {tenant_id}: {e}")
             return {
                 "success": False,
                 "answer": f"เกิดข้อผิดพลาด: {str(e)}",
@@ -717,79 +838,39 @@ class PostgreSQLAgent:
     def test_connection(self, tenant_id: Optional[str] = None) -> Dict[str, Any]:
         """Test database connection"""
         return self.db_manager.test_connection()
+
+# ============================================================================
+# Test Functions
+# ============================================================================
+
+async def test_enhanced_postgres():
+    """Test the enhanced PostgreSQL agent"""
+    test_questions = [
+        "มีพนักงานกี่คน",
+        "เงินเดือนเฉลี่ยเท่าไหร่",
+        "มีโปรเจคกี่โปรเจค",
+        "พนักงานในแผนก IT กี่คน",
+        "โปรเจคที่กำลังทำอยู่",
+        "งบประมาณรวม"
+    ]
     
-    def get_stats(self, tenant_id: Optional[str] = None) -> Dict[str, Any]:
-        """Get basic database statistics"""
+    agent = PostgreSQLAgent('company-a')
+    
+    print("🧪 Testing Enhanced PostgreSQL Agent")
+    print("=" * 60)
+    
+    for question in test_questions:
+        print(f"\n❓ คำถาม: {question}")
         try:
-            stats = {}
-            for table_name in ["employees", "projects", "departments", "clients"]:
-                result = self.db_manager.execute_query(f"SELECT COUNT(*) FROM {table_name}")
-                if result["success"] and result["data"]:
-                    stats[f"{table_name}_count"] = result["data"][0]["count"]
-            
-            return {"success": True, "tenant_id": self.tenant_id, "stats": stats}
-            
+            result = await agent.async_query(question)
+            status = '✅' if result['success'] else '❌'
+            print(f"{status} {result['answer']}")
+            if 'sql' in result:
+                print(f"🔧 SQL: {result['sql']}")
+            if 'generation_method' in result:
+                print(f"🎯 Method: {result['generation_method']}")
         except Exception as e:
-            return {"success": False, "tenant_id": self.tenant_id, "error": str(e)}
-
-# ============================================================================
-# Convenience Functions
-# ============================================================================
-
-def create_postgres_agent(tenant_id: str) -> PostgreSQLAgent:
-    """Factory function for creating PostgreSQL agents"""
-    return PostgreSQLAgent(tenant_id)
-
-async def async_query_postgres_for_tenant(question: str, tenant_id: str) -> Dict[str, Any]:
-    """Quick async query function"""
-    agent = PostgreSQLAgent(tenant_id)
-    return await agent.async_query(question, tenant_id)
-
-def query_postgres_for_tenant(question: str, tenant_id: str) -> Dict[str, Any]:
-    """Quick sync query function"""
-    agent = PostgreSQLAgent(tenant_id)
-    return agent.query(question, tenant_id)
-
-def test_tenant_database(tenant_id: str) -> Dict[str, Any]:
-    """Quick connection test"""
-    agent = PostgreSQLAgent(tenant_id)
-    return agent.test_connection(tenant_id)
-
-# ============================================================================
-# Test Runner
-# ============================================================================
+            print(f"❌ Error: {e}")
 
 if __name__ == "__main__":
-    import asyncio
-    
-    async def test_ollama_postgres():
-        """Test PostgreSQL Agent with Ollama"""
-        test_tenants = ['company-a', 'company-b', 'company-c']
-        test_questions = [
-            "มีพนักงานกี่คน?",
-            "เงินเดือนเฉลี่ยเท่าไหร่?",
-            "มีโปรเจคกี่โปรเจค?",
-            "พนักงานในแผนก IT กี่คน?"
-        ]
-        
-        for tenant_id in test_tenants:
-            print(f"\n🏢 Testing {tenant_id}")
-            agent = PostgreSQLAgent(tenant_id)
-            
-            # Test connection
-            conn_test = agent.test_connection()
-            print(f"Connection: {'✅' if conn_test['success'] else '❌'}")
-            
-            if conn_test['success']:
-                for question in test_questions:
-                    print(f"\n❓ {question}")
-                    try:
-                        result = await agent.async_query(question)
-                        status = '✅' if result['success'] else '❌'
-                        print(f"{status} {result['answer'][:100]}...")
-                        if 'sql' in result:
-                            print(f"🔧 SQL: {result['sql']}")
-                    except Exception as e:
-                        print(f"❌ Error: {e}")
-    
-    asyncio.run(test_ollama_postgres())
+    asyncio.run(test_enhanced_postgres())
