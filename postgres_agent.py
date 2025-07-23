@@ -121,7 +121,6 @@ class SmartSQLGenerator:
         return tenant_schemas.get(self.tenant_id, tenant_schemas['company-a'])
     
     def _build_schema_prompt(self) -> str:
-        """Build tenant-specific schema prompt"""
         schema = self.schema_info
         
         prompt_parts = [

@@ -23,7 +23,6 @@ class AgentResponse:
     error: Optional[str] = None
 
 class SmartRouter:
-    """Smart routing logic - enhanced for better database detection"""
     
     DB_KEYWORDS = {
         # Core database keywords (Thai)

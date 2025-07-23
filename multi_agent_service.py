@@ -27,7 +27,7 @@ class RAGResponse(BaseModel):
 app = FastAPI(title="SiamTech AI", version="6.0.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-# Global agent (singleton)
+# Global agent (singleton)asd
 _agent = AggregatorAgent()
 
 # Unified dependency

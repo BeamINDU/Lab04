@@ -48,7 +48,7 @@ tenants:
     name: "SiamTech Regional Office"
     description: "สาขาภาคเหนือ เชียงใหม่"
     
-    # FIXED: Remove pool_size and max_overflow
+    # FIXED: Remove pool_size and max_overflow้้เ
     database:
       host: postgres-company-b
       port: 5432

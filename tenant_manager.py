@@ -448,7 +448,7 @@ def validate_tenant_id(tenant_id: str) -> bool:
 
 # Test usage
 if __name__ == "__main__":
-    # Test tenant manager
+    # Test tenant managerjhh
     print("🏢 Available Tenants:")
     for tid, name in list_available_tenants().items():
         print(f"  - {tid}: {name}")
