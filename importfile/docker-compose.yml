@@ -1,0 +1,66 @@
+services:
+  # Next.js Application
+  web:
+    build: .
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/company_management
+      - NEXTAUTH_SECRET=your-secret-key-change-this
+      - NEXTAUTH_URL=http://0.0.0.0:3001
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./uploads:/app/uploads
+    networks:
+      - company-network
+      - chatbot_siamtemp_networkฆ
+    restart: unless-stopped
+
+  # PostgreSQL Database (เก็บไว้สำหรับ auth และ import logs)
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: company_management
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "15432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql:/docker-entrypoint-initdb.d
+    networks:
+      - company-network
+      - chatbot_siamtemp_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # pgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@company.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "8080:80"
+    depends_on:
+      - postgres
+    networks:
+      - company-network
+      - chatbot_siamtemp_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  company-network:
+    driver: bridge
+  chatbot_siamtemp_network:
+    external: true

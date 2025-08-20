@@ -1,0 +1,92 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Authentication Models
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  password  String
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
+  role      UserRole @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Import tracking
+  importLogs ImportLog[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  ADMIN
+  MANAGER
+  USER
+}
+
+// Company Management
+model Company {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  code        String   @unique // "company_a", "company_b", "company_c"
+  dbName      String   // database name
+  description String?
+  location    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  users      User[]
+  importLogs ImportLog[]
+
+  @@map("companies")
+}
+
+// Import Management
+model ImportLog {
+  id          String      @id @default(cuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  companyId   String
+  company     Company     @relation(fields: [companyId], references: [id])
+  fileName    String
+  fileType    String      // csv, excel, json
+  tableName   String
+  status      ImportStatus @default(PROCESSING)
+  totalRows   Int?
+  successRows Int?
+  errorRows   Int?
+  errors      Json?       // Store error details
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@map("import_logs")
+}
+
+enum ImportStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
+  PARTIAL
+}
+
+// Dynamic Table Structure Storage
+model TableSchema {
+  id          String   @id @default(cuid())
+  companyId   String
+  tableName   String
+  columns     Json     // Store column definitions
+  constraints Json?    // Store constraints
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([companyId, tableName])
+  @@map("table_schemas")
+}

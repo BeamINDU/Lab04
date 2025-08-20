@@ -2,15 +2,14 @@ version: '3.8'
 
 services:
   # =============================================================================
-  # DATABASE SERVICES - PostgreSQL for each company
+  # DATABASE SERVICES - PostgreSQL for each company (แยก Database + Auth)
   # =============================================================================
   
-  # PostgreSQL for Company A (Main Office - Bangkok)
   postgres-company-a:
     image: postgres:15
     container_name: postgres-company-a
     environment:
-      POSTGRES_DB: siamtech_company_a
+      POSTGRES_DB: siamtemp_company_a
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password123
     ports:
@@ -19,20 +18,19 @@ services:
       - postgres_company_a_data:/var/lib/postgresql/data
       - ./init-company-a.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     networks:
-      - siamtech_network
+      - siamtemp_network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d siamtech_company_a"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d siamtemp_company_a"]
       interval: 30s
       timeout: 10s
       retries: 5
 
-  # PostgreSQL for Company B (Regional Office - Chiang Mai)
   postgres-company-b:
     image: postgres:15
     container_name: postgres-company-b
     environment:
-      POSTGRES_DB: siamtech_company_b
+      POSTGRES_DB: siamtemp_company_b
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password123
     ports:
@@ -41,20 +39,19 @@ services:
       - postgres_company_b_data:/var/lib/postgresql/data
       - ./init-company-b.sql:/docker-entrypoint-initdb.d/02-init.sql:ro
     networks:
-      - siamtech_network
+      - siamtemp_network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d siamtech_company_b"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d siamtemp_company_b"]
       interval: 30s
       timeout: 10s
       retries: 5
 
-  # PostgreSQL for Company C (International Office)
   postgres-company-c:
     image: postgres:15
     container_name: postgres-company-c
     environment:
-      POSTGRES_DB: siamtech_company_c
+      POSTGRES_DB: siamtemp_company_c
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password123
     ports:
@@ -63,28 +60,27 @@ services:
       - postgres_company_c_data:/var/lib/postgresql/data
       - ./init-company-c.sql:/docker-entrypoint-initdb.d/03-init.sql:ro
     networks:
-      - siamtech_network
+      - siamtemp_network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d siamtech_company_c"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d siamtemp_company_c"]
       interval: 30s
       timeout: 10s
       retries: 5
 
   # =============================================================================
-  # SHARED INFRASTRUCTURE SERVICES
+  # SHARED INFRASTRUCTURE
   # =============================================================================
 
-  # Redis for caching and session management
   redis:
     image: redis:7-alpine
-    container_name: siamtech-redis
+    container_name: siamtemp-redis
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     networks:
-      - siamtech_network
+      - siamtemp_network
     restart: unless-stopped
     command: redis-server --appendonly yes
     healthcheck:
@@ -94,56 +90,79 @@ services:
       retries: 5
 
   # =============================================================================
-  # CORE AI SERVICES
+  # ENHANCED RAG SERVICE
   # =============================================================================
 
-  # RAG Service (Multi-Tenant AI Backend)
   rag-service:
     build:
       context: .
       dockerfile: Dockerfile.rag
-    container_name: siamtech-rag-service
+    container_name: siamtemp-enhanced-rag-service
     ports:
       - "5000:5000"
     environment:
-      # AWS Configuration (dummy values for testing)
-      - AWS_ACCESS_KEY_ID=dummy_test_key_12345
-      - AWS_SECRET_ACCESS_KEY=dummy_test_secret_67890
-      - AWS_DEFAULT_REGION=ap-southeast-1
-      - KNOWLEDGE_BASE_ID=dummy_kb_test_id
+      # External Ollama Server
+      - OLLAMA_BASE_URL=http://52.74.36.160:12434
+      - OLLAMA_TIMEOUT=60
       
       # Multi-tenant Database Configuration
       - POSTGRES_HOST_COMPANY_A=postgres-company-a
       - POSTGRES_PORT_COMPANY_A=5432
-      - POSTGRES_DB_COMPANY_A=siamtech_company_a
+      - POSTGRES_DB_COMPANY_A=siamtemp_company_a
       - POSTGRES_USER_COMPANY_A=postgres
       - POSTGRES_PASSWORD_COMPANY_A=password123
       
       - POSTGRES_HOST_COMPANY_B=postgres-company-b
-      - POSTGRES_PORT_COMPANY_B=5432
-      - POSTGRES_DB_COMPANY_B=siamtech_company_b
+      - POSTGRES_PORT_COMPANY_B=5433
+      - POSTGRES_DB_COMPANY_B=siamtemp_company_b
       - POSTGRES_USER_COMPANY_B=postgres
       - POSTGRES_PASSWORD_COMPANY_B=password123
       
       - POSTGRES_HOST_COMPANY_C=postgres-company-c
-      - POSTGRES_PORT_COMPANY_C=5432
-      - POSTGRES_DB_COMPANY_C=siamtech_company_c
+      - POSTGRES_PORT_COMPANY_C=5434
+      - POSTGRES_DB_COMPANY_C=siamtemp_company_c
       - POSTGRES_USER_COMPANY_C=postgres
       - POSTGRES_PASSWORD_COMPANY_C=password123
       
-      # Shared Services Configuration
+      # Shared Services
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - TENANT_CONFIG_FILE=/app/tenant_config.yaml
       - DEFAULT_TENANT=company-a
       
-      # Debug and Logging
-      - LOG_LEVEL=DEBUG
+      # Enhanced Models Configuration (แยกตาม tenant)
+      - MODEL_COMPANY_A=llama3.1:8b
+      - MODEL_COMPANY_B=llama3.1:8b 
+      - MODEL_COMPANY_C=llama3.1:8b
+      
+      # Enhanced Features Configuration
+      - ENABLE_PATTERN_MATCHING=true
+      - ENABLE_BUSINESS_INTELLIGENCE=true
+      - ENABLE_ADVANCED_PROMPTS=true
+      - ENHANCED_SQL_VALIDATION=true
+      - CONFIDENCE_SCORING=true
+      
+      # Performance Tuning
+      - SQL_GENERATION_TIMEOUT=30
+      - AI_RESPONSE_TIMEOUT=60
+      - MAX_SQL_COMPLEXITY=high
+      - ENABLE_SQL_CACHING=true
+      
+      # Debug and Logging  
+      - LOG_LEVEL=INFO
+      - ENABLE_ENHANCED_LOGGING=true
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app
       
+      # Service Identification
+      - SERVICE_VERSION=2.0.0
+      - PROMPT_VERSION=2.0
+      - AGENT_TYPE=FixedPostgresOllamaAgent
+      - SAFETY_LEVEL=maximum
+      - HALLUCINATION_PREVENTION=active
+
     networks:
-      - siamtech_network
+      - siamtemp_network
     depends_on:
       - postgres-company-a
       - postgres-company-b
@@ -153,18 +172,25 @@ services:
     healthcheck:
       test: ["CMD", "python", "/app/healthcheck.py"]
       interval: 30s
-      timeout: 10s
+      timeout: 15s
       retries: 3
-      start_period: 40s
+      start_period: 60s
+    labels:
+      - "com.siamtemp.service=enhanced-rag"
+      - "com.siamtemp.version=2.0"
+      - "com.siamtemp.features=smart-sql,business-intelligence"
 
-  # n8n Workflow Automation (Multi-Tenant Orchestrator)
+  # =============================================================================
+  # N8N WORKFLOW ORCHESTRATOR - Updated for Enhanced RAG
+  # =============================================================================
+
   n8n:
     image: n8nio/n8n:latest
-    container_name: siamtech-n8n
+    container_name: siamtemp-n8n
     ports:
       - "5678:5678"
     environment:
-      # n8n Basic Configuration
+      # n8n Configuration
       - N8N_BASIC_AUTH_ACTIVE=true
       - N8N_BASIC_AUTH_USER=admin
       - N8N_BASIC_AUTH_PASSWORD=password
@@ -173,39 +199,41 @@ services:
       - N8N_PROTOCOL=http
       - WEBHOOK_URL=http://localhost:5678
       
-      # Multi-tenant Database Configuration
+      # External Ollama Server
+      - OLLAMA_BASE_URL=http://52.74.36.160:12434
+      
+      # Enhanced RAG Service URL
+      - RAG_SERVICE_URL=http://rag-service:5000
+      - ENHANCED_RAG_ENDPOINTS=true
+      
+      # Multi-tenant Database Configuration (for n8n nodes)
       - POSTGRES_HOST_COMPANY_A=postgres-company-a
       - POSTGRES_PORT_COMPANY_A=5432
-      - POSTGRES_DB_COMPANY_A=siamtech_company_a
+      - POSTGRES_DB_COMPANY_A=siamtemp_company_a
       - POSTGRES_USER_COMPANY_A=postgres
       - POSTGRES_PASSWORD_COMPANY_A=password123
       
       - POSTGRES_HOST_COMPANY_B=postgres-company-b
-      - POSTGRES_PORT_COMPANY_B=5432
-      - POSTGRES_DB_COMPANY_B=siamtech_company_b
+      - POSTGRES_PORT_COMPANY_B=5433
+      - POSTGRES_DB_COMPANY_B=siamtemp_company_b
       - POSTGRES_USER_COMPANY_B=postgres
       - POSTGRES_PASSWORD_COMPANY_B=password123
       
       - POSTGRES_HOST_COMPANY_C=postgres-company-c
-      - POSTGRES_PORT_COMPANY_C=5432
-      - POSTGRES_DB_COMPANY_C=siamtech_company_c
+      - POSTGRES_PORT_COMPANY_C=5434
+      - POSTGRES_DB_COMPANY_C=siamtemp_company_c
       - POSTGRES_USER_COMPANY_C=postgres
       - POSTGRES_PASSWORD_COMPANY_C=password123
       
-      # AWS Configuration (dummy values)
-      - AWS_ACCESS_KEY_ID=dummy_test_key_12345
-      - AWS_SECRET_ACCESS_KEY=dummy_test_secret_67890
-      - AWS_DEFAULT_REGION=ap-southeast-1
-      - KNOWLEDGE_BASE_ID=dummy_kb_test_id
-      
-      # Shared Services
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      # Enhanced Models per Tenant
+      - MODEL_COMPANY_A=llama3.1:8b
+      - MODEL_COMPANY_B=llama3.1:8b
+      - MODEL_COMPANY_C=llama3.1:8b
       
     volumes:
       - n8n_data:/home/node/.n8n
     networks:
-      - siamtech_network
+      - siamtemp_network
     depends_on:
       - postgres-company-a
       - postgres-company-b
@@ -213,17 +241,19 @@ services:
       - redis
       - rag-service
     restart: unless-stopped
+    labels:
+      - "com.siamtemp.service=workflow-orchestrator"
+      - "com.siamtemp.integration=enhanced-rag"
 
   # =============================================================================
-  # COMPANY A SERVICES - BANGKOK HQ (Ports 3000-3099)
-  # =============================================================================asd
+  # COMPANY A - BANGKOK HQ (Enhanced Integration)
+  # =============================================================================
   
-  # OpenWebUI Proxy for Company A
   openwebui-proxy-company-a:
     build:
       context: .
       dockerfile: Dockerfile.proxy
-    container_name: siamtech-proxy-company-a
+    container_name: siamtemp-proxy-company-a
     ports:
       - "8011:8001"
     environment:
@@ -233,10 +263,20 @@ services:
       - FORCE_TENANT=company-a 
       - REQUIRE_TENANT_HEADER=false
       - PORT=8001
-      - LOG_LEVEL=DEBUG
+      - LOG_LEVEL=INFO
       - PYTHONUNBUFFERED=1
+      
+      # Enhanced RAG Integration
+      - ENHANCED_RAG_SERVICE=http://rag-service:5000
+      - USE_ENHANCED_ENDPOINTS=true
+      - ENABLE_BUSINESS_INTELLIGENCE=true
+      
+      # Model specific for Company A
+      - TENANT_MODEL=llama3.1:8b
+      - OLLAMA_BASE_URL=http://52.74.36.160:12434
+      
     networks:
-      - siamtech_network
+      - siamtemp_network
     depends_on:
       - n8n
       - rag-service
@@ -248,39 +288,50 @@ services:
       retries: 3
       start_period: 40s
     
-  # Open WebUI for Company A (Bangkok HQ)
   open-webui-company-a:
     image: ghcr.io/open-webui/open-webui:main
-    container_name: siamtech-webui-company-a
+    container_name: siamtemp-webui-company-a
     ports:
       - "3000:8080"
     environment:
+      - ENV=development
+      - DEFAULT_USER_ROLE=admin
+      - WEBUI_SECRET_KEY=siamtemp-secret-2024
+      - ENABLE_SIGNUP=true
       - OPENAI_API_BASE_URL=http://openwebui-proxy-company-a:8001/v1
-      - OPENAI_API_KEY=sk-company-a
-      - WEBUI_NAME=SiamTech Bangkok HQ - AI Assistant
+      - OPENAI_API_KEY=sk-company-a-enhanced-llama31-8b
+      - WEBUI_NAME=Siamtemp Bangkok HQ - Enhanced AI Assistant (v2.0)
       - WEBUI_URL=http://localhost:3000
       - DEFAULT_USER_ROLE=user
       - ENABLE_SIGNUP=true
       - SHOW_ADMIN_DETAILS=false
-      - WEBUI_DESCRIPTION=AI Assistant สำหรับสำนักงานใหญ่ กรุงเทพมหานคร
+      - WEBUI_DESCRIPTION=Enhanced AI Assistant สำหรับสำนักงานใหญ่ กรุงเทพมหานคร (Smart SQL + Business Intelligence)
+      # Enhanced Theme
+      - WEBUI_THEME_COLOR=#667eea
+      - WEBUI_FEATURES=enhanced_sql,business_intelligence,pattern_matching
+      - WEBUI_AUTH_REDIRECT_URL=/auth/signin
+      - WEBUI_SESSION_COOKIE_SAME_SITE=lax
+      
     volumes:
       - open_webui_company_a_data:/app/backend/data
     networks:
-      - siamtech_network
+      - siamtemp_network
     depends_on:
       - openwebui-proxy-company-a
     restart: unless-stopped
+    labels:
+      - "com.siamtemp.company=a"
+      - "com.siamtemp.enhancement=v2.0"
 
   # =============================================================================
-  # COMPANY B SERVICES - CHIANG MAI REGIONAL (Ports 3100-3199)
+  # COMPANY B - CHIANG MAI REGIONAL (Enhanced Integration)
   # =============================================================================
   
-  # OpenWebUI Proxy for Company B
   openwebui-proxy-company-b:
     build:
       context: .
       dockerfile: Dockerfile.proxy
-    container_name: siamtech-proxy-company-b
+    container_name: siamtemp-proxy-company-b
     ports:
       - "8101:8001"
     environment:
@@ -290,10 +341,20 @@ services:
       - FORCE_TENANT=company-b 
       - REQUIRE_TENANT_HEADER=false
       - PORT=8001
-      - LOG_LEVEL=DEBUG
+      - LOG_LEVEL=INFO
       - PYTHONUNBUFFERED=1
+      
+      # Enhanced RAG Integration
+      - ENHANCED_RAG_SERVICE=http://rag-service:5000
+      - USE_ENHANCED_ENDPOINTS=true
+      - ENABLE_BUSINESS_INTELLIGENCE=true
+      
+      # Model specific for Company B
+      - TENANT_MODEL=llama3.1:8b
+      - OLLAMA_BASE_URL=http://52.74.36.160:12434
+      
     networks:
-      - siamtech_network
+      - siamtemp_network
     depends_on:
       - n8n
       - rag-service
@@ -305,39 +366,49 @@ services:
       retries: 3
       start_period: 40s
     
-  # Open WebUI for Company B (Chiang Mai)
   open-webui-company-b:
     image: ghcr.io/open-webui/open-webui:main
-    container_name: siamtech-webui-company-b
+    container_name: siamtemp-webui-company-b
     ports:
       - "3100:8080"
     environment:
+      - ENV=development
+      - DEFAULT_USER_ROLE=admin
+      - WEBUI_SECRET_KEY=siamtemp-secret-2024
+      - ENABLE_SIGNUP=true
       - OPENAI_API_BASE_URL=http://openwebui-proxy-company-b:8001/v1
-      - OPENAI_API_KEY=sk-company-b
-      - WEBUI_NAME=SiamTech Chiang Mai - AI Assistant
+      - OPENAI_API_KEY=sk-company-b-enhanced-llama3.1:8b
+      - WEBUI_NAME=Siamtemp Chiang Mai - Enhanced AI Assistant (v2.0)
       - WEBUI_URL=http://localhost:3100
       - DEFAULT_USER_ROLE=user
       - ENABLE_SIGNUP=true
       - SHOW_ADMIN_DETAILS=false
-      - WEBUI_DESCRIPTION=AI Assistant สำหรับสาขาภาคเหนือ เชียงใหม่
+      - WEBUI_DESCRIPTION=Enhanced AI Assistant สำหรับสาขาภาคเหนือ เชียงใหม่ (Tourism Intelligence + Smart Analytics)
+      # Enhanced Theme
+      - WEBUI_THEME_COLOR=#f093fb
+      - WEBUI_FEATURES=enhanced_sql,tourism_intelligence,regional_analytics
+      - WEBUI_AUTH_REDIRECT_URL=/auth/signin
+      - WEBUI_SESSION_COOKIE_SAME_SITE=lax
     volumes:
       - open_webui_company_b_data:/app/backend/data
     networks:
-      - siamtech_network
+      - siamtemp_network
     depends_on:
       - openwebui-proxy-company-b
     restart: unless-stopped
+    labels:
+      - "com.siamtemp.company=b"
+      - "com.siamtemp.enhancement=v2.0"
 
   # =============================================================================
-  # COMPANY C SERVICES - INTERNATIONAL (Ports 3200-3299)
+  # COMPANY C - INTERNATIONAL (Enhanced Integration)
   # =============================================================================
   
-  # OpenWebUI Proxy for Company C
   openwebui-proxy-company-c:
     build:
       context: .
       dockerfile: Dockerfile.proxy
-    container_name: siamtech-proxy-company-c
+    container_name: siamtemp-proxy-company-c
     ports:
       - "8201:8001"
     environment:
@@ -347,10 +418,20 @@ services:
       - FORCE_TENANT=company-c
       - REQUIRE_TENANT_HEADER=false
       - PORT=8001
-      - LOG_LEVEL=DEBUG
+      - LOG_LEVEL=INFO
       - PYTHONUNBUFFERED=1
+      
+      # Enhanced RAG Integration
+      - ENHANCED_RAG_SERVICE=http://rag-service:5000
+      - USE_ENHANCED_ENDPOINTS=true
+      - ENABLE_BUSINESS_INTELLIGENCE=true
+      
+      # Model specific for Company C
+      - TENANT_MODEL=llama3.1:8b
+      - OLLAMA_BASE_URL=http://52.74.36.160:12434
+      
     networks:
-      - siamtech_network
+      - siamtemp_network
     depends_on:
       - n8n
       - rag-service
@@ -362,88 +443,108 @@ services:
       retries: 3
       start_period: 40s
     
-  # Open WebUI for Company C (International)
   open-webui-company-c:
     image: ghcr.io/open-webui/open-webui:main
-    container_name: siamtech-webui-company-c
+    container_name: siamtemp-webui-company-c
     ports:
       - "3200:8080"
     environment:
+      - ENV=development
+      - DEFAULT_USER_ROLE=admin
+      - WEBUI_SECRET_KEY=siamtemp-secret-2024
+      - ENABLE_SIGNUP=true
       - OPENAI_API_BASE_URL=http://openwebui-proxy-company-c:8001/v1
-      - OPENAI_API_KEY=sk-company-c
-      - WEBUI_NAME=SiamTech International - AI Assistant
+      - OPENAI_API_KEY=sk-company-c-enhanced-llama3.1:8b
+      - WEBUI_NAME=Siamtemp International - Enhanced AI Assistant (v2.0)
       - WEBUI_URL=http://localhost:3200
       - DEFAULT_USER_ROLE=user
       - ENABLE_SIGNUP=true
       - SHOW_ADMIN_DETAILS=false
-      - WEBUI_DESCRIPTION=AI Assistant for Global Operations
+      - WEBUI_DESCRIPTION=Enhanced AI Assistant for Global Operations (Global Intelligence + Multi-Currency Analytics)
+      # Enhanced Theme
+      - WEBUI_THEME_COLOR=#4facfe
+      - WEBUI_FEATURES=enhanced_sql,global_intelligence,multi_currency_analytics
+      - WEBUI_AUTH_REDIRECT_URL=/auth/signin
+      - WEBUI_SESSION_COOKIE_SAME_SITE=lax
     volumes:
       - open_webui_company_c_data:/app/backend/data
     networks:
-      - siamtech_network
+      - siamtemp_network
     depends_on:
       - openwebui-proxy-company-c
     restart: unless-stopped
+    labels:
+      - "com.siamtemp.company=c"
+      - "com.siamtemp.enhancement=v2.0"
 
   # =============================================================================
-  # MONITORING & ADMIN SERVICES (Ports 9000+)
+  # ENHANCED ADMIN DASHBOARD
   # =============================================================================
 
-  # Admin Dashboard (Multi-Company Overview)
   admin-dashboard:
     image: nginx:alpine
-    container_name: siamtech-admin-dashboard
+    container_name: siamtemp-enhanced-admin-dashboard
     ports:
       - "9000:80"
     volumes:
       - ./admin-dashboard:/usr/share/nginx/html:ro
     networks:
-      - siamtech_network
+      - siamtemp_network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
       interval: 30s
       timeout: 10s
       retries: 3
+    labels:
+      - "com.siamtemp.service=admin-dashboard"
+      - "com.siamtemp.version=enhanced"
 
 # =============================================================================
-# VOLUMES - Simple Named Volumes (No Local Folders)
+# VOLUMES
 # =============================================================================
 volumes:
-  # Database volumes (Docker managed - no local folders)
   postgres_company_a_data:
     driver: local
   postgres_company_b_data:
     driver: local
   postgres_company_c_data:
     driver: local
-  
-  # Application volumes (Docker managed - no local folders)
   open_webui_company_a_data:
     driver: local
   open_webui_company_b_data:
     driver: local
   open_webui_company_c_data:
     driver: local
-  
-  # Shared volumes (Docker managed - no local folders)
   redis_data:
     driver: local
   n8n_data:
     driver: local
 
 # =============================================================================
-# NETWORKS - Service Communication
+# NETWORKS
 # =============================================================================
 networks:
-  siamtech_network:
+  siamtemp_network:
     driver: bridge
     ipam:
       driver: default
       config:
-        - subnet: 172.20.0.0/16
-          gateway: 172.20.0.1
-    driver_opts:
-      com.docker.network.bridge.name: siamtech_br0
-      com.docker.network.bridge.enable_icc: "true"
-      com.docker.network.bridge.enable_ip_masquerade: "true"
+        - subnet: 172.25.0.0/16
+          gateway: 172.25.0.1
+
+# =============================================================================
+# ENHANCED SYSTEM METADATA
+# =============================================================================
+# Labels for the entire compose stack
+x-siamtemp-metadata:
+  version: "2.0.0"
+  enhancement_features:
+    - smart_sql_generation_with_patterns
+    - business_intelligence_insights
+    - enhanced_prompt_engineering_v2
+    - advanced_error_handling
+    - performance_tracking
+    - confidence_scoring
+  description: "Enhanced Multi-Tenant RAG System with Smart SQL Generation and Business Intelligence"
+  upgrade_notes: "Includes enhanced PostgreSQL agent with pattern matching and advanced prompts"

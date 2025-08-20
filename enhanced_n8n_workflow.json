@@ -1,0 +1,204 @@
+{
+  "name": "Siamtemp Multi-Tenant AI - Fixed Version",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "company-a-chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-company-a",
+      "name": "🏢 Company A Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, -100],
+      "webhookId": "company-a-chat"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "company-b-chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-company-b",
+      "name": "🏔️ Company B Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 120],
+      "webhookId": "company-b-chat"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "company-c-chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-company-c",
+      "name": "🌍 Company C Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 340],
+      "webhookId": "company-c-chat"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 🎯 Tenant Detector (Fixed)\nconst inputData = $input.first().json;\n\n// Extract tenant information\nconst webhookUrl = inputData.webhookUrl || '';\nlet tenantId = 'company-a';\n\n// Determine tenant from webhook URL\nif (webhookUrl.includes('company-a-chat')) {\n    tenantId = 'company-a';\n} else if (webhookUrl.includes('company-b-chat')) {\n    tenantId = 'company-b';\n} else if (webhookUrl.includes('company-c-chat')) {\n    tenantId = 'company-c';\n}\n\n// Override tenant if provided in request body\nif (inputData.body?.tenant_id) {\n    tenantId = inputData.body.tenant_id;\n}\n\n// Get message and settings\nconst message = inputData.body?.message || inputData.query || 'Hello';\n\n// Return simplified data\nreturn {\n    tenant_id: tenantId,\n    message: message,\n    webhook_url: webhookUrl,\n    timestamp: new Date().toISOString()\n};"
+      },
+      "id": "tenant-detector",
+      "name": "🎯 Tenant Detector (Fixed)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [540, 120]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://rag-service:5000/rag-query",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Tenant-ID",
+              "value": "={{ $json.tenant_id }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{ $json.message }}"
+            },
+            {
+              "name": "tenant_id",
+              "value": "={{ $json.tenant_id }}"
+            },
+            {
+              "name": "agent_type",
+              "value": "smart_sql"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "rag-agent",
+      "name": "🤖 RAG Service (Fixed)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [780, 120]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 🎨 Simple Response Formatter (Fixed)\nconst inputData = $input.first().json;\n\n// Safely extract data\nlet answer = 'ไม่สามารถรับคำตอบได้';\nlet success = false;\nlet tenantId = 'unknown';\nlet tenantName = 'Unknown';\nlet sqlQuery = null;\nlet dbResultsCount = null;\n\ntry {\n    // Extract from RAG service response\n    if (inputData && typeof inputData === 'object') {\n        answer = inputData.answer || inputData.response || 'ไม่สามารถรับคำตอบได้';\n        success = inputData.success !== false;\n        tenantId = inputData.tenant_id || 'unknown';\n        tenantName = inputData.tenant_name || 'Unknown';\n        sqlQuery = inputData.sql_query || null;\n        dbResultsCount = inputData.db_results_count || null;\n    }\n} catch (error) {\n    console.log('Error parsing response:', error.message);\n    answer = 'เกิดข้อผิดพลาดในการประมวลผล';\n    success = false;\n}\n\n// Return clean response\nreturn {\n    answer: answer,\n    success: success,\n    tenant_id: tenantId,\n    tenant_name: tenantName,\n    sql_query: sqlQuery,\n    db_results_count: dbResultsCount,\n    agent: 'rag_service_fixed',\n    timestamp: new Date().toISOString(),\n    workflow_version: 'fixed_v1'\n};"
+      },
+      "id": "response-formatter",
+      "name": "🎨 Response Formatter (Fixed)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1020, 120]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "webhook-response",
+      "name": "📤 Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1260, 120]
+    }
+  ],
+  "connections": {
+    "🏢 Company A Webhook": {
+      "main": [
+        [
+          {
+            "node": "🎯 Tenant Detector (Fixed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🏔️ Company B Webhook": {
+      "main": [
+        [
+          {
+            "node": "🎯 Tenant Detector (Fixed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🌍 Company C Webhook": {
+      "main": [
+        [
+          {
+            "node": "🎯 Tenant Detector (Fixed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🎯 Tenant Detector (Fixed)": {
+      "main": [
+        [
+          {
+            "node": "🤖 RAG Service (Fixed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🤖 RAG Service (Fixed)": {
+      "main": [
+        [
+          {
+            "node": "🎨 Response Formatter (Fixed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🎨 Response Formatter (Fixed)": {
+      "main": [
+        [
+          {
+            "node": "📤 Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "instanceId": "siamtemp-fixed"
+  },
+  "tags": [
+    {
+      "id": "siamtemp-fixed",
+      "name": "Siamtemp-Fixed",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    }
+  ]
+}
