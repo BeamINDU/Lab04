@@ -16,7 +16,7 @@ services:
       - ./uploads:/app/uploads
     networks:
       - company-network
-      - chatbot_siamtemp_networkฆ
+      - chatbot_siamtemp_network
     restart: unless-stopped
 
   # PostgreSQL Database (เก็บไว้สำหรับ auth และ import logs)

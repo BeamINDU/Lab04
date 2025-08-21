@@ -2,7 +2,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../lib/auth';
-import { DatabaseService } from '../../../lib/services/DatabaseService';
+import { DatabaseService, DatabaseColumn } from '../../../lib/services/DatabaseService'; // เพิ่ม DatabaseColumn import
 import { FileImportService } from '../../../lib/services/FileImportService';
 import multer from 'multer';
 import { z } from 'zod';
@@ -79,7 +79,10 @@ const ImportDataSchema = z.object({
   schema: z.string().min(1, 'Schema name is required').default('public'),
   tableName: z.string().min(1, 'Table name is required'),
   
-  // เพิ่ม custom columns support
+  // เพิ่ม column mapping support (ชื่อใหม่ที่ frontend ส่งมา)
+  columnMapping: z.string().optional(), // JSON string of DatabaseColumn[]
+  
+  // เก็บ customColumns ไว้เพื่อ backward compatibility
   customColumns: z.string().optional(), // JSON string of DatabaseColumn[]
   
   createTable: z.preprocess(
@@ -123,42 +126,6 @@ const ImportDataSchema = z.object({
     z.number().int().min(1).max(10000).default(1000)
   )
 });
-/**
- * Alternative validation using transform approach
- * This is another way to handle the same problem
- */
-const AlternativeImportDataSchema = z.object({
-  schema: z.string().default('public'),
-  tableName: z.string().min(1, 'Table name is required'),
-  
-  // Using transform for boolean conversion
-  createTable: z.union([z.string(), z.boolean()])
-    .transform((val) => {
-      if (typeof val === 'string') {
-        return val.toLowerCase() === 'true' || val === '1' || val === 'on';
-      }
-      return Boolean(val);
-    }),
-  
-  truncateBeforeImport: z.union([z.string(), z.boolean()])
-    .transform((val) => {
-      if (typeof val === 'string') {
-        return val.toLowerCase() === 'true' || val === '1' || val === 'on';
-      }
-      return Boolean(val);
-    }),
-  
-  skipErrors: z.union([z.string(), z.boolean()])
-    .transform((val) => {
-      if (typeof val === 'string') {
-        return val.toLowerCase() === 'true' || val === '1' || val === 'on';
-      }
-      return Boolean(val);
-    }),
-  
-  // Using coerce for number conversion (simpler but less control)
-  batchSize: z.coerce.number().int().min(1).max(10000).default(1000)
-});
 
 // Disable Next.js body parser for file upload
 export const config = {
@@ -191,6 +158,7 @@ export default async function importHandler(req: NextApiRequest, res: NextApiRes
 
     console.log('📥 Raw form data received:', {
       bodyKeys: Object.keys(body),
+      columnMapping: body.columnMapping ? 'Present' : 'Not provided',
       customColumns: body.customColumns ? 'Present' : 'Not provided'
     });
 
@@ -199,6 +167,7 @@ export default async function importHandler(req: NextApiRequest, res: NextApiRes
       validatedData = ImportDataSchema.parse(body);
       console.log('✅ Validation successful:', {
         ...validatedData,
+        columnMapping: validatedData.columnMapping ? 'Column mapping provided' : 'Using auto-detected',
         customColumns: validatedData.customColumns ? 'Custom columns provided' : 'Using auto-detected'
       });
     } catch (validationError) {
@@ -217,19 +186,39 @@ export default async function importHandler(req: NextApiRequest, res: NextApiRes
     const dbService = new DatabaseService(companyCode);
     const importService = new FileImportService(dbService);
 
-    // Parse custom columns if provided
+    // Parse column mapping (ให้ความสำคัญกับ columnMapping ก่อน แล้วค่อย fallback ไป customColumns)
     let customColumns: DatabaseColumn[] | undefined;
-    if (validatedData.customColumns) {
+    
+    // ลองใช้ columnMapping ก่อน (parameter ใหม่จาก frontend)
+    if (validatedData.columnMapping) {
+      try {
+        customColumns = JSON.parse(validatedData.columnMapping);
+        // เพิ่ม type guard เพื่อป้องกัน undefined
+        if (customColumns && Array.isArray(customColumns)) {
+          console.log('📋 Using column mapping from frontend:', customColumns.map(col => `${col.name}:${col.type}`));
+        }
+      } catch (parseError) {
+        console.warn('⚠️ Failed to parse columnMapping, trying customColumns fallback');
+        customColumns = undefined;
+      }
+    }
+    
+    // ถ้า columnMapping ไม่มีหรือ parse ไม่ได้ ให้ลอง customColumns (backward compatibility)
+    if (!customColumns && validatedData.customColumns) {
       try {
         customColumns = JSON.parse(validatedData.customColumns);
-        console.log('📋 Using custom columns:', customColumns.map(col => `${col.name}:${col.type}`));
+        // เพิ่ม type guard เพื่อป้องกัน undefined
+        if (customColumns && Array.isArray(customColumns)) {
+          console.log('📋 Using custom columns (fallback):', customColumns.map(col => `${col.name}:${col.type}`));
+        }
       } catch (parseError) {
-        console.warn('⚠️ Failed to parse custom columns, using auto-detection');
+        console.warn('⚠️ Failed to parse customColumns, using auto-detection');
         customColumns = undefined;
       }
     }
 
     console.log(`📥 Starting import: ${file.originalname} to ${validatedData.schema}.${validatedData.tableName}`);
+    console.log(`🔧 Column strategy: ${customColumns ? 'Custom columns' : 'Auto-detection'}`);
 
     // Execute import with custom columns
     const result = await importService.importFileWithCustomColumns({
@@ -249,7 +238,8 @@ export default async function importHandler(req: NextApiRequest, res: NextApiRes
       success: result.success,
       totalRows: result.totalRows,
       successRows: result.successRows,
-      errorRows: result.errorRows
+      errorRows: result.errorRows,
+      usingCustomColumns: !!customColumns
     });
 
     return res.status(200).json(createResponse(result, 'File imported successfully'));
@@ -268,16 +258,16 @@ export default async function importHandler(req: NextApiRequest, res: NextApiRes
         return res.status(400).json(createErrorResponse('File type not supported. Please upload CSV, Excel, or JSON files.'));
       }
       
-      if (error.message.includes('File too large')) {
-        return res.status(400).json(createErrorResponse('File too large. Maximum size is 100MB.'));
+      if (error.message.includes('File size too large')) {
+        return res.status(400).json(createErrorResponse('File size too large. Maximum size is 100MB.'));
       }
+      
+      return res.status(500).json(createErrorResponse(`Import failed: ${error.message}`));
     }
     
-    const message = error instanceof Error ? error.message : 'Import failed';
-    return res.status(500).json(createErrorResponse(message));
+    return res.status(500).json(createErrorResponse('Internal server error during import'));
   }
 }
-
 /**
  * Utility functions for handling form data conversion
  */

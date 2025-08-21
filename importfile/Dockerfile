@@ -1,16 +1,16 @@
-FROM node:18-alpine
+FROM node:20-alpine
 
 # Install OpenSSL for Prisma
 RUN apk add --no-cache openssl
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy package files - ให้ชัดเจนว่า copy ทั้ง package.json และ package-lock.json
+COPY package.json package-lock.json ./
 COPY prisma ./prisma/
 
-# Install dependencies
-RUN npm ci --only=production
+# Install dependencies (ใช้ --omit=dev แทน --only=production)
+RUN npm ci --omit=dev
 
 # Generate Prisma Client
 RUN npx prisma generate
