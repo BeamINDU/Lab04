@@ -1,5 +1,5 @@
-# refactored_modules/intelligent_schema_discovery_fixed.py
-# 🔧 แก้ไขปัญหาทั้งหมดที่เจอ
+# refactored_modules/intelligent_schema_discovery.py
+# 🔧 ปรับปรุงสำหรับธุรกิจ HVAC Service & Spare Parts
 
 import time
 import re
@@ -10,535 +10,540 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 class IntelligentSchemaDiscovery:
-    """🧠 Fixed version - แก้ไขปัญหาทั้งหมด"""
+    """🧠 Intelligent Schema Discovery สำหรับธุรกิจ HVAC"""
     
     def __init__(self, database_handler):
         self.db_handler = database_handler
         
         # เก็บ cache ของข้อมูลที่เรียนรู้แล้ว
         self.learned_schemas = {
-            'departments': {},
-            'positions': {},
-            'projects': {},
-            'relationships': {}
+            'customers': {},
+            'spare_parts': {},
+            'services': {},
+            'work_schedules': {}
+        }
+        
+        # HVAC Business Knowledge Base (แทน metadata ในฐานข้อมูล)
+        self.hvac_knowledge_base = {
+            'table_purposes': {
+                'sales2024': 'ข้อมูลการขายและบริการประจำปี 2024',
+                'sales2023': 'ข้อมูลการขายและบริการประจำปี 2023', 
+                'sales2022': 'ข้อมูลการขายและบริการประจำปี 2022',
+                'sales2025': 'ข้อมูลการขายและบริการประจำปี 2025',
+                'spare_part': 'คลังอะไหล่หลัก',
+                'spare_part2': 'คลังอะไหล่สำรอง',
+                'work_force': 'การจัดทีมงานและแผนการทำงาน'
+            },
+            
+            'column_meanings': {
+                'job_no': 'หมายเลขงาน รูปแบบ SV.ปี-เดือน-ลำดับ-ประเภท',
+                'customer_name': 'ชื่อบริษัทลูกค้าเต็ม',
+                'customer': 'ชื่อลูกค้าแบบย่อ',
+                'description': 'รายละเอียดงานบริการ',
+                'service_contact_': 'มูลค่างานบริการ (หน่วย: บาท)',
+                'overhaul_': 'งานยกเครื่อง/ซ่อมครั้งใหญ่',
+                'replacement': 'งานเปลี่ยนชิ้นส่วน',
+                'product_code': 'รหัสอะไหล่ของบริษัท',
+                'product_name': 'ชื่ออะไหล่ภาษาอังกฤษ',
+                'unit_price': 'ราคาต่อหน่วย (บาท)',
+                'balance': 'จำนวนคงเหลือในสต็อก',
+                'wh': 'รหัสคลังสินค้า',
+                'date': 'วันที่ทำงาน',
+                'project': 'ชื่อโปรเจค/สถานที่',
+                'detail': 'รายละเอียดงานเฉพาะ',
+                'service_group': 'ชื่อทีมช่างที่รับผิดชอบ',
+                'job_description_pm': 'งาน Preventive Maintenance',
+                'job_description_replacement': 'งานเปลี่ยนชิ้นส่วน'
+            },
+            
+            'business_patterns': {
+                'job_number_format': 'SV.{year}-{month}-{sequence}-{type}',
+                'service_types': ['PM', 'Repair', 'Replacement', 'Overhaul', 'Installation'],
+                'brands': ['Hitachi', 'Daikin', 'EuroKlimat', 'Toyota', 'Mitsubishi', 'York', 'Carrier'],
+                'customer_types': ['บริษัท', 'การไฟฟ้า', 'โรงแรม', 'โรงพยาบาล', 'โรงงาน'],
+                'technical_terms': {
+                    'Chiller': 'เครื่องทำน้ำเย็น',
+                    'Compressor': 'คอมเพรสเซอร์',
+                    'PM': 'Preventive Maintenance',
+                    'Air Cooled': 'ระบายความร้อนด้วยอากาศ',
+                    'Water Cooled': 'ระบายความร้อนด้วยน้ำ',
+                    'RCUA': 'Roof Top Unit Air Cooled',
+                    'Set Free': 'ระบบ VRF',
+                    'FTG': 'Floor Type Gas',
+                    'EKAC': 'EuroKlimat Air Cooled'
+                }
+            },
+            
+            'query_templates': {
+                'customer_count': 'SELECT COUNT(DISTINCT customer_name) FROM sales{year}',
+                'customer_history': '''
+                    SELECT job_no, description, service_contact_ 
+                    FROM sales{year} 
+                    WHERE customer_name ILIKE '%{customer}%'
+                ''',
+                'spare_parts_search': '''
+                    SELECT product_code, product_name, unit_price, balance, description
+                    FROM spare_part 
+                    WHERE product_name ILIKE '%{keyword}%' 
+                    OR description ILIKE '%{keyword}%'
+                ''',
+                'work_schedule': '''
+                    SELECT customer, detail, service_group,
+                           CASE WHEN job_description_pm THEN 'PM'
+                                WHEN job_description_replacement THEN 'Replacement'
+                                ELSE 'Other' END as job_type
+                    FROM work_force 
+                    WHERE date = '{date}'
+                ''',
+                'sales_analysis': '''
+                    SELECT 
+                        COUNT(*) as total_jobs,
+                        SUM(service_contact_) as total_revenue,
+                        AVG(service_contact_) as avg_job_value
+                    FROM sales{year}
+                    WHERE service_contact_ > 0
+                '''
+            }
         }
         
         self.cache_timestamps = {}
         self.cache_duration = 1800  # 30 นาที
         
-        logger.info("🧠 Fixed Intelligent Schema Discovery system initialized")
+        logger.info("🧠 HVAC Intelligent Schema Discovery system initialized")
     
     async def get_contextual_schema(self, question: str, tenant_id: str) -> Dict[str, Any]:
-        """🎯 Main function - Fixed version"""
+        """🎯 Main function - สำหรับธุรกิจ HVAC"""
         
-        # ขั้นตอนที่ 1: วิเคราะห์คำถาม
-        question_analysis = self._analyze_question_deeply(question)
-        logger.info(f"🔍 Question analysis result: {question_analysis}")
+        # ขั้นตอนที่ 1: วิเคราะห์คำถามตามธุรกิจ HVAC
+        question_analysis = self._analyze_hvac_question_deeply(question)
+        logger.info(f"🔍 HVAC Question analysis: {question_analysis}")
         
-        # ขั้นตอนที่ 2: เตรียมข้อมูลที่จำเป็น
-        required_data = await self._gather_required_data(tenant_id, question_analysis)
+        # ขั้นตอนที่ 2: เตรียมข้อมูลที่จำเป็นสำหรับ HVAC
+        required_data = await self._gather_hvac_required_data(tenant_id, question_analysis)
         
-        # ขั้นตอนที่ 3: สร้าง schema context
-        contextual_schema = self._build_intelligent_context(question_analysis, required_data, tenant_id)
+        # ขั้นตอนที่ 3: สร้าง schema context สำหรับ HVAC
+        contextual_schema = self._build_hvac_intelligent_context(question_analysis, required_data, tenant_id)
         
         return contextual_schema
     
-    def _analyze_question_deeply(self, question: str) -> Dict[str, Any]:
-        """🔍 Fixed question analysis"""
+    def _analyze_hvac_question_deeply(self, question: str) -> Dict[str, Any]:
+        """🔍 วิเคราะห์คำถามเชิงลึกสำหรับธุรกิจ HVAC"""
         
         question_lower = question.lower()
         
         analysis_result = {
             'question_type': 'unknown',
-            'main_entities': [],
-            'specific_keywords': [],
-            'needs_relationships': False,
-            'needs_counting': False,
-            'needs_filtering': False,
+            'hvac_entities': [],
+            'target_tables': [],
+            'business_context': '',
+            'time_range': None,
+            'customer_mentioned': None,
+            'brand_mentioned': [],
+            'service_type': None,
+            'needs_aggregation': False,
             'confidence_level': 0.0
         }
         
-        # วิเคราะห์ประเภทคำถาม
-        if any(word in question_lower for word in ['กี่คน', 'จำนวน', 'นับ', 'how many', 'count']):
+        # วิเคราะห์ประเภทคำถามหลัก
+        if any(word in question_lower for word in ['จำนวน', 'กี่', 'count', 'นับ']):
             analysis_result['question_type'] = 'counting'
-            analysis_result['needs_counting'] = True
-            analysis_result['confidence_level'] += 0.3
-        
-        elif any(word in question_lower for word in ['ใคร', 'รายชื่อ', 'แสดง', 'list', 'show', 'who']):
-            analysis_result['question_type'] = 'listing'
-            analysis_result['confidence_level'] += 0.3
-        
-        elif any(word in question_lower for word in ['รับผิดชอบ', 'ทำงาน', 'assigned', 'working', 'responsible']):
-            analysis_result['question_type'] = 'relationship'
-            analysis_result['needs_relationships'] = True
+            analysis_result['needs_aggregation'] = True
             analysis_result['confidence_level'] += 0.4
         
-        # วิเคราะห์ entities หลัก
-        if any(word in question_lower for word in ['แผนก', 'department', 'ฝ่าย']):
-            analysis_result['main_entities'].append('departments')
-            analysis_result['confidence_level'] += 0.2
-            
-            # หาคำสำคัญเฉพาะสำหรับแผนก
-            if any(keyword in question_lower for keyword in ['it', 'ไอที', 'เทคโนโลยี', 'tempnology', 'information']):
-                analysis_result['specific_keywords'].append('department_it')
+        elif any(word in question_lower for word in ['ราคา', 'price', 'อะไหล่', 'spare']):
+            analysis_result['question_type'] = 'spare_parts_inquiry'
+            analysis_result['target_tables'] = ['spare_part', 'spare_part2']
+            analysis_result['confidence_level'] += 0.4
         
-        if any(word in question_lower for word in ['ตำแหน่ง', 'position', 'งาน', 'job']):
-            analysis_result['main_entities'].append('positions')
-            analysis_result['confidence_level'] += 0.2
-            
-            # หาคำสำคัญเฉพาะสำหรับตำแหน่ง
-            position_keywords = ['developer', 'frontend', 'backend', 'designer', 'manager']
-            for keyword in position_keywords:
-                if keyword in question_lower:
-                    analysis_result['specific_keywords'].append(f'position_{keyword}')
+        elif any(word in question_lower for word in ['ประวัติ', 'history', 'ย้อนหลัง', 'มีการ']):
+            analysis_result['question_type'] = 'customer_history'
+            analysis_result['target_tables'] = ['sales2024', 'sales2023', 'sales2022']
+            analysis_result['confidence_level'] += 0.4
         
-        if any(word in question_lower for word in ['โปรเจค', 'project', 'งาน', 'ระบบ']):
-            analysis_result['main_entities'].append('projects')
-            analysis_result['confidence_level'] += 0.2
+        elif any(word in question_lower for word in ['แผนงาน', 'schedule', 'วันที่', 'งาน']):
+            analysis_result['question_type'] = 'work_schedule'
+            analysis_result['target_tables'] = ['work_force']
+            analysis_result['confidence_level'] += 0.4
         
-        # วิเคราะห์ความต้องการ filtering
-        if any(word in question_lower for word in ['ที่', 'ใน', 'ของ', 'where', 'in', 'with']):
-            analysis_result['needs_filtering'] = True
+        elif any(word in question_lower for word in ['ยอดขาย', 'วิเคราะห์', 'รายงาน', 'สรุป']):
+            analysis_result['question_type'] = 'sales_analysis'
+            analysis_result['target_tables'] = ['sales2024', 'sales2023', 'sales2022']
+            analysis_result['needs_aggregation'] = True
+            analysis_result['confidence_level'] += 0.4
+        
+        # วิเคราะห์ช่วงเวลา
+        year_patterns = ['2567', '2568', '2022', '2023', '2024', '2025']
+        for year in year_patterns:
+            if year in question:
+                analysis_result['time_range'] = year
+                if year in ['2567', '2568']:  # แปลงปี พ.ศ. เป็น ค.ศ.
+                    analysis_result['time_range'] = str(int(year) - 543)
+                break
+        
+        # วิเคราะห์การระบุลูกค้า
+        if any(word in question_lower for word in ['บริษัท', 'company']):
+            # พยายามดึงชื่อบริษัทจากคำถาม
+            company_pattern = r'บริษัท\s*([^ม]+?)(?:\s|$)'
+            match = re.search(company_pattern, question)
+            if match:
+                analysis_result['customer_mentioned'] = match.group(1).strip()
+        
+        # วิเคราะห์แบรนด์ที่กล่าวถึง
+        for brand in self.hvac_knowledge_base['business_patterns']['brands']:
+            if brand.lower() in question_lower:
+                analysis_result['brand_mentioned'].append(brand)
+        
+        # วิเคราะห์ประเภทบริการ
+        for service in self.hvac_knowledge_base['business_patterns']['service_types']:
+            if service.lower() in question_lower:
+                analysis_result['service_type'] = service
+                break
+        
+        # กำหนดบริบทธุรกิจ
+        if analysis_result['question_type'] == 'spare_parts_inquiry':
+            analysis_result['business_context'] = 'คำถามเกี่ยวกับอะไหล่และราคา'
+        elif analysis_result['question_type'] == 'customer_history':
+            analysis_result['business_context'] = 'คำถามเกี่ยวกับประวัติลูกค้า'
+        elif analysis_result['question_type'] == 'work_schedule':
+            analysis_result['business_context'] = 'คำถามเกี่ยวกับแผนงานและทีม'
+        elif analysis_result['question_type'] == 'sales_analysis':
+            analysis_result['business_context'] = 'คำถามเกี่ยวกับการวิเคราะห์ยอดขาย'
         
         return analysis_result
     
-    async def _gather_required_data(self, tenant_id: str, analysis: Dict[str, Any]) -> Dict[str, Any]:
-        """📊 Fixed data gathering with proper error handling"""
+    async def _gather_hvac_required_data(self, tenant_id: str, analysis: Dict[str, Any]) -> Dict[str, Any]:
+        """📊 รวบรวมข้อมูลที่จำเป็นสำหรับ HVAC"""
         
         required_data = {}
         
-        # ดึงข้อมูลแผนก หากจำเป็น
-        if 'departments' in analysis['main_entities']:
-            try:
-                required_data['departments'] = await self._get_department_data(tenant_id, analysis)
-            except Exception as e:
-                logger.error(f"Failed to get department data: {e}")
-                required_data['departments'] = self._get_fallback_department_data()
+        try:
+            # ดึงข้อมูลลูกค้าหากจำเป็น
+            if analysis['question_type'] in ['customer_history', 'counting']:
+                required_data['customers'] = await self._get_hvac_customer_data(tenant_id, analysis)
+            
+            # ดึงข้อมูลอะไหล่หากจำเป็น
+            if analysis['question_type'] == 'spare_parts_inquiry':
+                required_data['spare_parts'] = await self._get_spare_parts_data(tenant_id, analysis)
+            
+            # ดึงข้อมูลทีมงานหากจำเป็น
+            if analysis['question_type'] == 'work_schedule':
+                required_data['work_teams'] = await self._get_work_team_data(tenant_id, analysis)
+            
+            # ดึงข้อมูลสถิติการขายหากจำเป็น
+            if analysis['question_type'] == 'sales_analysis':
+                required_data['sales_stats'] = await self._get_sales_statistics(tenant_id, analysis)
         
-        # ดึงข้อมูลตำแหน่ง หากจำเป็น
-        if 'positions' in analysis['main_entities']:
-            try:
-                required_data['positions'] = await self._get_position_data(tenant_id, analysis)
-            except Exception as e:
-                logger.error(f"Failed to get position data: {e}")
-                required_data['positions'] = self._get_fallback_position_data()
-        
-        # ดึงข้อมูลโปรเจค หากจำเป็น - 🆕 Fixed
-        if 'projects' in analysis['main_entities']:
-            try:
-                required_data['projects'] = await self._get_project_data(tenant_id, analysis)
-            except Exception as e:
-                logger.error(f"Failed to get project data: {e}")
-                required_data['projects'] = self._get_fallback_project_data()
-        
-        # ดึงข้อมูลความสัมพันธ์ หากจำเป็น
-        if analysis['needs_relationships']:
-            try:
-                required_data['relationships'] = await self._get_relationship_patterns(tenant_id)
-            except Exception as e:
-                logger.error(f"Failed to get relationship data: {e}")
-                required_data['relationships'] = {'has_relationships': False}
+        except Exception as e:
+            logger.error(f"Failed to gather HVAC required data: {e}")
+            required_data = self._get_hvac_fallback_data()
         
         return required_data
     
-    async def _get_department_data(self, tenant_id: str, analysis: Dict[str, Any]) -> Dict[str, Any]:
-        """🏢 Fixed department data fetching"""
-        
-        cache_key = f"{tenant_id}_departments"
-        if self._is_cache_valid(cache_key):
-            logger.info(f"📊 Using cached department data for {tenant_id}")
-            return self.learned_schemas['departments'][tenant_id]
+    async def _get_hvac_customer_data(self, tenant_id: str, analysis: Dict[str, Any]) -> Dict[str, Any]:
+        """👥 ดึงข้อมูลลูกค้าสำหรับ HVAC"""
         
         try:
-            # 🔧 Fixed: ใช้ _get_database_connection แทน get_database_connection
-            conn = self.db_handler._get_database_connection(tenant_id)
+            conn = self.db_handler.get_database_connection(tenant_id)
             cursor = conn.cursor()
             
-            department_data = {
-                'all_departments': [],
-                'relevant_departments': [],
-                'department_stats': {}
-            }
-            
-            # ดึงแผนกทั้งหมดพร้อมจำนวนพนักงาน
+            # ดึงรายชื่อลูกค้าที่ไม่ซ้ำ
             cursor.execute("""
-                SELECT department, COUNT(*) as employee_count, AVG(salary) as avg_salary
-                FROM employees 
-                GROUP BY department 
-                ORDER BY employee_count DESC
+                SELECT DISTINCT customer_name 
+                FROM sales2024 
+                WHERE customer_name IS NOT NULL 
+                AND customer_name != ''
+                ORDER BY customer_name
+                LIMIT 50
             """)
             
-            for row in cursor.fetchall():
-                dept_name, count, avg_salary = row
-                department_data['all_departments'].append(dept_name)
-                department_data['department_stats'][dept_name] = {
-                    'employee_count': count,
-                    'avg_salary': float(avg_salary) if avg_salary else 0
-                }
-            
-            # หากมี keyword เฉพาะ ให้หาแผนกที่เกี่ยวข้อง
-            if analysis['specific_keywords']:
-                for keyword in analysis['specific_keywords']:
-                    if keyword.startswith('department_'):
-                        dept_type = keyword.replace('department_', '')
-                        relevant_depts = self._find_matching_departments(
-                            department_data['all_departments'], dept_type
-                        )
-                        department_data['relevant_departments'].extend(relevant_depts)
+            customers = [row[0] for row in cursor.fetchall()]
             
             cursor.close()
             conn.close()
             
-            # บันทึกลง cache
-            self.learned_schemas['departments'][tenant_id] = department_data
-            self.cache_timestamps[cache_key] = time.time()
-            
-            logger.info(f"✅ Loaded department data for {tenant_id}: {len(department_data['all_departments'])} departments")
-            return department_data
-            
-        except Exception as e:
-            logger.error(f"❌ Failed to get department data for {tenant_id}: {e}")
-            return self._get_fallback_department_data()
-    
-    async def _get_position_data(self, tenant_id: str, analysis: Dict[str, Any]) -> Dict[str, Any]:
-        """👔 Fixed position data fetching"""
-        
-        cache_key = f"{tenant_id}_positions"
-        if self._is_cache_valid(cache_key):
-            return self.learned_schemas['positions'][tenant_id]
-        
-        try:
-            # 🔧 Fixed: ใช้ _get_database_connection
-            conn = self.db_handler._get_database_connection(tenant_id)
-            cursor = conn.cursor()
-            
-            position_data = {
-                'all_positions': [],
-                'relevant_positions': [],
-                'position_stats': {}
+            return {
+                'all_customers': customers,
+                'customer_count': len(customers),
+                'has_customer_data': len(customers) > 0
             }
             
-            # ดึงตำแหน่งทั้งหมดพร้อมข้อมูลสถิติ
+        except Exception as e:
+            logger.error(f"Failed to get customer data: {e}")
+            return {'all_customers': [], 'customer_count': 0, 'has_customer_data': False}
+    
+    async def _get_spare_parts_data(self, tenant_id: str, analysis: Dict[str, Any]) -> Dict[str, Any]:
+        """🔧 ดึงข้อมูลอะไหล่"""
+        
+        try:
+            conn = self.db_handler.get_database_connection(tenant_id)
+            cursor = conn.cursor()
+            
+            # ดึงประเภทอะไหล่และแบรนด์
             cursor.execute("""
-                SELECT position, COUNT(*) as position_count, 
-                       AVG(salary) as avg_salary, department
-                FROM employees 
-                GROUP BY position, department 
-                ORDER BY position_count DESC
+                SELECT DISTINCT 
+                    CASE 
+                        WHEN product_name ILIKE '%MOTOR%' THEN 'MOTOR'
+                        WHEN product_name ILIKE '%BOARD%' THEN 'CIRCUIT_BOARD'
+                        WHEN product_name ILIKE '%TRANSFORMER%' THEN 'TRANSFORMER'
+                        WHEN product_name ILIKE '%FAN%' THEN 'FAN'
+                        ELSE 'OTHER'
+                    END as part_category,
+                    product_name
+                FROM spare_part 
+                WHERE product_name IS NOT NULL
+                LIMIT 30
             """)
             
-            for row in cursor.fetchall():
-                position, count, avg_salary, department = row
-                if position not in position_data['all_positions']:
-                    position_data['all_positions'].append(position)
-                
-                position_data['position_stats'][position] = {
-                    'count': count,
-                    'avg_salary': float(avg_salary) if avg_salary else 0,
-                    'department': department
-                }
-            
-            # หากมี keyword เฉพาะ ให้หาตำแหน่งที่เกี่ยวข้อง
-            if analysis['specific_keywords']:
-                for keyword in analysis['specific_keywords']:
-                    if keyword.startswith('position_'):
-                        pos_type = keyword.replace('position_', '')
-                        relevant_positions = self._find_matching_positions(
-                            position_data['all_positions'], pos_type
-                        )
-                        position_data['relevant_positions'].extend(relevant_positions)
+            parts_data = cursor.fetchall()
             
             cursor.close()
             conn.close()
             
-            # บันทึกลง cache
-            self.learned_schemas['positions'][tenant_id] = position_data
-            self.cache_timestamps[cache_key] = time.time()
+            categories = list(set([row[0] for row in parts_data]))
+            sample_parts = [row[1] for row in parts_data[:10]]
             
-            return position_data
-            
-        except Exception as e:
-            logger.error(f"❌ Failed to get position data for {tenant_id}: {e}")
-            return self._get_fallback_position_data()
-    
-    async def _get_project_data(self, tenant_id: str, analysis: Dict[str, Any]) -> Dict[str, Any]:
-        """📋 🆕 Added missing project data method"""
-        
-        cache_key = f"{tenant_id}_projects"
-        if self._is_cache_valid(cache_key):
-            return self.learned_schemas['projects'][tenant_id]
-        
-        try:
-            conn = self.db_handler._get_database_connection(tenant_id)
-            cursor = conn.cursor()
-            
-            project_data = {
-                'all_projects': [],
-                'project_stats': {}
+            return {
+                'part_categories': categories,
+                'sample_parts': sample_parts,
+                'has_parts_data': len(parts_data) > 0
             }
             
-            # ดึงโปรเจคทั้งหมด
+        except Exception as e:
+            logger.error(f"Failed to get spare parts data: {e}")
+            return {'part_categories': [], 'sample_parts': [], 'has_parts_data': False}
+    
+    async def _get_work_team_data(self, tenant_id: str, analysis: Dict[str, Any]) -> Dict[str, Any]:
+        """👷 ดึงข้อมูลทีมงาน"""
+        
+        try:
+            conn = self.db_handler.get_database_connection(tenant_id)
+            cursor = conn.cursor()
+            
+            # ดึงชื่อทีมและประเภทงาน
             cursor.execute("""
-                SELECT name, client, budget, status
-                FROM projects 
-                ORDER BY budget DESC
+                SELECT DISTINCT service_group
+                FROM work_force 
+                WHERE service_group IS NOT NULL 
+                AND service_group != ''
+                ORDER BY service_group
                 LIMIT 20
             """)
             
-            for row in cursor.fetchall():
-                project_name, client, budget, status = row
-                project_data['all_projects'].append(project_name)
-                project_data['project_stats'][project_name] = {
-                    'client': client,
-                    'budget': float(budget) if budget else 0,
-                    'status': status
-                }
+            teams = [row[0] for row in cursor.fetchall()]
             
             cursor.close()
             conn.close()
             
-            # บันทึกลง cache
-            self.learned_schemas['projects'][tenant_id] = project_data
-            self.cache_timestamps[cache_key] = time.time()
-            
-            return project_data
-            
-        except Exception as e:
-            logger.error(f"❌ Failed to get project data for {tenant_id}: {e}")
-            return self._get_fallback_project_data()
-    
-    async def _get_relationship_patterns(self, tenant_id: str) -> Dict[str, Any]:
-        """🤝 Fixed relationship data fetching"""
-        
-        cache_key = f"{tenant_id}_relationships"
-        if self._is_cache_valid(cache_key):
-            return self.learned_schemas['relationships'][tenant_id]
-        
-        try:
-            conn = self.db_handler._get_database_connection(tenant_id)
-            cursor = conn.cursor()
-            
-            relationship_data = {
-                'employee_project_count': 0,
-                'unique_roles': [],
-                'allocation_patterns': {},
-                'has_relationships': False
+            return {
+                'available_teams': teams,
+                'team_count': len(teams),
+                'has_team_data': len(teams) > 0
             }
             
-            # ตรวจสอบว่ามีความสัมพันธ์หรือไม่
-            cursor.execute("SELECT COUNT(*) FROM employee_projects")
-            count = cursor.fetchone()[0]
-            relationship_data['employee_project_count'] = count
-            relationship_data['has_relationships'] = count > 0
+        except Exception as e:
+            logger.error(f"Failed to get work team data: {e}")
+            return {'available_teams': [], 'team_count': 0, 'has_team_data': False}
+    
+    async def _get_sales_statistics(self, tenant_id: str, analysis: Dict[str, Any]) -> Dict[str, Any]:
+        """📊 ดึงสถิติการขาย"""
+        
+        try:
+            conn = self.db_handler.get_database_connection(tenant_id)
+            cursor = conn.cursor()
             
-            if count > 0:
-                # ดึงบทบาทที่มีอยู่
-                cursor.execute("SELECT DISTINCT role FROM employee_projects ORDER BY role")
-                relationship_data['unique_roles'] = [row[0] for row in cursor.fetchall()]
+            # ดึงสถิติพื้นฐาน
+            cursor.execute("""
+                SELECT 
+                    COUNT(*) as job_count,
+                    COUNT(DISTINCT customer_name) as customer_count,
+                    AVG(service_contact_::numeric) as avg_value,
+                    SUM(service_contact_::numeric) as total_value
+                FROM sales2024 
+                WHERE service_contact_::numeric > 0
+            """)
+            
+            stats = cursor.fetchone()
             
             cursor.close()
             conn.close()
             
-            # บันทึกลง cache
-            self.learned_schemas['relationships'][tenant_id] = relationship_data
-            self.cache_timestamps[cache_key] = time.time()
-            
-            return relationship_data
+            return {
+                'total_jobs': stats[0] if stats else 0,
+                'unique_customers': stats[1] if stats else 0,
+                'average_job_value': float(stats[2]) if stats and stats[2] else 0,
+                'total_revenue': float(stats[3]) if stats and stats[3] else 0,
+                'has_sales_data': stats and stats[0] > 0
+            }
             
         except Exception as e:
-            logger.error(f"❌ Failed to get relationship data for {tenant_id}: {e}")
-            return {'has_relationships': False, 'employee_project_count': 0}
+            logger.error(f"Failed to get sales statistics: {e}")
+            return {'total_jobs': 0, 'unique_customers': 0, 'average_job_value': 0, 'total_revenue': 0, 'has_sales_data': False}
     
-    def _find_matching_departments(self, all_departments: List[str], dept_type: str) -> List[str]:
-        """🔍 หาแผนกที่ตรงกับ keyword"""
-        
-        matching_departments = []
-        
-        patterns = {
-            'it': ['information', 'tempnology', 'it', 'ไอที', 'เทคโนโลยี'],
-            'sales': ['sales', 'marketing', 'ขาย', 'การตลาด'],
-            'management': ['management', 'จัดการ', 'บริหาร', 'ผู้บริหาร']
+    def _get_hvac_fallback_data(self) -> Dict[str, Any]:
+        """🔄 ข้อมูล fallback สำหรับ HVAC"""
+        return {
+            'customers': {'all_customers': [], 'has_customer_data': False},
+            'spare_parts': {'part_categories': ['MOTOR', 'CIRCUIT_BOARD', 'FAN'], 'has_parts_data': True},
+            'work_teams': {'available_teams': ['ทีมช่าง A', 'ทีมช่าง B'], 'has_team_data': True},
+            'sales_stats': {'has_sales_data': False}
         }
-        
-        if dept_type in patterns:
-            search_patterns = patterns[dept_type]
-            
-            for department in all_departments:
-                dept_lower = department.lower()
-                if any(pattern in dept_lower for pattern in search_patterns):
-                    matching_departments.append(department)
-        
-        return matching_departments
     
-    def _find_matching_positions(self, all_positions: List[str], pos_type: str) -> List[str]:
-        """🔍 หาตำแหน่งที่ตรงกับ keyword"""
-        
-        matching_positions = []
-        
-        patterns = {
-            'developer': ['developer', 'dev', 'programmer', 'โปรแกรม', 'พัฒนา'],
-            'frontend': ['frontend', 'front-end', 'หน้าบ้าน'],
-            'backend': ['backend', 'back-end', 'หลังบ้าน'],
-            'designer': ['designer', 'design', 'ออกแบบ', 'ดีไซน์'],
-            'manager': ['manager', 'ผจก', 'ผู้จัดการ', 'หัวหน้า']
-        }
-        
-        if pos_type in patterns:
-            search_patterns = patterns[pos_type]
-            
-            for position in all_positions:
-                pos_lower = position.lower()
-                if any(pattern in pos_lower for pattern in search_patterns):
-                    matching_positions.append(position)
-        
-        return matching_positions
-    
-    def _build_intelligent_context(self, analysis: Dict[str, Any], 
-                                 required_data: Dict[str, Any], tenant_id: str) -> Dict[str, Any]:
-        """🎯 สร้าง context ที่ชาญฉลาด"""
+    def _build_hvac_intelligent_context(self, analysis: Dict[str, Any], 
+                                       required_data: Dict[str, Any], tenant_id: str) -> Dict[str, Any]:
+        """🎯 สร้าง context ที่ชาญฉลาดสำหรับ HVAC"""
         
         context = {
-            'schema_type': 'intelligent_contextual',
+            'schema_type': 'hvac_intelligent_contextual',
             'question_analysis': analysis,
             'discovered_at': datetime.now().isoformat(),
             'tenant_id': tenant_id,
-            'guidance': {},
-            'specific_data': {}
+            'hvac_guidance': {},
+            'business_data': {},
+            'query_hints': []
         }
         
-        # สร้างคำแนะนำเฉพาะ
+        # สร้างคำแนะนำเฉพาะสำหรับแต่ละประเภทคำถาม
         if analysis['question_type'] == 'counting':
-            context['guidance']['query_type'] = 'COUNT query required'
-            context['guidance']['sql_hints'] = [
-                'ใช้ COUNT(*) สำหรับนับจำนวน',
-                'ใช้ GROUP BY หากต้องการแบ่งกลุ่ม',
-                'ไม่ต้อง JOIN หากข้อมูลอยู่ในตาราง employees เท่านั้น'
-            ]
+            context['hvac_guidance'] = {
+                'query_type': 'COUNT aggregation for HVAC business',
+                'sql_hints': [
+                    'ใช้ COUNT(DISTINCT customer_name) สำหรับนับลูกค้า',
+                    'ใช้ COUNT(*) สำหรับนับจำนวนงาน',
+                    'ระวังข้อมูลซ้ำในตารางลูกค้า'
+                ],
+                'recommended_tables': ['sales2024']
+            }
         
-        elif analysis['question_type'] == 'relationship':
-            context['guidance']['query_type'] = 'JOIN query required'
-            context['guidance']['sql_hints'] = [
-                'ต้องใช้ JOIN ระหว่าง employees, employee_projects, และ projects',
-                'ใช้ e.id = ep.employee_id และ ep.project_id = p.id',
-                'เลือกฟิลด์ที่เหมาะสม: e.name, p.name, ep.role'
-            ]
+        elif analysis['question_type'] == 'spare_parts_inquiry':
+            context['hvac_guidance'] = {
+                'query_type': 'Spare parts search and pricing',
+                'sql_hints': [
+                    'ค้นหาใน product_name และ description',
+                    'ใช้ ILIKE สำหรับการค้นหาที่ไม่สนใจตัวใหญ่เล็ก',
+                    'รวมข้อมูลจาก spare_part และ spare_part2 หากจำเป็น'
+                ],
+                'recommended_tables': ['spare_part', 'spare_part2']
+            }
         
-        # รวมข้อมูลเฉพาะที่จำเป็น
-        if 'departments' in required_data:
-            dept_data = required_data['departments']
-            if dept_data['relevant_departments']:
-                context['specific_data']['departments'] = dept_data['relevant_departments']
-            else:
-                context['specific_data']['departments'] = dept_data['all_departments']
+        elif analysis['question_type'] == 'customer_history':
+            context['hvac_guidance'] = {
+                'query_type': 'Customer service history across years',
+                'sql_hints': [
+                    'ใช้ UNION ALL เพื่อรวมข้อมูลหลายปี',
+                    'ค้นหาลูกค้าด้วย ILIKE \'%customer_name%\'',
+                    'แสดง job_no, description, และ service_contact_'
+                ],
+                'recommended_tables': analysis['target_tables']
+            }
         
-        if 'positions' in required_data:
-            pos_data = required_data['positions']
-            if pos_data['relevant_positions']:
-                context['specific_data']['positions'] = pos_data['relevant_positions']
-            else:
-                context['specific_data']['positions'] = pos_data['all_positions'][:10]
+        elif analysis['question_type'] == 'work_schedule':
+            context['hvac_guidance'] = {
+                'query_type': 'Work planning and team assignment',
+                'sql_hints': [
+                    'ใช้ CASE WHEN เพื่อแปลง boolean เป็นประเภทงาน',
+                    'กรองตามวันที่หากระบุ',
+                    'แสดงข้อมูลทีมงานและรายละเอียดงาน'
+                ],
+                'recommended_tables': ['work_force']
+            }
         
-        if 'relationships' in required_data:
-            rel_data = required_data['relationships']
-            context['specific_data']['has_employee_projects'] = rel_data['has_relationships']
-            if rel_data['has_relationships']:
-                context['specific_data']['available_roles'] = rel_data['unique_roles']
+        elif analysis['question_type'] == 'sales_analysis':
+            context['hvac_guidance'] = {
+                'query_type': 'Sales performance analysis',
+                'sql_hints': [
+                    'ใช้ SUM(service_contact_) สำหรับยอดขาย',
+                    'ใช้ GROUP BY เพื่อแบ่งตามปี/เดือน',
+                    'กรองข้อมูลที่ service_contact_ > 0'
+                ],
+                'recommended_tables': analysis['target_tables']
+            }
+        
+        # เพิ่มข้อมูลธุรกิจที่เกี่ยวข้อง
+        if 'customers' in required_data and required_data['customers']['has_customer_data']:
+            context['business_data']['available_customers'] = required_data['customers']['all_customers'][:10]
+        
+        if 'spare_parts' in required_data and required_data['spare_parts']['has_parts_data']:
+            context['business_data']['part_categories'] = required_data['spare_parts']['part_categories']
+        
+        if 'work_teams' in required_data and required_data['work_teams']['has_team_data']:
+            context['business_data']['available_teams'] = required_data['work_teams']['available_teams']
+        
+        # เพิ่ม query hints เฉพาะ
+        if analysis['time_range']:
+            context['query_hints'].append(f"เน้นข้อมูลปี {analysis['time_range']}")
+        
+        if analysis['customer_mentioned']:
+            context['query_hints'].append(f"เน้นลูกค้า: {analysis['customer_mentioned']}")
+        
+        if analysis['brand_mentioned']:
+            context['query_hints'].append(f"เน้นแบรนด์: {', '.join(analysis['brand_mentioned'])}")
         
         return context
-    
-    def _is_cache_valid(self, cache_key: str) -> bool:
-        """⏰ ตรวจสอบ cache validity"""
-        if cache_key not in self.cache_timestamps:
-            return False
-        
-        cache_age = time.time() - self.cache_timestamps[cache_key]
-        return cache_age < self.cache_duration
-    
-    def _get_fallback_department_data(self) -> Dict[str, Any]:
-        """🔄 Fallback department data"""
-        logger.warning("⚠️ Using fallback department data")
-        return {
-            'all_departments': ['Information tempnology', 'Sales & Marketing', 'Management'],
-            'relevant_departments': [],
-            'department_stats': {}
-        }
-    
-    def _get_fallback_position_data(self) -> Dict[str, Any]:
-        """🔄 Fallback position data"""
-        logger.warning("⚠️ Using fallback position data")
-        return {
-            'all_positions': ['Frontend Developer', 'Backend Developer', 'Designer', 'Manager'],
-            'relevant_positions': [],
-            'position_stats': {}
-        }
-    
-    def _get_fallback_project_data(self) -> Dict[str, Any]:
-        """🔄 🆕 Added fallback project data"""
-        logger.warning("⚠️ Using fallback project data")
-        return {
-            'all_projects': ['CRM System', 'Mobile App', 'Website'],
-            'project_stats': {}
-        }
 
 
 class IntelligentPromptBuilder:
-    """🎯 Fixed Prompt Builder"""
+    """🎨 สร้าง Prompt อัจฉริยะสำหรับ HVAC"""
     
     def __init__(self, tenant_configs):
         self.tenant_configs = tenant_configs
-        logger.info("🎯 Fixed Intelligent Prompt Builder initialized")
+        logger.info("🎨 HVAC Intelligent Prompt Builder initialized")
     
     def build_contextual_prompt(self, question: str, tenant_id: str, 
-                              intelligent_context: Dict[str, Any]) -> str:
-        """🎯 Fixed contextual prompt building"""
+                              intelligence_context: Dict[str, Any]) -> str:
+        """🎯 สร้าง prompt ที่ชาญฉลาดสำหรับ HVAC"""
         
-        config = self.tenant_configs[tenant_id]
-        analysis = intelligent_context.get('question_analysis', {})
-        guidance = intelligent_context.get('guidance', {})
-        specific_data = intelligent_context.get('specific_data', {})
+        config = self.tenant_configs.get(tenant_id)
+        if not config:
+            return self._create_fallback_prompt(question, tenant_id)
+        
+        analysis = intelligence_context.get('question_analysis', {})
+        guidance = intelligence_context.get('hvac_guidance', {})
+        business_data = intelligence_context.get('business_data', {})
         
         prompt_sections = []
         
-        # ส่วนที่ 1: บริบทบริษัท
-        prompt_sections.append(f"คุณคือ PostgreSQL Expert สำหรับ {config.name}")
+        # ส่วนที่ 1: บริบทบริษัท HVAC
+        prompt_sections.append(f"คุณคือ PostgreSQL Expert สำหรับธุรกิจ HVAC - {config.name}")
         prompt_sections.append("")
         
-        # ส่วนที่ 2: บริบทธุรกิจ
-        business_context = self._get_business_context(tenant_id)
-        prompt_sections.append(business_context)
+        # ส่วนที่ 2: บริบทธุรกิจ HVAC
+        hvac_context = self._get_hvac_business_context(tenant_id)
+        prompt_sections.append(hvac_context)
         prompt_sections.append("")
         
-        # ส่วนที่ 3: โครงสร้างฐานข้อมูล
-        prompt_sections.append("📊 โครงสร้างฐานข้อมูล:")
-        prompt_sections.append("• employees: id, name, department, position, salary, hire_date, email")
-        prompt_sections.append("• projects: id, name, client, budget, status, start_date, end_date, temp_stack")
-        prompt_sections.append("• employee_projects: employee_id, project_id, role, allocation")
+        # ส่วนที่ 3: โครงสร้างฐานข้อมูล HVAC
+        prompt_sections.append("📊 โครงสร้างฐานข้อมูล HVAC:")
+        prompt_sections.append("• sales2024, sales2023, sales2022, sales2025: ข้อมูลงานบริการรายปี")
+        prompt_sections.append("  - job_no: หมายเลขงาน (SV.ปี-เดือน-ลำดับ-ประเภท)")
+        prompt_sections.append("  - customer_name: ชื่อลูกค้าเต็ม") 
+        prompt_sections.append("  - description: รายละเอียดงานบริการ")
+        prompt_sections.append("  - service_contact_: มูลค่างาน (บาท)")
+        prompt_sections.append("• spare_part, spare_part2: คลังอะไหล่")
+        prompt_sections.append("  - product_code: รหัสอะไหล่, product_name: ชื่ออะไหล่")
+        prompt_sections.append("  - unit_price: ราคาต่อหน่วย, balance: จำนวนคงเหลือ")
+        prompt_sections.append("• work_force: การจัดทีมงาน")
+        prompt_sections.append("  - date: วันที่ทำงาน, customer: ลูกค้า, service_group: ทีมช่าง")
         prompt_sections.append("")
         
-        # ส่วนที่ 4: ข้อมูลเฉพาะที่เกี่ยวข้อง
-        if specific_data:
-            prompt_sections.append("🎯 ข้อมูลจริงที่เกี่ยวข้องกับคำถามนี้:")
+        # ส่วนที่ 4: ข้อมูลธุรกิจที่เกี่ยวข้อง
+        if business_data:
+            prompt_sections.append("🎯 ข้อมูลธุรกิจที่เกี่ยวข้อง:")
             
-            if 'departments' in specific_data and specific_data['departments']:
-                dept_list = "', '".join(specific_data['departments'])
-                prompt_sections.append(f"🏢 แผนกที่มีอยู่จริง: '{dept_list}'")
+            if 'available_customers' in business_data:
+                customers = "', '".join(business_data['available_customers'][:5])
+                prompt_sections.append(f"👥 ลูกค้าตัวอย่าง: '{customers}'")
             
-            if 'positions' in specific_data and specific_data['positions']:
-                pos_list = "', '".join(specific_data['positions'][:8])
-                prompt_sections.append(f"👔 ตำแหน่งที่เกี่ยวข้อง: '{pos_list}'")
+            if 'part_categories' in business_data:
+                categories = "', '".join(business_data['part_categories'])
+                prompt_sections.append(f"🔧 ประเภทอะไหล่: '{categories}'")
             
-            if 'has_employee_projects' in specific_data:
-                if specific_data['has_employee_projects']:
-                    prompt_sections.append("🤝 มีข้อมูลความสัมพันธ์พนักงาน-โปรเจค")
-                    if 'available_roles' in specific_data:
-                        roles = "', '".join(specific_data['available_roles'][:5])
-                        prompt_sections.append(f"🎭 บทบาทที่มี: '{roles}'")
-                else:
-                    prompt_sections.append("⚠️ ไม่มีข้อมูลความสัมพันธ์พนักงาน-โปรเจค")
+            if 'available_teams' in business_data:
+                teams = "', '".join(business_data['available_teams'][:3])
+                prompt_sections.append(f"👷 ทีมงาน: '{teams}'")
             
             prompt_sections.append("")
         
-        # ส่วนที่ 5: คำแนะนำเฉพาะ
+        # ส่วนที่ 5: คำแนะนำเฉพาะ HVAC
         if guidance:
             prompt_sections.append("🎯 คำแนะนำเฉพาะสำหรับคำถามนี้:")
             
@@ -549,92 +554,133 @@ class IntelligentPromptBuilder:
                 for hint in guidance['sql_hints']:
                     prompt_sections.append(f"• {hint}")
             
+            if 'recommended_tables' in guidance:
+                tables = "', '".join(guidance['recommended_tables'])
+                prompt_sections.append(f"• ตารางที่แนะนำ: '{tables}'")
+            
             prompt_sections.append("")
         
-        # ส่วนที่ 6: กฎสำคัญ
-        prompt_sections.append("🔧 กฎสำคัญ:")
-        prompt_sections.append("1. ใช้เฉพาะชื่อแผนก/ตำแหน่งที่ระบุข้างบนเท่านั้น")
-        prompt_sections.append("2. ใช้ ILIKE '%keyword%' สำหรับการค้นหา")
-        prompt_sections.append("3. ใช้ LIMIT 20 เสมอ")
-        prompt_sections.append("4. ตรวจสอบ syntax ให้ถูกต้อง")
+        # ส่วนที่ 6: กฎสำคัญสำหรับ HVAC
+        prompt_sections.append("🔧 กฎสำคัญสำหรับธุรกิจ HVAC:")
+        prompt_sections.append("1. ใช้ ILIKE '%keyword%' สำหรับค้นหาลูกค้าและอะไหล่")
+        prompt_sections.append("2. service_contact_ เป็นมูลค่างาน (หน่วย: บาท)")
+        prompt_sections.append("3. ข้อมูลการขายแยกตามปี - เลือกตารางให้ถูกต้อง")
+        prompt_sections.append("4. ใช้ UNION ALL เมื่อต้องการข้อมูลหลายปี")
+        prompt_sections.append("5. product_name ในตาราง spare_part เป็นภาษาอังกฤษ")
+        prompt_sections.append("6. ใช้ LIMIT 20 เสมอ")
         
+        # เพิ่มกฎเฉพาะตามประเภทคำถาม
         if analysis.get('question_type') == 'counting':
-            prompt_sections.append("5. ใช้ COUNT(*) สำหรับการนับ และ GROUP BY สำหรับการแบ่งกลุ่ม")
-        elif analysis.get('question_type') == 'relationship':
-            prompt_sections.append("5. ใช้ JOIN เมื่อต้องการข้อมูลจากหลายตาราง")
-        else:
-            prompt_sections.append("5. หลีกเลี่ยง JOIN หากไม่จำเป็น")
+            prompt_sections.append("7. ใช้ COUNT(DISTINCT customer_name) สำหรับนับลูกค้า")
+        elif analysis.get('question_type') == 'spare_parts_inquiry':
+            prompt_sections.append("7. ค้นหาใน product_name AND description สำหรับความครบถ้วน")
+        elif analysis.get('question_type') == 'customer_history':
+            prompt_sections.append("7. รวมข้อมูลจาก sales2022, sales2023, sales2024 สำหรับประวัติ")
         
         prompt_sections.append("")
         
         # ส่วนที่ 7: คำถามและคำสั่ง
         prompt_sections.append(f"❓ คำถาม: {question}")
         prompt_sections.append("")
-        prompt_sections.append("สร้าง PostgreSQL query ที่ถูกต้องและแม่นยำ:")
+        prompt_sections.append("สร้าง PostgreSQL query ที่เหมาะสมสำหรับธุรกิจ HVAC:")
         
         return "\n".join(prompt_sections)
     
-    def _get_business_context(self, tenant_id: str) -> str:
-        """🏢 Business context"""
+    def _get_hvac_business_context(self, tenant_id: str) -> str:
+        """🏢 Business context สำหรับ HVAC"""
         contexts = {
-            'company-a': """🏢 บริบท: สำนักงานใหญ่ กรุงเทพมฯ - Enterprise Banking & E-commerce
-💰 งบประมาณ: 800K-3M+ บาท | ลูกค้า: ธนาคาร, บริษัทใหญ่""",
+            'company-a': """🔧 บริบท: บริการซ่อมบำรุงระบบทำความเย็น และจำหน่ายอะไหล่
+💰 ลูกค้าหลัก: โรงงานอุตสาหกรรม, โรงแรม, อาคารสำนักงาน, หน่วยงานราชการ
+🛠️ บริการ: PM (Preventive Maintenance), ซ่อมแซม, เปลี่ยนชิ้นส่วน, Overhaul
+🏷️ แบรนด์: Hitachi, Daikin, EuroKlimat, Toyota, Mitsubishi, York, Carrier""",
 
-            'company-b': """🏨 บริบท: สาขาภาคเหนือ เชียงใหม่ - Tourism & Hospitality
-💰 งบประมาณ: 300K-800K บาท | ลูกค้า: โรงแรม, ท่องเที่ยว""",
+            'company-b': """🔧 บริบท: สาขาบริการ HVAC ภาคเหนือ - เชียงใหม่
+💰 ลูกค้าหลัก: โรงแรมท้องถิ่น, โรงงานภาคเหนือ, ห้างสรรพสินค้า
+🛠️ บริการ: PM, ซ่อมเครื่องปรับอากาศ, บริการฉุกเฉิน
+🏷️ เน้นแบรนด์: Daikin, Mitsubishi, Hitachi""",
 
-            'company-c': """🌍 บริบท: International Office - Global Software Solutions
-💰 งบประมาณ: 1M-4M+ USD | ลูกค้า: บริษัทข้ามชาติ"""
+            'company-c': """🔧 บริบท: HVAC International Services - ระดับสากล  
+💰 ลูกค้าหลัก: บริษัทข้ามชาติ, โรงงานอุตสาหกรรมขนาดใหญ่
+🛠️ บริการ: Large scale HVAC systems, Industrial chillers
+🏷️ แบรนด์ระดับสากล: York, Carrier, Trane, McQuay"""
         }
         
         return contexts.get(tenant_id, contexts['company-a'])
-
-
-class EnhancedSchemaIntegration:
-    """🔗 Fixed Integration class"""
-    
-    def __init__(self, database_handler, tenant_configs):
-        self.schema_discovery = IntelligentSchemaDiscovery(database_handler)
-        self.prompt_builder = IntelligentPromptBuilder(tenant_configs)
-        logger.info("🔗 Fixed Enhanced Schema Integration initialized")
-    
-    async def generate_intelligent_sql_prompt(self, question: str, tenant_id: str) -> str:
-        """🎯 Fixed intelligent prompt generation"""
-        
-        try:
-            # ขั้นตอนที่ 1: วิเคราะห์และหาข้อมูล
-            intelligent_context = await self.schema_discovery.get_contextual_schema(question, tenant_id)
-            
-            # ขั้นตอนที่ 2: สร้าง prompt
-            intelligent_prompt = self.prompt_builder.build_contextual_prompt(
-                question, tenant_id, intelligent_context
-            )
-            
-            logger.info(f"✅ Generated intelligent prompt for {tenant_id}: {len(intelligent_prompt)} chars")
-            return intelligent_prompt
-            
-        except Exception as e:
-            logger.error(f"❌ Failed to generate intelligent prompt: {e}")
-            
-            # fallback
-            return self._create_fallback_prompt(question, tenant_id)
     
     def _create_fallback_prompt(self, question: str, tenant_id: str) -> str:
-        """🔄 Fallback prompt"""
+        """🔄 Fallback prompt สำหรับ HVAC"""
         
-        return f"""คุณคือ PostgreSQL Expert
+        return f"""คุณคือ PostgreSQL Expert สำหรับธุรกิจ HVAC Service & Spare Parts
+
+🔧 บริบทธุรกิจ: บริการซ่อมบำรุงระบบทำความเย็นและจำหน่ายอะไหล่
 
 📊 โครงสร้างฐานข้อมูล:
-• employees: id, name, department, position, salary, hire_date, email
-• projects: id, name, client, budget, status, start_date, end_date, temp_stack
-• employee_projects: employee_id, project_id, role, allocation
+• sales2024, sales2023, sales2022, sales2025: ข้อมูลงานบริการ
+• spare_part, spare_part2: คลังอะไหล่
+• work_force: การจัดทีมงาน
 
 🔧 กฎสำคัญ:
-1. ใช้ LIMIT 20
-2. ใช้ ILIKE สำหรับการค้นหา
-3. ตรวจสอบ syntax ให้ถูกต้อง
-4. ใช้ชื่อแผนกจริง: 'Information tempnology' (ไม่ใช่ 'IT')
+1. ใช้ ILIKE '%keyword%' สำหรับการค้นหา
+2. service_contact_ เป็นมูลค่างาน (บาท)
+3. ข้อมูลแยกตามปี - เลือกตารางให้ถูก
+4. ใช้ LIMIT 20 เสมอ
 
 คำถาม: {question}
 
 สร้าง PostgreSQL query:"""
+
+
+class EnhancedSchemaIntegration:
+    """🔗 Integration class สำหรับ HVAC"""
+    
+    def __init__(self, database_handler, tenant_configs):
+        self.schema_discovery = IntelligentSchemaDiscovery(database_handler)
+        self.prompt_builder = IntelligentPromptBuilder(tenant_configs)
+        logger.info("🔗 HVAC Enhanced Schema Integration initialized")
+    
+    async def generate_intelligent_sql_prompt(self, question: str, tenant_id: str) -> str:
+        """🎯 สร้าง intelligent prompt สำหรับ HVAC"""
+        
+        try:
+            # ขั้นตอนที่ 1: วิเคราะห์และหาข้อมูล HVAC
+            hvac_context = await self.schema_discovery.get_contextual_schema(question, tenant_id)
+            
+            # ขั้นตอนที่ 2: สร้าง prompt สำหรับ HVAC
+            hvac_prompt = self.prompt_builder.build_contextual_prompt(
+                question, tenant_id, hvac_context
+            )
+            
+            logger.info(f"✅ Generated HVAC intelligent prompt for {tenant_id}: {len(hvac_prompt)} chars")
+            return hvac_prompt
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to generate HVAC intelligent prompt: {e}")
+            
+            # fallback สำหรับ HVAC
+            return self._create_hvac_fallback_prompt(question, tenant_id)
+    
+    def _create_hvac_fallback_prompt(self, question: str, tenant_id: str) -> str:
+        """🔄 Fallback prompt สำหรับ HVAC"""
+        
+        return f"""คุณคือ PostgreSQL Expert สำหรับธุรกิจ HVAC Service & Spare Parts
+
+🔧 บริบทธุรกิจ: บริการซ่อมบำรุงระบบทำความเย็นและอะไหล่
+
+📊 โครงสร้างฐานข้อมูล:
+• sales2024: ข้อมูลงานบริการปี 2024
+  - job_no: หมายเลขงาน, customer_name: ลูกค้า
+  - description: รายละเอียดงาน, service_contact_: มูลค่า (บาท)
+• spare_part: คลังอะไหล่
+  - product_code: รหัส, product_name: ชื่อ, unit_price: ราคา
+• work_force: ทีมงาน
+  - date: วันที่, customer: ลูกค้า, service_group: ทีม
+
+🔧 กฎสำคัญ:
+1. ใช้ ILIKE '%keyword%' สำหรับการค้นหา
+2. service_contact_ เป็นมูลค่างาน (บาท)  
+3. ใช้ LIMIT 20 เสมอ
+4. ข้อมูลแยกตามปี
+
+คำถาม: {question}
+
+สร้าง PostgreSQL query ที่เหมาะสมสำหรับธุรกิจ HVAC:"""
