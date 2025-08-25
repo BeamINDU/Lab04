@@ -1,5 +1,5 @@
-# refactored_modules/enhanced_postgres_agent_unified_fixed.py
-# 🔧 FIXED: Added missing SQL extraction methods
+# refactored_modules/enhanced_postgres_agent_unified.py
+# 🔧 ปรับปรุงสำหรับธุรกิจ HVAC Service & Spare Parts
 
 import os
 import time
@@ -21,10 +21,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class UnifiedEnhancedPostgresOllamaAgent:
-    """🤖 FIXED: Enhanced PostgreSQL Agent with ALL required methods"""
+    """🤖 Enhanced PostgreSQL Agent สำหรับธุรกิจ HVAC Service & Spare Parts"""
     
     def __init__(self):
-        """🏗️ Initialize unified agent"""
+        """🏗️ Initialize unified agent สำหรับ HVAC"""
         
         # 🔧 Configuration
         self.config_manager = TenantConfigManager()
@@ -43,8 +43,10 @@ class UnifiedEnhancedPostgresOllamaAgent:
         # 📊 Performance tracking
         self.stats = {
             'total_queries': 0,
-            'sql_queries': 0,
-            'conversational_queries': 0,
+            'hvac_queries': 0,
+            'customer_queries': 0,
+            'spare_parts_queries': 0,
+            'service_queries': 0,
             'successful_queries': 0,
             'failed_queries': 0,
             'ai_responses_used': 0,
@@ -56,14 +58,13 @@ class UnifiedEnhancedPostgresOllamaAgent:
         self.schema_cache = {}
         self.cache_ttl = 3600  # 1 hour
         
-        # 🎯 Intent detection keywords
-        self.sql_indicators = {
-            'identification': ['ใครอยู่', 'ใครเป็น', 'ใครทำ', 'who is', 'who are', 'who works'],
-            'listing': ['ใครบ้าง', 'รายชื่อ', 'list', 'แสดง', 'show me', 'display'],
-            'counting': ['กี่คน', 'จำนวน', 'how many', 'count', 'เท่าไร', 'มีกี่'],
-            'searching': ['หา', 'ค้นหา', 'find', 'search', 'ตำแหน่ง', 'position'],
-            'filtering': ['แผนก', 'department', 'ฝ่าย', 'งาน', 'โปรเจค', 'project'],
-            'relationships': ['รับผิดชอบ', 'ทำงาน', 'assigned', 'working on', 'responsible']
+        # 🎯 HVAC Intent detection keywords
+        self.hvac_indicators = {
+            'customer_queries': ['ลูกค้า', 'customer', 'บริษัท', 'จำนวน', 'count', 'ประวัติ', 'history'],
+            'spare_parts_queries': ['อะไหล่', 'spare', 'part', 'ราคา', 'price', 'สต็อก', 'stock', 'คลัง'],
+            'service_queries': ['บริการ', 'service', 'ซ่อม', 'repair', 'บำรุง', 'maintenance', 'pm', 'overhaul'],
+            'work_schedule_queries': ['แผนงาน', 'schedule', 'วันที่', 'date', 'ทีม', 'team', 'ช่าง', 'tempnician'],
+            'sales_analysis': ['ยอดขาย', 'sales', 'วิเคราะห์', 'analysis', 'รายงาน', 'report', 'สรุป', 'summary']
         }
         
         self.conversational_indicators = {
@@ -72,20 +73,43 @@ class UnifiedEnhancedPostgresOllamaAgent:
             'capabilities': ['ทำอะไรได้', 'ช่วยอะไร', 'what can you do']
         }
         
+        # HVAC Business Knowledge (แทน metadata ในฐานข้อมูล)
+        self.hvac_business_knowledge = {
+            'table_info': {
+                'sales2024': 'ข้อมูลงานบริการปี 2024',
+                'sales2023': 'ข้อมูลงานบริการปี 2023',
+                'sales2022': 'ข้อมูลงานบริการปี 2022',
+                'sales2025': 'ข้อมูลงานบริการปี 2025',
+                'spare_part': 'คลังอะไหล่หลัก',
+                'spare_part2': 'คลังอะไหล่สำรอง',
+                'work_force': 'การจัดทีมงานและแผนการทำงาน'
+            },
+            'technical_terms': {
+                'PM': 'Preventive Maintenance',
+                'Chiller': 'เครื่องทำน้ำเย็น',
+                'Compressor': 'คอมเพรสเซอร์',
+                'Overhaul': 'การยกเครื่อง',
+                'Air Cooled': 'ระบายความร้อนด้วยอากาศ',
+                'Water Cooled': 'ระบายความร้อนด้วยน้ำ'
+            },
+            'brands': ['Hitachi', 'Daikin', 'EuroKlimat', 'Toyota', 'Mitsubishi', 'York', 'Carrier']
+        }
+        
         try:
             from .intelligent_schema_discovery import EnhancedSchemaIntegration
             self.schema_integration = EnhancedSchemaIntegration(
-                database_handler=self,  # ส่ง self เพราะมี method _get_database_connection
+                database_handler=self,  # ส่ง self เพราะมี method get_database_connection
                 tenant_configs=self.tenant_configs
             )
             self.intelligent_schema_available = True
-            logger.info("🧠 Intelligent Schema Discovery integrated successfully")
+            logger.info("🧠 HVAC Intelligent Schema Discovery integrated successfully")
         except Exception as e:
-            logger.error(f"❌ Failed to initialize Intelligent Schema Discovery: {e}")
+            logger.error(f"❌ Failed to initialize HVAC Intelligent Schema Discovery: {e}")
             self.schema_integration = None
             self.intelligent_schema_available = False
-            logger.warning("⚠️ Falling back to basic schema discovery")
-        logger.info("🤖 FIXED Unified Enhanced PostgreSQL Agent initialized")
+            logger.warning("⚠️ Falling back to basic HVAC schema discovery")
+        
+        logger.info("🤖 HVAC Enhanced PostgreSQL Agent initialized")
         logger.info(f"🌐 Ollama: {self.ollama_base_url}")
         logger.info(f"🎨 AI Responses: {'Enabled' if self.enable_ai_responses else 'Disabled'}")
         logger.info(f"🏢 Tenants: {list(self.tenant_configs.keys())}")
@@ -95,619 +119,481 @@ class UnifiedEnhancedPostgresOllamaAgent:
     # ========================================================================
     
     async def process_enhanced_question(self, question: str, tenant_id: str) -> Dict[str, Any]:
-        """🎯 MAIN: Process questions with unified logic + AI responses"""
+        """🎯 MAIN: Process questions สำหรับธุรกิจ HVAC"""
         
         if tenant_id not in self.tenant_configs:
-            return self._create_error_response("Unknown tenant", tenant_id)
+            return self._create_error_response(f"Unknown tenant: {tenant_id}", tenant_id)
         
-        start_time = datetime.now()
+        start_time = time.time()
         self.stats['total_queries'] += 1
         
         try:
-            logger.info(f"🎯 Processing question for {tenant_id}: {question[:50]}...")
+            logger.info(f"🎯 Processing HVAC question for {tenant_id}: {question[:100]}...")
             
-            # 🔍 Enhanced Intent Detection
-            intent_result = self._detect_intent_unified(question)
-            logger.info(f"🎯 Intent: {intent_result['intent']} (confidence: {intent_result['confidence']:.2f})")
+            # วิเคราะห์ intent สำหรับธุรกิจ HVAC
+            intent_result = self._detect_hvac_intent(question)
+            logger.info(f"🔍 HVAC Intent detected: {intent_result}")
             
-            # 🔀 Route based on intent
-            if intent_result['intent'] == 'conversational' and intent_result['confidence'] >= 0.6:
-                result = await self._process_conversational_unified(question, tenant_id, intent_result)
-            elif intent_result['intent'] == 'sql_query' and intent_result['confidence'] >= 0.5:
-                result = await self._process_sql_unified_with_ai_response(question, tenant_id, intent_result)
+            # ตัดสินใจประเภทการตอบสนอง
+            if intent_result['is_conversational']:
+                self.stats['conversational_queries'] += 1
+                response = await self._handle_hvac_conversational_query(question, tenant_id, intent_result)
             else:
-                # Hybrid approach for ambiguous cases
-                result = await self._process_hybrid_unified(question, tenant_id, intent_result)
+                # เป็นคำถามที่ต้องการข้อมูลจากฐานข้อมูล
+                response = await self._handle_hvac_data_query(question, tenant_id, intent_result)
             
-            # 📊 Update statistics
-            processing_time = (datetime.now() - start_time).total_seconds()
+            # Update statistics
+            processing_time = time.time() - start_time
             self._update_stats(tenant_id, True, processing_time)
             
-            result['processing_time_seconds'] = processing_time
-            result['unified_agent_version'] = 'v3.1_fixed'
-            result['intent_detection'] = intent_result
-            
-            return result
+            return response
             
         except Exception as e:
-            processing_time = (datetime.now() - start_time).total_seconds()
+            logger.error(f"❌ HVAC Enhanced question processing failed: {e}")
+            processing_time = time.time() - start_time
             self._update_stats(tenant_id, False, processing_time)
-            logger.error(f"❌ Processing failed for {tenant_id}: {e}")
             return self._create_error_response(str(e), tenant_id)
     
-    # ========================================================================
-    # 🎯 SQL PROCESSING WITH AI RESPONSE
-    # ========================================================================
-    
-    async def _process_sql_unified_with_ai_response(self, question: str, tenant_id: str, intent_result: Dict) -> Dict[str, Any]:
-        """🎯 Fixed SQL processing with intelligent schema"""
+    def _detect_hvac_intent(self, question: str) -> Dict[str, Any]:
+        """🔍 วิเคราะห์ intent สำหรับธุรกิจ HVAC"""
         
-        self.stats['sql_queries'] += 1
+        question_lower = question.lower()
+        
+        intent_result = {
+            'is_conversational': False,
+            'hvac_category': 'general',
+            'confidence': 0.0,
+            'keywords_found': [],
+            'requires_database': True,
+            'suggested_tables': []
+        }
+        
+        # ตรวจสอบว่าเป็นคำถามสนทนาหรือไม่
+        conversational_score = 0
+        for category, keywords in self.conversational_indicators.items():
+            for keyword in keywords:
+                if keyword in question_lower:
+                    conversational_score += 1
+                    intent_result['keywords_found'].append(keyword)
+        
+        if conversational_score > 0:
+            intent_result['is_conversational'] = True
+            intent_result['requires_database'] = False
+            return intent_result
+        
+        # วิเคราะห์ประเภทคำถาม HVAC
+        max_score = 0
+        best_category = 'general'
+        
+        for category, keywords in self.hvac_indicators.items():
+            score = 0
+            category_keywords = []
+            
+            for keyword in keywords:
+                if keyword in question_lower:
+                    score += 1
+                    category_keywords.append(keyword)
+            
+            if score > max_score:
+                max_score = score
+                best_category = category
+                intent_result['keywords_found'] = category_keywords
+        
+        intent_result['hvac_category'] = best_category
+        intent_result['confidence'] = min(max_score / 3.0, 1.0)  # normalize to 0-1
+        
+        # กำหนดตารางที่แนะนำ
+        table_mapping = {
+            'customer_queries': ['sales2024', 'sales2023', 'sales2022'],
+            'spare_parts_queries': ['spare_part', 'spare_part2'],
+            'service_queries': ['sales2024', 'work_force'],
+            'work_schedule_queries': ['work_force'],
+            'sales_analysis': ['sales2024', 'sales2023', 'sales2022']
+        }
+        
+        intent_result['suggested_tables'] = table_mapping.get(best_category, ['sales2024'])
+        
+        return intent_result
+    
+    async def _handle_hvac_conversational_query(self, question: str, tenant_id: str, 
+                                              intent_result: Dict[str, Any]) -> Dict[str, Any]:
+        """💬 จัดการคำถามสนทนาสำหรับ HVAC"""
+        
+        config = self.tenant_configs[tenant_id]
+        business_emoji = self._get_hvac_business_emoji(tenant_id)
+        
+        # สร้างคำตอบสนทนาสำหรับธุรกิจ HVAC
+        if any(word in question.lower() for word in ['สวัสดี', 'hello', 'hi']):
+            answer = self._create_hvac_greeting_response(config, business_emoji)
+        elif any(word in question.lower() for word in ['คุณคือใคร', 'what are you']):
+            answer = self._create_hvac_identity_response(config, business_emoji)
+        elif any(word in question.lower() for word in ['ช่วยอะไร', 'what can you do']):
+            answer = self._create_hvac_capabilities_response(config, business_emoji)
+        else:
+            answer = self._create_hvac_general_response(question, config, business_emoji)
+        
+        return {
+            "answer": answer,
+            "success": True,
+            "data_source_used": f"hvac_conversational_{config.model_name}",
+            "sql_query": None,
+            "tenant_id": tenant_id,
+            "system_used": "hvac_conversational_ai",
+            "intent_detected": intent_result
+        }
+    
+    async def _handle_hvac_data_query(self, question: str, tenant_id: str, 
+                                    intent_result: Dict[str, Any]) -> Dict[str, Any]:
+        """📊 จัดการคำถามข้อมูลสำหรับ HVAC"""
         
         try:
-            # 🆕 ใช้ Intelligent Schema หากมี
+            # อัปเดตสถิติตามประเภทคำถาม
+            category = intent_result['hvac_category']
+            if category in self.stats:
+                self.stats[category] += 1
+            
+            # ใช้ Intelligent Schema Discovery หากมี
             if self.intelligent_schema_available and self.schema_integration:
-                try:
-                    sql_prompt = await self.schema_integration.generate_intelligent_sql_prompt(question, tenant_id)
-                    logger.info("✅ Using Intelligent Schema Discovery")
-                except Exception as e:
-                    logger.warning(f"🔄 Intelligent schema failed: {e}, falling back to basic")
-                    # Fallback to basic schema
-                    schema_info = await self._get_schema_unified(tenant_id)
-                    sql_prompt = self._generate_sql_prompt_unified(question, tenant_id, schema_info, intent_result)
+                sql_prompt = await self.schema_integration.generate_intelligent_sql_prompt(question, tenant_id)
             else:
-                # ใช้ระบบเดิม
-                schema_info = await self._get_schema_unified(tenant_id)
-                sql_prompt = self._generate_sql_prompt_unified(question, tenant_id, schema_info, intent_result)
+                # ใช้ fallback prompt สำหรับ HVAC
+                sql_prompt = self._generate_hvac_fallback_prompt(question, tenant_id, intent_result)
             
-            # 🤖 Call AI service for SQL generation (เหมือนเดิม)
-            ai_response = await self._call_ollama_unified(tenant_id, sql_prompt)
+            # สร้าง SQL จาก AI
+            ai_response = await self._call_ollama_api(sql_prompt, tenant_id)
             
-            # 🔍 Extract and validate SQL (เหมือนเดิม)
-            sql_result = self._extract_sql_unified(ai_response, question)
+            # ดึง SQL query จากการตอบสนองของ AI
+            sql_query = self._extract_sql_unified(ai_response, question)
             
-            if not sql_result['success']:
-                raise ValueError(f"SQL extraction failed: {sql_result['error']}")
+            if not sql_query:
+                return self._create_sql_error_response(question, tenant_id, "ไม่สามารถสร้าง SQL query ได้")
             
-            sql_query = sql_result['sql']
+            # Execute SQL
+            results = await self._execute_sql_unified(sql_query, tenant_id)
             
-            # 🗄️ Execute SQL (เหมือนเดิม)
-            db_results = await self._execute_sql_unified(sql_query, tenant_id)
-            
-            # 🆕 Generate AI response (Fixed parameters)
-            if self.enable_ai_responses and db_results:
-                try:
-                    formatted_answer = await self._generate_ai_response_from_data(
-                        question, db_results, tenant_id, sql_query, schema_info=None  # 🔧 Fixed
-                    )
-                    response_method = 'ai_generated'
-                    self.stats['ai_responses_used'] += 1
-                    
-                except Exception as ai_error:
-                    logger.warning(f"🔄 AI response generation failed: {ai_error}, falling back to hardcode")
-                    if self.fallback_to_hardcode:
-                        formatted_answer = self._format_response_hardcode(
-                            db_results, question, tenant_id, sql_query, schema_info=None  # 🔧 Fixed
-                        )
-                        response_method = 'hardcode_fallback'
-                        self.stats['hardcode_responses_used'] += 1
-                    else:
-                        raise ai_error
+            # สร้างคำตอบสำหรับธุรกิจ HVAC
+            if self.enable_ai_responses and results:
+                answer = await self._generate_hvac_ai_response(question, results, tenant_id, intent_result)
+                self.stats['ai_responses_used'] += 1
             else:
-                # Use hardcode formatting (Fixed parameters)
-                formatted_answer = self._format_response_hardcode(
-                    db_results, question, tenant_id, sql_query, schema_info=None  # 🔧 Fixed
-                )
-                response_method = 'hardcode_default'
+                answer = self._format_hvac_results(question, results, tenant_id, intent_result)
                 self.stats['hardcode_responses_used'] += 1
             
             return {
-                "answer": formatted_answer,
+                "answer": answer,
                 "success": True,
-                "data_source_used": f"fixed_intelligent_schema_{self.tenant_configs[tenant_id].model_name}",
+                "data_source_used": f"hvac_database_{self.tenant_configs[tenant_id].model_name}",
                 "sql_query": sql_query,
-                "db_results_count": len(db_results) if db_results else 0,
+                "results_count": len(results),
                 "tenant_id": tenant_id,
-                "system_used": f"fixed_intelligent_schema_with_{response_method}",
-                "sql_extraction_method": sql_result['method'],
-                "sql_confidence": sql_result['confidence'],
-                "response_generation_method": response_method,
-                "intelligent_schema_used": self.intelligent_schema_available
+                "system_used": "hvac_intelligent_agent",
+                "intent_detected": intent_result
             }
             
         except Exception as e:
-            logger.error(f"❌ SQL processing failed: {e}")
+            logger.error(f"❌ HVAC data query failed: {e}")
             return self._create_sql_error_response(question, tenant_id, str(e))
     
-    # 🆕 เพิ่ม method ใหม่สำหรับ management
-    async def get_intelligent_schema_stats(self) -> Dict[str, Any]:
-        """📊 ดูสถิติของระบบ Intelligent Schema Discovery"""
-        return self.schema_integration.get_system_statistics()
-    
-    def clear_schema_cache(self, tenant_id: Optional[str] = None):
-        """🗑️ ล้าง cache ของ schema discovery"""
-        self.schema_integration.schema_discovery.clear_cache(tenant_id)
-    async def get_intelligent_schema_stats(self) -> Dict[str, Any]:
-        """📊 ดูสถิติของระบบ Intelligent Schema Discovery"""
-        
-        if self.intelligent_schema_available and self.schema_integration:
-            try:
-                cache_stats = self.schema_integration.schema_discovery.get_cache_statistics()
-                return {
-                    'intelligent_schema_system': 'active',
-                    'cache_statistics': cache_stats,
-                    'features': [
-                        'contextual_schema_discovery',
-                        'intelligent_prompt_building',
-                        'question_analysis',
-                        'relevant_data_extraction',
-                        'smart_caching'
-                    ]
-                }
-            except Exception as e:
-                return {'error': f'Failed to get stats: {str(e)}'}
-        else:
-            return {'intelligent_schema_system': 'not_available'}
-
-    def clear_schema_cache(self, tenant_id: Optional[str] = None):
-        """🗑️ ล้าง cache ของ schema discovery"""
-        
-        if self.intelligent_schema_available and self.schema_integration:
-            try:
-                self.schema_integration.schema_discovery.clear_cache(tenant_id)
-                logger.info(f"🗑️ Schema cache cleared for {tenant_id if tenant_id else 'all tenants'}")
-            except Exception as e:
-                logger.error(f"❌ Failed to clear cache: {e}")
-        else:
-            logger.warning("⚠️ Intelligent Schema Discovery not available")
     # ========================================================================
-    # 🔍 SQL EXTRACTION - FIXED with ALL methods
+    # 🎨 HVAC RESPONSE FORMATTING
     # ========================================================================
     
-    def _extract_sql_unified(self, ai_response: str, question: str) -> Dict[str, Any]:
-        """🔍 FIXED: Extract SQL with ALL required methods"""
-        
-        logger.info(f"🔍 Extracting SQL from response (length: {len(ai_response)})")
-        
-        extraction_result = {
-            'success': False,
-            'sql': None,
-            'method': None,
-            'confidence': 0.0,
-            'error': None
-        }
-        
-        # 🔧 FIXED: All extraction methods are now included
-        extraction_methods = [
-            ('sql_code_block_complete', self._extract_complete_sql_block),
-            ('multiline_select_complete', self._extract_multiline_select),  # ✅ FIXED
-            ('single_line_complete', self._extract_single_line_select),     # ✅ FIXED
-            ('intelligent_fallback', self._create_intelligent_fallback)
-        ]
-        
-        for method_name, method_func in extraction_methods:
-            try:
-                sql = method_func(ai_response, question)
-                
-                if sql and self._validate_complete_sql(sql):
-                    confidence = self._calculate_sql_confidence(sql, question, method_name)
-                    
-                    if confidence > extraction_result['confidence']:
-                        extraction_result.update({
-                            'success': True,
-                            'sql': sql,
-                            'method': method_name,
-                            'confidence': confidence
-                        })
-                        
-                        logger.info(f"✅ Valid SQL found: {method_name} (confidence: {confidence:.2f})")
-                        
-                        if confidence >= 0.8:
-                            break
-                            
-            except Exception as e:
-                logger.warning(f"⚠️ Method {method_name} failed: {e}")
-                continue
-        
-        if not extraction_result['success']:
-            extraction_result['error'] = "No valid SQL could be extracted or generated"
-            logger.error(f"❌ All SQL extraction methods failed for: {question[:50]}...")
-        
-        return extraction_result
-    
-    def _extract_complete_sql_block(self, response: str, question: str) -> Optional[str]:
-        """🔍 Extract complete SQL from code blocks"""
-        
-        patterns = [
-            r'```sql\s*(SELECT.*?)\s*```',
-            r'```sql\s*(.*?SELECT.*?)\s*```',
-            r'```\s*(SELECT.*?FROM.*?)\s*```'
-        ]
-        
-        for pattern in patterns:
-            match = re.search(pattern, response, re.DOTALL | re.IGNORECASE)
-            if match:
-                sql = self._clean_sql_thoroughly(match.group(1))
-                if self._has_required_clauses(sql):
-                    return sql
-        
-        return None
-    
-    def _extract_multiline_select(self, response: str, question: str) -> Optional[str]:
-        """🔍 FIXED: Extract multiline SELECT statements"""
-        
-        # Look for multiline SELECT patterns
-        patterns = [
-            # Standard multiline with proper formatting
-            r'SELECT\s+.*?FROM\s+.*?(?:WHERE\s+.*?)?(?:ORDER\s+BY\s+.*?)?(?:LIMIT\s+\d+)?[;\s]*',
-            
-            # With JOIN
-            r'SELECT\s+.*?FROM\s+.*?JOIN\s+.*?(?:WHERE\s+.*?)?(?:ORDER\s+BY\s+.*?)?(?:LIMIT\s+\d+)?[;\s]*',
-            
-            # With aliases
-            r'SELECT\s+.*?FROM\s+\w+\s+\w+.*?(?:WHERE\s+.*?)?(?:ORDER\s+BY\s+.*?)?(?:LIMIT\s+\d+)?[;\s]*'
-        ]
-        
-        for pattern in patterns:
-            matches = re.finditer(pattern, response, re.DOTALL | re.IGNORECASE)
-            for match in matches:
-                sql = self._clean_sql_thoroughly(match.group(0))
-                if self._has_required_clauses(sql) and len(sql) > 30:
-                    return sql
-        
-        return None
-    
-    def _extract_single_line_select(self, response: str, question: str) -> Optional[str]:
-        """🔍 FIXED: Extract single line SELECT statements"""
-        
-        lines = response.split('\n')
-        
-        for line in lines:
-            line = line.strip()
-            
-            # Skip code block markers
-            if line.startswith('```') or not line:
-                continue
-            
-            # Look for SELECT statements
-            if re.match(r'^SELECT\s+', line, re.IGNORECASE):
-                sql = self._clean_sql_thoroughly(line)
-                
-                # Basic validation
-                if ('FROM' in sql.upper() and 
-                    len(sql) > 20 and 
-                    self._has_required_clauses(sql)):
-                    return sql
-        
-        return None
-    
-    def _clean_sql_thoroughly(self, sql: str) -> str:
-        """🧹 Thorough SQL cleaning"""
-        
-        if not sql:
-            return ""
-        
-        # Remove artifacts
-        sql = sql.strip().rstrip(';').strip()
-        sql = re.sub(r'^```sql\s*', '', sql, flags=re.IGNORECASE)
-        sql = re.sub(r'```\s*$', '', sql)
-        
-        # Normalize whitespace
-        sql = re.sub(r'\s+', ' ', sql)
-        
-        # Remove duplicates
-        sql = re.sub(r'\bSELECT\s+SELECT\b', 'SELECT', sql, flags=re.IGNORECASE)
-        sql = re.sub(r'\bFROM\s+FROM\b', 'FROM', sql, flags=re.IGNORECASE)
-        
-        # Proper keyword casing
-        keywords = ['SELECT', 'FROM', 'WHERE', 'JOIN', 'LEFT JOIN', 'INNER JOIN', 
-                   'ORDER BY', 'GROUP BY', 'LIMIT', 'AS', 'ON', 'AND', 'OR']
-        
-        for keyword in keywords:
-            pattern = r'\b' + keyword.replace(' ', r'\s+') + r'\b'
-            sql = re.sub(pattern, keyword, sql, flags=re.IGNORECASE)
-        
-        return sql.strip()
-    
-    def _has_required_clauses(self, sql: str) -> bool:
-        """🔍 Check if SQL has required clauses"""
-        
-        if not sql or len(sql) < 15:
-            return False
-        
-        sql_upper = sql.upper()
-        
-        # Must have SELECT and FROM
-        if not sql_upper.startswith('SELECT'):
-            return False
-        
-        if 'FROM' not in sql_upper:
-            return False
-        
-        # Check for undefined aliases
-        if self._has_undefined_aliases(sql):
-            return False
-        
-        return True
-    
-    def _has_undefined_aliases(self, sql: str) -> bool:
-        """🔍 Check for undefined table aliases"""
-        
-        # Find alias usage (e.g., e.name, p.id)
-        alias_usage = re.findall(r'\b([a-zA-Z])\.\w+', sql)
-        
-        if not alias_usage:
-            return False
-        
-        # Check if aliases are defined
-        for alias in set(alias_usage):
-            alias_patterns = [
-                rf'\b\w+\s+{alias}\b',
-                rf'\b\w+\s+AS\s+{alias}\b'
-            ]
-            
-            alias_defined = any(
-                re.search(pattern, sql, re.IGNORECASE) 
-                for pattern in alias_patterns
-            )
-            
-            if not alias_defined:
-                logger.warning(f"⚠️ Undefined alias '{alias}' in SQL")
-                return True
-        
-        return False
-    
-    def _validate_complete_sql(self, sql: str) -> bool:
-        """🔍 Validate that SQL is complete and safe"""
-        
-        if not sql or len(sql) < 15:
-            return False
-        
-        sql_upper = sql.upper()
-        
-        # Security checks
-        dangerous_keywords = ['DROP', 'DELETE', 'UPDATE', 'INSERT', 'ALTER', 'CREATE', 'TRUNCATE']
-        if any(keyword in sql_upper for keyword in dangerous_keywords):
-            logger.warning(f"🚨 Dangerous SQL detected")
-            return False
-        
-        # Structure checks
-        if not sql_upper.startswith('SELECT'):
-            return False
-        
-        if 'FROM' not in sql_upper:
-            return False
-        
-        # Alias consistency
-        if self._has_undefined_aliases(sql):
-            return False
-        
-        return True
-    
-    def _calculate_sql_confidence(self, sql: str, question: str, method: str) -> float:
-        """🔍 Calculate confidence score for SQL"""
-        
-        confidence = 0.0
-        
-        # Base confidence by method
-        method_confidence = {
-            'sql_code_block_complete': 0.9,
-            'multiline_select_complete': 0.8,
-            'single_line_complete': 0.7,
-            'intelligent_fallback': 0.6
-        }
-        confidence += method_confidence.get(method, 0.3)
-        
-        # Boost for relevance
-        sql_lower = sql.lower()
-        question_lower = question.lower()
-        
-        relevance_boost = 0.0
-        if 'ตำแหน่ง' in question_lower and 'position' in sql_lower:
-            relevance_boost += 0.1
-        if 'แผนก' in question_lower and 'department' in sql_lower:
-            relevance_boost += 0.1
-        if any(word in question_lower for word in ['รับผิดชอบ', 'โปรเจค']) and 'join' in sql_lower:
-            relevance_boost += 0.1
-        if any(word in question_lower for word in ['กี่คน', 'จำนวน']) and 'count' in sql_lower:
-            relevance_boost += 0.1
-        
-        confidence += relevance_boost
-        
-        # Quality indicators
-        if 'LIMIT' in sql.upper():
-            confidence += 0.05
-        if len(sql) > 30 and len(sql) < 300:
-            confidence += 0.05
-        
-        return min(confidence, 1.0)
-    
-    def _create_intelligent_fallback(self, response: str, question: str) -> Optional[str]:
-        """🔄 Create intelligent SQL fallback"""
-        
-        question_lower = question.lower()
-        
-        # Employee-Project relationship
-        if any(word in question_lower for word in ['รับผิดชอบ', 'ทำงาน', 'โปรเจค', 'assigned']):
-            return """SELECT 
-                e.name as employee_name,
-                p.name as project_name,
-                ep.role,
-                ep.allocation
-            FROM employees e
-            JOIN employee_projects ep ON e.id = ep.employee_id
-            JOIN projects p ON ep.project_id = p.id
-            ORDER BY e.name
-            LIMIT 20"""
-        
-        # Position search
-        elif 'ตำแหน่ง' in question_lower or 'position' in question_lower:
-            position = self._extract_position_keyword(question)
-            return f"""SELECT name, position, department, salary
-            FROM employees
-            WHERE position ILIKE '%{position}%'
-            ORDER BY name
-            LIMIT 20"""
-        
-        # Department counting
-        elif 'แผนก' in question_lower and any(word in question_lower for word in ['กี่คน', 'จำนวน']):
-            return """SELECT department, COUNT(*) as employee_count, AVG(salary) as avg_salary
-            FROM employees
-            GROUP BY department
-            ORDER BY employee_count DESC"""
-        
-        # General employee listing
-        else:
-            return """SELECT name, position, department, salary
-            FROM employees
-            ORDER BY name
-            LIMIT 20"""
-    
-    def _extract_position_keyword(self, question: str) -> str:
-        """Extract position keyword from question"""
-        
-        question_lower = question.lower()
-        
-        position_keywords = ['frontend', 'backend', 'fullstack', 'developer', 'designer', 'manager', 'qa', 'devops']
-        
-        for keyword in position_keywords:
-            if keyword in question_lower:
-                return keyword
-        
-        # Try to extract after "ตำแหน่ง"
-        match = re.search(r'ตำแหน่ง\s*(\w+)', question_lower)
-        if match:
-            return match.group(1)
-        
-        return 'developer'  # default
-    
-    # ========================================================================
-    # 🔧 ADD ALL MISSING METHODS
-    # ========================================================================
-    
-    def _detect_intent_unified(self, question: str) -> Dict[str, Any]:
-        """🎯 UNIFIED: Enhanced intent detection"""
-        
-        question_lower = question.lower()
-        
-        # Calculate SQL indicators score
-        sql_score = 0
-        sql_reasons = []
-        
-        for category, keywords in self.sql_indicators.items():
-            matches = [word for word in keywords if word in question_lower]
-            if matches:
-                weight = 3 if category in ['identification', 'counting', 'relationships'] else 2
-                sql_score += len(matches) * weight
-                sql_reasons.append(f"{category}: {matches}")
-        
-        # Calculate conversational indicators score
-        conv_score = 0
-        conv_reasons = []
-        
-        for category, keywords in self.conversational_indicators.items():
-            matches = [word for word in keywords if word in question_lower]
-            if matches:
-                conv_score += len(matches) * 3
-                conv_reasons.append(f"{category}: {matches}")
-        
-        # Special pattern detection
-        if self._has_sql_patterns(question_lower):
-            sql_score += 5
-            sql_reasons.append("sql_pattern_detected")
-        
-        if self._has_conversational_patterns(question_lower):
-            conv_score += 5
-            conv_reasons.append("conversational_pattern_detected")
-        
-        # Determine intent
-        total_score = sql_score + conv_score
-        
-        if total_score == 0:
-            return {'intent': 'unknown', 'confidence': 0.0, 'reasons': ['no_clear_indicators']}
-        
-        if conv_score > sql_score:
-            return {
-                'intent': 'conversational',
-                'confidence': conv_score / total_score,
-                'sql_score': sql_score,
-                'conv_score': conv_score,
-                'reasons': conv_reasons
-            }
-        else:
-            return {
-                'intent': 'sql_query',
-                'confidence': sql_score / total_score,
-                'sql_score': sql_score,
-                'conv_score': conv_score,
-                'reasons': sql_reasons
-            }
-    
-    def _has_sql_patterns(self, question_lower: str) -> bool:
-        """Check for SQL-specific patterns"""
-        sql_patterns = [
-            r'ใครอยู่.*ตำแหน่ง',
-            r'มี.*กี่คน.*แผนก',
-            r'รายชื่อ.*ที่',
-            r'แสดง.*ข้อมูล',
-            r'.*รับผิดชอบ.*โปรเจค',
-            r'who.*in.*position',
-            r'how many.*in'
-        ]
-        return any(re.search(pattern, question_lower) for pattern in sql_patterns)
-    
-    def _has_conversational_patterns(self, question_lower: str) -> bool:
-        """Check for conversational patterns"""
-        conv_patterns = [
-            r'สวัสดี.*ครับ',
-            r'คุณ.*คือ.*ใคร',
-            r'ช่วย.*อะไร.*ได้',
-            r'hello.*there',
-            r'what.*are.*you'
-        ]
-        return any(re.search(pattern, question_lower) for pattern in conv_patterns)
-    
-    def _generate_sql_prompt_unified(self, question: str, tenant_id: str, 
-                                   schema_info: Dict, intent_result: Dict) -> str:
-        """🎯 UNIFIED: Generate SQL prompt"""
-        
-        config = self.tenant_configs[tenant_id]
-        business_context = self._get_business_context_unified(tenant_id)
-        
-        prompt = f"""คุณคือ PostgreSQL Expert สำหรับ {config.name}
+    def _create_hvac_greeting_response(self, config: TenantConfig, business_emoji: str) -> str:
+        return f"""สวัสดีครับ! {business_emoji} ผมคือ AI Assistant สำหรับระบบ HVAC Service & Spare Parts ของ {config.name}
 
-{business_context}
+🔧 ผมสามารถช่วยคุณ:
+• ค้นหาข้อมูลลูกค้าและประวัติการบริการ
+• สืบค้นราคาและสต็อกอะไหล่
+• ดูแผนงานและการจัดทีม
+• วิเคราะห์ยอดขายและรายงาน
 
-📊 โครงสร้างฐานข้อมูล (ข้อมูลจริง):
-• employees: id, name, department, position, salary, hire_date, email
-• projects: id, name, client, budget, status, start_date, end_date, temp_stack
-• employee_projects: employee_id, project_id, role, allocation
+💡 ตัวอย่างคำถาม:
+- "จำนวนลูกค้าทั้งหมด"
+- "ราคาอะไหล่ Hitachi chiller"
+- "แผนงานวันที่ 15/06/2568"
+- "ยอดขาย overhaul ปี 2567"
 
-🔗 ความสัมพันธ์สำคัญ:
-• employee_projects.employee_id → employees.id
-• employee_projects.project_id → projects.id
+คุณต้องการสอบถามอะไรครับ?"""
+    
+    def _create_hvac_identity_response(self, config: TenantConfig, business_emoji: str) -> str:
+        return f"""{business_emoji} ผมคือ AI Assistant สำหรับธุรกิจ HVAC Service & Spare Parts
 
-🔧 กฎ SQL สำคัญ (ห้ามผิด):
-1. SQL ต้องมี FROM clause ที่สมบูรณ์
-2. ถ้าใช้ alias (e, p, ep) ต้องกำหนดใน FROM/JOIN
-3. ใช้ JOIN แทน WHERE เมื่อต้องการข้อมูลจากหลายตาราง
-4. ใช้ ILIKE '%keyword%' สำหรับการค้นหา
-5. ใช้ LIMIT 20 เสมอ
-6. ตรวจสอบ syntax ให้ถูกต้องก่อน response
+🏢 บริษัท: {config.name}
+🔧 ธุรกิจ: บริการซ่อมบำรุงระบบทำความเย็นและจำหน่ายอะไหล่
+🛠️ บริการหลัก: PM (Preventive Maintenance), ซ่อมแซม, เปลี่ยนชิ้นส่วน, Overhaul
+🏷️ แบรนด์ที่รองรับ: Hitachi, Daikin, EuroKlimat, Toyota, Mitsubishi
 
-Intent: {intent_result['intent']} (confidence: {intent_result['confidence']:.2f})
+💡 ผมสามารถช่วยวิเคราะห์ข้อมูลและตอบคำถามเกี่ยวกับ:
+• ลูกค้าและประวัติการบริการ
+• อะไหล่และราคา  
+• แผนงานและทีมช่าง
+• ยอดขายและรายงาน"""
+    
+    def _create_hvac_capabilities_response(self, config: TenantConfig, business_emoji: str) -> str:
+        return f"""{business_emoji} ความสามารถของระบบ HVAC AI Assistant
+
+🔍 การค้นหาและวิเคราะห์:
+• ข้อมูลลูกค้า: "บริษัท ABC มีประวัติการบริการอะไรบ้าง"
+• อะไหล่และราคา: "ราคาอะไหล่ Compressor Hitachi"
+• แผนงาน: "แผนงานเดือนนี้มีงานอะไรบ้าง"
+• ยอดขาย: "วิเคราะห์ยอดขายปี 2567"
+
+📊 รายงานและสถิติ:
+• นับจำนวนลูกค้า ประเภทบริการ
+• วิเคราะห์ประสิทธิภาพทีม
+• สรุปยอดขายและกำไร
+• รายงานสต็อกอะไหล่
+
+🛠️ เทคโนโลยีที่ใช้:
+• AI Model: {config.model_name}
+• Database: PostgreSQL HVAC System  
+• Language: {config.language}"""
+    
+    def _create_hvac_general_response(self, question: str, config: TenantConfig, business_emoji: str) -> str:
+        return f"""{business_emoji} ระบบ HVAC AI สำหรับ {config.name}
+
 คำถาม: {question}
 
-สร้าง PostgreSQL query ที่สมบูรณ์และทำงานได้:"""
+💡 คำแนะนำสำหรับคำถามที่เฉพาะเจาะจง:
+🔍 ข้อมูลลูกค้า: "จำนวนลูกค้าทั้งหมด" หรือ "บริษัท [ชื่อ] มีประวัติอะไรบ้าง"
+🔧 อะไหล่: "ราคาอะไหล่ [ยี่ห้อ] [รุ่น]" หรือ "สต็อกอะไหล่ Chiller"
+👷 แผนงาน: "แผนงานวันที่ [วันที่]" หรือ "ทีมช่างมีใครบ้าง"
+📊 ยอดขาย: "ยอดขายปี [ปี]" หรือ "รายงานบริการ PM"
+
+ลองถามคำถามที่เฉพาะเจาะจงมากขึ้นนะครับ!"""
+    
+    def _format_hvac_results(self, question: str, results: List[Dict], tenant_id: str, 
+                           intent_result: Dict[str, Any]) -> str:
+        """🎨 จัดรูปแบบผลลัพธ์สำหรับ HVAC"""
         
-        return prompt
+        if not results:
+            return f"ไม่พบข้อมูลที่ตรงกับคำถาม: {question}"
+        
+        config = self.tenant_configs[tenant_id]
+        business_emoji = self._get_hvac_business_emoji(tenant_id)
+        category = intent_result.get('hvac_category', 'general')
+        
+        response = f"{business_emoji} ผลการค้นหาระบบ HVAC - {config.name}\n\n"
+        
+        # จัดรูปแบบตามประเภทคำถาม HVAC
+        if category == 'customer_queries':
+            response += self._format_hvac_customer_results(results)
+        elif category == 'spare_parts_queries':
+            response += self._format_hvac_spare_parts_results(results)
+        elif category == 'service_queries':
+            response += self._format_hvac_service_results(results)
+        elif category == 'work_schedule_queries':
+            response += self._format_hvac_work_schedule_results(results)
+        elif category == 'sales_analysis':
+            response += self._format_hvac_sales_analysis_results(results)
+        else:
+            response += self._format_hvac_general_results(results)
+        
+        response += f"\n\n📈 สรุป: พบข้อมูล {len(results)} รายการ"
+        return response
     
-    # Add all other missing methods here...
-    # (For brevity, I'll include the essential ones)
+    def _format_hvac_customer_results(self, results: List[Dict]) -> str:
+        """จัดรูปแบบผลลัพธ์ลูกค้า HVAC"""
+        formatted = "👥 ข้อมูลลูกค้า HVAC:\n"
+        for i, row in enumerate(results[:10], 1):
+            customer = row.get('customer_name', row.get('customer', 'ไม่ระบุ'))
+            value = row.get('service_contact_', row.get('value', 0))
+            job = row.get('job_no', row.get('description', ''))
+            
+            formatted += f"{i}. {customer}\n"
+            if job:
+                formatted += f"   งาน: {job}\n"
+            if value and str(value).replace('.', '').isdigit():
+                formatted += f"   มูลค่า: {float(value):,.0f} บาท\n"
+            formatted += "\n"
+        return formatted
     
-    async def _call_ollama_unified(self, tenant_id: str, prompt: str, 
-                                 temperature: float = 0.1) -> str:
-        """🤖 UNIFIED: AI API call"""
+    def _format_hvac_spare_parts_results(self, results: List[Dict]) -> str:
+        """จัดรูปแบบผลลัพธ์อะไหล่ HVAC"""
+        formatted = "🔧 รายการอะไหล่ HVAC:\n"
+        for i, row in enumerate(results[:10], 1):
+            code = row.get('product_code', '')
+            name = row.get('product_name', '')
+            price = row.get('unit_price', '0')
+            balance = row.get('balance', 0)
+            description = row.get('description', '')
+            
+            formatted += f"{i}. {code} - {name}\n"
+            if price and str(price).replace('.', '').replace(',', '').isdigit():
+                formatted += f"   ราคา: {float(str(price).replace(',', '')):,.0f} บาท"
+                if balance:
+                    formatted += f" | คงเหลือ: {balance} ชิ้น"
+                formatted += "\n"
+            if description:
+                formatted += f"   รายละเอียด: {description[:80]}...\n"
+            formatted += "\n"
+        return formatted
+    
+    def _format_hvac_service_results(self, results: List[Dict]) -> str:
+        """จัดรูปแบบผลลัพธ์บริการ HVAC"""
+        formatted = "🛠️ รายการบริการ HVAC:\n"
+        for i, row in enumerate(results[:10], 1):
+            customer = row.get('customer_name', row.get('customer', ''))
+            description = row.get('description', row.get('detail', ''))
+            job_no = row.get('job_no', '')
+            value = row.get('service_contact_', 0)
+            
+            formatted += f"{i}. {customer}\n"
+            if job_no:
+                formatted += f"   เลขที่งาน: {job_no}\n"
+            if description:
+                formatted += f"   บริการ: {description[:80]}...\n"
+            if value and str(value).replace('.', '').isdigit():
+                formatted += f"   มูลค่า: {float(value):,.0f} บาท\n"
+            formatted += "\n"
+        return formatted
+    
+    def _format_hvac_work_schedule_results(self, results: List[Dict]) -> str:
+        """จัดรูปแบบผลลัพธ์แผนงาน HVAC"""
+        formatted = "📋 แผนงานทีม HVAC:\n"
+        for i, row in enumerate(results[:10], 1):
+            customer = row.get('customer', '')
+            detail = row.get('detail', '')
+            team = row.get('service_group', '')
+            date = row.get('date', '')
+            job_type = row.get('job_type', '')
+            
+            formatted += f"{i}. ลูกค้า: {customer}\n"
+            if date:
+                formatted += f"   วันที่: {date}\n"
+            if detail:
+                formatted += f"   งาน: {detail}\n"
+            if team:
+                formatted += f"   ทีมช่าง: {team}\n"
+            if job_type:
+                formatted += f"   ประเภท: {job_type}\n"
+            formatted += "\n"
+        return formatted
+    
+    def _format_hvac_sales_analysis_results(self, results: List[Dict]) -> str:
+        """จัดรูปแบบผลลัพธ์วิเคราะห์ยอดขาย HVAC"""
+        formatted = "📊 วิเคราะห์ยอดขาย HVAC:\n"
+        for i, row in enumerate(results[:10], 1):
+            # ตรวจสอบคีย์ที่เป็นไปได้สำหรับข้อมูลสถิติ
+            total_jobs = row.get('total_jobs', row.get('job_count', row.get('count', 0)))
+            total_revenue = row.get('total_revenue', row.get('total_value', row.get('sum', 0)))
+            avg_value = row.get('avg_job_value', row.get('avg_value', row.get('avg', 0)))
+            
+            if total_jobs:
+                formatted += f"{i}. จำนวนงาน: {total_jobs} งาน\n"
+            if total_revenue and str(total_revenue).replace('.', '').isdigit():
+                formatted += f"   รายได้รวม: {float(total_revenue):,.0f} บาท\n"
+            if avg_value and str(avg_value).replace('.', '').isdigit():
+                formatted += f"   มูลค่าเฉลี่ย: {float(avg_value):,.0f} บาท/งาน\n"
+            formatted += "\n"
+        return formatted
+    
+    def _format_hvac_general_results(self, results: List[Dict]) -> str:
+        """จัดรูปแบบผลลัพธ์ทั่วไป HVAC"""
+        formatted = "📊 ผลลัพธ์ HVAC:\n"
+        for i, row in enumerate(results[:10], 1):
+            formatted += f"{i}. "
+            formatted += " | ".join([f"{k}: {v}" for k, v in row.items() if v is not None])
+            formatted += "\n"
+        return formatted
+    
+    # ========================================================================
+    # 🤖 AI RESPONSE GENERATION
+    # ========================================================================
+    
+    async def _generate_hvac_ai_response(self, question: str, results: List[Dict], 
+                                       tenant_id: str, intent_result: Dict[str, Any]) -> str:
+        """🤖 สร้างคำตอบ AI สำหรับ HVAC"""
+        
+        config = self.tenant_configs[tenant_id]
+        category = intent_result.get('hvac_category', 'general')
+        
+        # สร้าง context สำหรับ AI
+        context_prompt = f"""คุณคือ AI Assistant สำหรับธุรกิจ HVAC Service & Spare Parts ของ {config.name}
+
+🔧 บริบทธุรกิจ: บริการซ่อมบำรุงระบบทำความเย็นและจำหน่ายอะไหล่
+🏷️ แบรนด์หลัก: Hitachi, Daikin, EuroKlimat, Toyota, Mitsubishi
+📊 ประเภทคำถาม: {category}
+
+คำถาม: {question}
+
+ข้อมูลที่พบ: {json.dumps(results[:5], ensure_ascii=False, indent=2)}
+
+กรุณาสร้างคำตอบที่:
+1. เป็นมิตรและเป็นประโยชน์
+2. ใช้ศัพท์เทคนิค HVAC ที่เหมาะสม
+3. จัดรูปแบบให้อ่านง่าย
+4. เน้นข้อมูลที่สำคัญ
+5. ใส่หน่วยเงิน (บาท) หากเกี่ยวกับราคา"""
+
+        try:
+            ai_response = await self._call_ollama_api(context_prompt, tenant_id)
+            return ai_response
+        except Exception as e:
+            logger.error(f"❌ AI response generation failed: {e}")
+            # Fallback to formatted response
+            return self._format_hvac_results(question, results, tenant_id, intent_result)
+    
+    # ========================================================================
+    # 🔧 HVAC UTILITY METHODS
+    # ========================================================================
+    
+    def _get_hvac_business_emoji(self, tenant_id: str) -> str:
+        """🎨 Business emoji สำหรับ HVAC"""
+        emoji_mapping = {
+            'company-a': '🔧',  # HVAC Service Main
+            'company-b': '❄️',  # HVAC Regional  
+            'company-c': '🌍'   # HVAC International
+        }
+        return emoji_mapping.get(tenant_id, '🔧')
+    
+    def _generate_hvac_fallback_prompt(self, question: str, tenant_id: str, 
+                                     intent_result: Dict[str, Any]) -> str:
+        """🔄 Fallback prompt สำหรับ HVAC"""
+        
+        config = self.tenant_configs[tenant_id]
+        category = intent_result.get('hvac_category', 'general')
+        suggested_tables = intent_result.get('suggested_tables', ['sales2024'])
+        
+        return f"""คุณคือ PostgreSQL Expert สำหรับธุรกิจ HVAC Service & Spare Parts - {config.name}
+
+🔧 บริบทธุรกิจ: บริการซ่อมบำรุงระบบทำความเย็นและจำหน่ายอะไหล่
+💰 ลูกค้าหลัก: โรงงานอุตสาหกรรม, โรงแรม, อาคารสำนักงาน
+🛠️ บริการหลัก: PM (Preventive Maintenance), ซ่อมแซม, เปลี่ยนชิ้นส่วน, Overhaul
+
+📊 โครงสร้างฐานข้อมูล:
+• sales2024, sales2023, sales2022: ข้อมูลงานบริการรายปี
+  - job_no: หมายเลขงาน (SV.ปี-เดือน-ลำดับ-ประเภท)
+  - customer_name: ชื่อลูกค้าเต็ม
+  - description: รายละเอียดงานบริการ  
+  - service_contact_: มูลค่างาน (บาท)
+• spare_part, spare_part2: คลังอะไหล่
+  - product_code: รหัสอะไหล่, product_name: ชื่ออะไหล่ (ภาษาอังกฤษ)
+  - unit_price: ราคาต่อหน่วย, balance: จำนวนคงเหลือ
+• work_force: การจัดทีมงาน
+  - date: วันที่ทำงาน, customer: ลูกค้า, service_group: ทีมช่าง
+
+🎯 ประเภทคำถาม: {category}
+📋 ตารางที่แนะนำ: {', '.join(suggested_tables)}
+
+🔧 กฎสำคัญสำหรับ HVAC:
+1. ใช้ ILIKE '%keyword%' สำหรับค้นหาลูกค้าและอะไหล่
+2. service_contact_ เป็นมูลค่างาน (บาท) - ใช้ CAST เป็น numeric หากจำเป็น
+3. ข้อมูลการขายแยกตามปี - เลือกตารางให้ถูกต้อง
+4. ใช้ UNION ALL เมื่อต้องการข้อมูลหลายปี
+5. product_name ในตาราง spare_part เป็นภาษาอังกฤษ
+6. ใช้ LIMIT 20 เสมอ
+
+คำถาม: {question}
+
+สร้าง PostgreSQL query ที่เหมาะสมสำหรับธุรกิจ HVAC:"""
+    
+    # ========================================================================
+    # 🌐 OLLAMA API INTEGRATION
+    # ========================================================================
+    
+    async def _call_ollama_api(self, prompt: str, tenant_id: str) -> str:
+        """🌐 Call Ollama API with retry logic"""
         
         config = self.tenant_configs[tenant_id]
         
@@ -716,44 +602,26 @@ Intent: {intent_result['intent']} (confidence: {intent_result['confidence']:.2f}
             "prompt": prompt,
             "stream": False,
             "options": {
-                "temperature": temperature,
-                "num_predict": 1500,
-                "top_k": 20,
-                "top_p": 0.8,
-                "repeat_penalty": 1.0,
-                "num_ctx": 4096
+                "temperature": self.ai_response_temperature,
+                "top_p": 0.9,
+                "max_tokens": 2000
             }
         }
         
         for attempt in range(self.max_retries):
             try:
-                logger.info(f"🤖 AI API call attempt {attempt + 1} for {tenant_id}")
-                
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(
-                        f"{self.ollama_base_url}/api/generate",
-                        json=payload,
-                        timeout=aiohttp.ClientTimeout(total=self.request_timeout)
-                    ) as response:
-                        
+                async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.request_timeout)) as session:
+                    async with session.post(f"{self.ollama_base_url}/api/generate", json=payload) as response:
                         if response.status == 200:
                             result = await response.json()
-                            response_text = result.get('response', '').strip()
-                            
-                            if response_text:
-                                logger.info(f"✅ AI API call successful for {tenant_id}")
-                                return response_text
-                            else:
-                                raise ValueError("Empty response from AI")
+                            return result.get('response', '').strip()
                         else:
-                            raise aiohttp.ClientResponseError(
-                                request_info=response.request_info,
-                                history=response.history,
-                                status=response.status
-                            )
-                            
+                            logger.warning(f"🔄 Ollama API returned {response.status}, attempt {attempt + 1}")
+                            if attempt < self.max_retries - 1:
+                                await asyncio.sleep(2 ** attempt)
+                                
             except asyncio.TimeoutError:
-                logger.warning(f"⏰ AI API timeout attempt {attempt + 1}")
+                logger.warning(f"🔄 AI request timeout attempt {attempt + 1}")
                 if attempt < self.max_retries - 1:
                     await asyncio.sleep(2 ** attempt)
                     
@@ -768,8 +636,8 @@ Intent: {intent_result['intent']} (confidence: {intent_result['confidence']:.2f}
     # 🗄️ DATABASE OPERATIONS
     # ========================================================================
     
-    def _get_database_connection(self, tenant_id: str) -> psycopg2.extensions.connection:
-        """🔌 Get database connection"""
+    def get_database_connection(self, tenant_id: str) -> psycopg2.extensions.connection:
+        """🔌 Get database connection (public method for schema discovery)"""
         
         config = self.tenant_configs[tenant_id]
         
@@ -790,12 +658,12 @@ Intent: {intent_result['intent']} (confidence: {intent_result['confidence']:.2f}
             raise
     
     async def _execute_sql_unified(self, sql_query: str, tenant_id: str) -> List[Dict[str, Any]]:
-        """🗄️ UNIFIED: Execute SQL query"""
+        """🗄️ Execute SQL query สำหรับ HVAC"""
         
         try:
-            logger.info(f"🗄️ Executing SQL for {tenant_id}: {sql_query[:100]}...")
+            logger.info(f"🗄️ Executing HVAC SQL for {tenant_id}: {sql_query[:100]}...")
             
-            conn = self._get_database_connection(tenant_id)
+            conn = self.get_database_connection(tenant_id)
             cursor = conn.cursor()
             
             cursor.execute(sql_query)
@@ -814,16 +682,16 @@ Intent: {intent_result['intent']} (confidence: {intent_result['confidence']:.2f}
             cursor.close()
             conn.close()
             
-            logger.info(f"✅ SQL executed successfully: {len(results)} results")
+            logger.info(f"✅ HVAC SQL executed successfully: {len(results)} results")
             return results
             
         except Exception as e:
-            logger.error(f"❌ SQL execution failed: {e}")
+            logger.error(f"❌ HVAC SQL execution failed: {e}")
             logger.error(f"❌ Failed SQL: {sql_query}")
             return []
     
     def _process_row_data(self, row_dict: Dict[str, Any]) -> Dict[str, Any]:
-        """🔧 Process row data"""
+        """🔧 Process row data สำหรับ HVAC"""
         
         processed_row = {}
         
@@ -842,642 +710,63 @@ Intent: {intent_result['intent']} (confidence: {intent_result['confidence']:.2f}
         return processed_row
     
     # ========================================================================
-    # 🔍 SCHEMA DISCOVERY
+    # 🔍 SQL EXTRACTION
     # ========================================================================
     
-    async def _get_schema_unified(self, tenant_id: str) -> Dict[str, Any]:
-        """🔍 UNIFIED: Get schema info with caching"""
+    def _extract_sql_unified(self, ai_response: str, question: str) -> str:
+        """🔍 Extract SQL from AI response"""
         
-        cache_key = f"{tenant_id}_schema"
+        logger.info(f"🔍 Extracting SQL from response (length: {len(ai_response)})")
         
-        # Check cache
-        if self._is_schema_cache_valid(cache_key):
-            logger.info(f"📊 Using cached schema for {tenant_id}")
-            return self.schema_cache[cache_key]['data']
+        # Method 1: Look for SQL blocks
+        sql_patterns = [
+            r'```sql\s*(.*?)\s*```',
+            r'```\s*(SELECT.*?);?\s*```',
+            r'Query:\s*(SELECT.*?);?',
+            r'SQL:\s*(SELECT.*?);?',
+            r'(SELECT\s+.*?FROM\s+.*?(?:WHERE.*?)?(?:GROUP BY.*?)?(?:ORDER BY.*?)?(?:LIMIT.*?)?);?'
+        ]
         
-        try:
-            logger.info(f"🔍 Discovering schema for {tenant_id}")
-            schema_info = await self._discover_schema(tenant_id)
-            
-            # Cache results
-            self.schema_cache[cache_key] = {
-                'data': schema_info,
-                'timestamp': time.time()
-            }
-            
-            return schema_info
-            
-        except Exception as e:
-            logger.error(f"❌ Schema discovery failed: {e}")
-            return self._get_fallback_schema()
+        for pattern in sql_patterns:
+            matches = re.findall(pattern, ai_response, re.DOTALL | re.IGNORECASE)
+            if matches:
+                sql = matches[0].strip()
+                if self._is_valid_sql_structure(sql):
+                    logger.info(f"✅ Extracted SQL: {sql[:100]}...")
+                    return sql
+        
+        # Method 2: Look for any SELECT statement
+        select_pattern = r'(SELECT\s+[^;]*(?:FROM\s+[^;]*)?(?:WHERE\s+[^;]*)?(?:LIMIT\s+\d+)?)'
+        matches = re.findall(select_pattern, ai_response, re.DOTALL | re.IGNORECASE)
+        
+        for match in matches:
+            sql = match.strip()
+            if len(sql) > 20 and 'FROM' in sql.upper():
+                logger.info(f"✅ Found SELECT statement: {sql[:100]}...")
+                return sql
+        
+        logger.warning("❌ No valid SQL found in AI response")
+        return None
     
-    def _is_schema_cache_valid(self, cache_key: str) -> bool:
-        """Check cache validity"""
-        if cache_key not in self.schema_cache:
+    def _is_valid_sql_structure(self, sql: str) -> bool:
+        """✅ Validate SQL structure"""
+        
+        sql_upper = sql.upper()
+        
+        # Must have SELECT and FROM
+        if 'SELECT' not in sql_upper or 'FROM' not in sql_upper:
             return False
         
-        cache_age = time.time() - self.schema_cache[cache_key]['timestamp']
-        return cache_age < self.cache_ttl
-    
-    async def _discover_schema(self, tenant_id: str) -> Dict[str, Any]:
-        """Discover database schema"""
+        # Should not have dangerous keywords
+        dangerous_keywords = ['DROP', 'DELETE', 'UPDATE', 'INSERT', 'ALTER', 'CREATE']
+        if any(keyword in sql_upper for keyword in dangerous_keywords):
+            return False
         
-        try:
-            conn = self._get_database_connection(tenant_id)
-            cursor = conn.cursor()
-            
-            schema_info = {
-                'tables': {},
-                'sample_data': {},
-                'discovered_at': datetime.now().isoformat()
-            }
-            
-            # Get table structure
-            cursor.execute("""
-                SELECT table_name, column_name, data_type, is_nullable
-                FROM information_schema.columns 
-                WHERE table_schema = 'public' 
-                AND table_name IN ('employees', 'projects', 'employee_projects')
-                ORDER BY table_name, ordinal_position
-            """)
-            
-            for row in cursor.fetchall():
-                table_name, column_name, data_type, is_nullable = row
-                
-                if table_name not in schema_info['tables']:
-                    schema_info['tables'][table_name] = {'columns': []}
-                
-                schema_info['tables'][table_name]['columns'].append({
-                    'name': column_name,
-                    'type': data_type,
-                    'nullable': is_nullable == 'YES'
-                })
-            
-            cursor.close()
-            conn.close()
-            return schema_info
-            
-        except Exception as e:
-            logger.error(f"Schema discovery error: {e}")
-            raise
-    
-    def _get_fallback_schema(self) -> Dict[str, Any]:
-        """Fallback schema"""
-        return {
-            'tables': {
-                'employees': {
-                    'columns': [
-                        {'name': 'id', 'type': 'integer', 'nullable': False},
-                        {'name': 'name', 'type': 'character varying', 'nullable': False},
-                        {'name': 'department', 'type': 'character varying', 'nullable': False},
-                        {'name': 'position', 'type': 'character varying', 'nullable': False},
-                        {'name': 'salary', 'type': 'numeric', 'nullable': False}
-                    ]
-                }
-            },
-            'sample_data': {},
-            'discovered_at': datetime.now().isoformat(),
-            'fallback': True
-        }
-    
-    # ========================================================================
-    # 🤖 AI RESPONSE GENERATION
-    # ========================================================================
-    
-    async def _generate_ai_response_from_data(self, question: str, db_results: List[Dict], 
-                                            tenant_id: str, sql_query: str, 
-                                            enable_streaming: bool = True) -> str:
-        """🤖 Generate AI response with optional streaming"""
+        # Basic structure check
+        if sql.strip().startswith('SELECT') and len(sql.strip()) > 20:
+            return True
         
-        config = self.tenant_configs[tenant_id]
-        business_context = self._get_business_context_unified(tenant_id)
-        business_emoji = self._get_business_emoji(tenant_id)
-        
-        # Prepare data summary for AI
-        data_summary = self._prepare_data_summary_for_ai(db_results, tenant_id)
-        
-        # Create AI prompt for response generation
-        response_prompt = self._create_ai_response_prompt(
-            question, data_summary, tenant_id, business_context, business_emoji, sql_query
-        )
-        
-        logger.info(f"🤖 Generating AI response for {tenant_id} with {len(db_results)} results")
-        
-        if enable_streaming:
-            # 🆕 Streaming response generation
-            return await self._call_ollama_streaming(tenant_id, response_prompt)
-        else:
-            # Original non-streaming
-            ai_response = await self._call_ollama_unified(
-                tenant_id, response_prompt, temperature=self.ai_response_temperature
-            )
-            return self._post_process_ai_response(ai_response, tenant_id, len(db_results))
-        
-    async def _call_ollama_streaming(self, tenant_id: str, prompt: str, 
-                                temperature: float = 0.3) -> AsyncGenerator[Dict[str, Any], None]:
-        """🌊 Call Ollama with streaming for response generation"""
-        
-        config = self.tenant_configs[tenant_id]
-        
-        payload = {
-            "model": config.model_name,
-            "prompt": prompt,
-            "stream": True,  # ← Streaming enabled
-            "options": {
-                "temperature": temperature,
-                "num_predict": 1500,
-                "top_k": 20,
-                "top_p": 0.8,
-                "repeat_penalty": 1.0,
-                "num_ctx": 4096
-            }
-        }
-        
-        try:
-            logger.info(f"🌊 Starting streaming AI call for {tenant_id}")
-            
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    f"{self.ollama_base_url}/api/generate",
-                    json=payload,
-                    timeout=aiohttp.ClientTimeout(total=self.request_timeout)
-                ) as response:
-                    
-                    if response.status == 200:
-                        full_response = ""
-                        
-                        async for line in response.content:
-                            if line:
-                                try:
-                                    line_str = line.decode('utf-8').strip()
-                                    if line_str:
-                                        chunk_data = json.loads(line_str)
-                                        chunk_text = chunk_data.get('response', '')
-                                        
-                                        if chunk_text:
-                                            full_response += chunk_text
-                                            
-                                            # Yield each chunk to user
-                                            yield {
-                                                "type": "response_chunk",
-                                                "content": chunk_text,
-                                                "tenant_id": tenant_id,
-                                                "accumulated": full_response
-                                            }
-                                        
-                                        # Check if complete
-                                        if chunk_data.get('done', False):
-                                            # Send completion signal
-                                            yield {
-                                                "type": "response_complete",
-                                                "content": "",
-                                                "final_response": self._post_process_ai_response(
-                                                    full_response, tenant_id, 0
-                                                ),
-                                                "tenant_id": tenant_id
-                                            }
-                                            break
-                                            
-                                except json.JSONDecodeError:
-                                    continue
-                    else:
-                        yield {
-                            "type": "error",
-                            "message": f"Ollama API error: HTTP {response.status}",
-                            "tenant_id": tenant_id
-                        }
-                        
-        except Exception as e:
-            logger.error(f"❌ Streaming AI call failed for {tenant_id}: {e}")
-            yield {
-                "type": "error", 
-                "message": f"AI streaming error: {str(e)}",
-                "tenant_id": tenant_id
-            }
-
-    async def _process_sql_unified_with_streaming_response(self, question: str, tenant_id: str, 
-                                                        intent_result: Dict) -> AsyncGenerator[Dict[str, Any], None]:
-        """🎯 SQL processing with streaming response generation"""
-        
-        self.stats['sql_queries'] += 1
-        
-        try:
-            # Step 1-5: Same as before (Non-streaming SQL generation)
-            schema_info = await self._get_schema_unified(tenant_id)
-            sql_prompt = self._generate_sql_prompt_unified(question, tenant_id, schema_info, intent_result)
-            
-            # SQL Generation: Non-streaming (for accuracy)
-            ai_response = await self._call_ollama_unified(tenant_id, sql_prompt)
-            sql_result = self._extract_sql_unified(ai_response, question)
-            
-            if not sql_result['success']:
-                yield {
-                    "type": "error",
-                    "message": f"SQL generation failed: {sql_result['error']}",
-                    "tenant_id": tenant_id
-                }
-                return
-            
-            sql_query = sql_result['sql']
-            
-            # Execute SQL
-            db_results = await self._execute_sql_unified(sql_query, tenant_id)
-            
-            # Send metadata first
-            yield {
-                "type": "metadata",
-                "sql_query": sql_query,
-                "db_results_count": len(db_results),
-                "tenant_id": tenant_id,
-                "status": "generating_response"
-            }
-            
-            # Step 6: Response Generation with Streaming
-            if self.enable_ai_responses and db_results:
-                async for chunk in self._generate_ai_response_streaming(
-                    question, db_results, tenant_id, sql_query
-                ):
-                    yield chunk
-            else:
-                # Fallback to hardcode
-                hardcode_response = self._format_response_hardcode(
-                    db_results, question, tenant_id, sql_query
-                )
-                yield {
-                    "type": "response_complete",
-                    "final_response": hardcode_response,
-                    "tenant_id": tenant_id,
-                    "method": "hardcode_fallback"
-                }
-                
-        except Exception as e:
-            yield {
-                "type": "error",
-                "message": f"Processing failed: {str(e)}",
-                "tenant_id": tenant_id
-            }
-
-    async def _generate_ai_response_streaming(self, question: str, db_results: List[Dict], 
-                                            tenant_id: str, sql_query: str) -> AsyncGenerator[Dict[str, Any], None]:
-        """🌊 Generate streaming AI response from database results"""
-        
-        try:
-            # Prepare prompt (same as before)
-            data_summary = self._prepare_data_summary_for_ai(db_results, tenant_id)
-            response_prompt = self._create_ai_response_prompt(
-                question, data_summary, tenant_id, 
-                self._get_business_context_unified(tenant_id),
-                self._get_business_emoji(tenant_id), 
-                sql_query
-            )
-            
-            # Stream the AI response
-            async for chunk in self._call_ollama_streaming(tenant_id, response_prompt):
-                yield chunk
-                
-        except Exception as e:
-            yield {
-                "type": "error",
-                "message": f"AI response streaming failed: {str(e)}",
-                "tenant_id": tenant_id
-            }
-
-    def _prepare_data_summary_for_ai(self, db_results: List[Dict], tenant_id: str) -> str:
-        """📋 Prepare database results summary for AI processing"""
-        
-        if not db_results:
-            return "ไม่พบข้อมูล"
-        
-        # Limit data size for AI processing
-        max_results = 20
-        limited_results = db_results[:max_results]
-        
-        data_summary = f"จำนวนข้อมูลทั้งหมด: {len(db_results)} รายการ\n"
-        
-        if len(db_results) > max_results:
-            data_summary += f"(แสดงเฉพาะ {max_results} รายการแรก)\n"
-        
-        data_summary += "\nข้อมูลที่พบ:\n"
-        
-        for i, row in enumerate(limited_results, 1):
-            row_text = f"{i}. "
-            
-            # Convert each row to readable format
-            for key, value in row.items():
-                if value is not None:
-                    # Handle different data types
-                    if isinstance(value, (int, float)) and 'salary' in key.lower():
-                        currency = "USD" if tenant_id == 'company-c' else "บาท"
-                        row_text += f"{key}: {value:,.0f} {currency}, "
-                    elif isinstance(value, (int, float)) and 'budget' in key.lower():
-                        currency = "USD" if tenant_id == 'company-c' else "บาท"
-                        row_text += f"{key}: {value:,.0f} {currency}, "
-                    elif isinstance(value, (int, float)) and 'allocation' in key.lower():
-                        row_text += f"{key}: {value*100:.0f}%, "
-                    else:
-                        row_text += f"{key}: {value}, "
-            
-            data_summary += row_text.rstrip(', ') + "\n"
-        
-        return data_summary
-    
-    def _create_ai_response_prompt(self, question: str, data_summary: str, tenant_id: str, 
-                                 business_context: str, business_emoji: str, sql_query: str) -> str:
-        """🎯 Create AI prompt for response generation"""
-        
-        config = self.tenant_configs[tenant_id]
-        
-        # Language-specific instructions
-        if config.language == 'en':
-            language_instruction = "Respond in clear, professional English."
-            tone_instruction = "Use a professional, informative tone."
-        else:
-            language_instruction = "ตอบเป็นภาษาไทยที่สุภาพและเป็นมิตร"
-            tone_instruction = "ใช้น้ำเสียงที่เป็นกันเองและเข้าใจง่าย"
-        
-        prompt = f"""คุณคือ AI Assistant ผู้เชี่ยวชาญสำหรับ {config.name}
-
-{business_context}
-
-🎯 งานของคุณ: สร้างคำตอบที่เป็นธรรมชาติและเข้าใจง่ายจากข้อมูลที่ได้จากฐานข้อมูล
-
-📋 ข้อมูลจากฐานข้อมูล:
-{data_summary}
-
-❓ คำถามเดิม: {question}
-
-📝 คำแนะนำในการตอบ:
-1. {language_instruction}
-2. {tone_instruction}
-3. เริ่มต้นด้วย emoji ธุรกิจ: {business_emoji}
-4. แสดงชื่อบริษัท: {config.name}
-5. สรุปผลลัพธ์อย่างชัดเจน
-6. จัดรูปแบบให้อ่านง่าย
-
-🚫 สิ่งที่ห้ามทำ:
-- ไม่ต้องอธิบายเกี่ยวกับ SQL หรือฐานข้อมูล
-- ไม่ต้องเพิ่มข้อมูลที่ไม่มีในผลลัพธ์
-
-สร้างคำตอบที่เป็นธรรมชาติและเป็นประโยชน์:"""
-        
-        return prompt
-    
-    def _post_process_ai_response(self, ai_response: str, tenant_id: str, result_count: int) -> str:
-        """🔧 Post-process AI response for consistency"""
-        
-        response = ai_response.strip()
-        
-        # Ensure response starts with business emoji if missing
-        business_emoji = self._get_business_emoji(tenant_id)
-        if not response.startswith(business_emoji):
-            response = f"{business_emoji} {response}"
-        
-        # Add metadata if not present
-        if result_count > 0 and "สรุป:" not in response and "Summary:" not in response:
-            if tenant_id == 'company-c':
-                response += f"\n\n💡 Summary: Found {result_count} records from database"
-            else:
-                response += f"\n\n💡 สรุป: พบข้อมูล {result_count} รายการจากฐานข้อมูล"
-        
-        # Ensure reasonable length
-        if len(response) > 2000:
-            logger.warning(f"⚠️ AI response too long ({len(response)} chars), truncating")
-            response = response[:1800] + "..."
-            if tenant_id == 'company-c':
-                response += "\n\n(Response truncated for readability)"
-            else:
-                response += "\n\n(ตัดทอนเพื่อความสะดวกในการอ่าน)"
-        
-        return response
-    
-    # ========================================================================
-    # 🔧 HARDCODE FORMATTING (Fallback)
-    # ========================================================================
-    
-    def _format_response_hardcode(self, results: List[Dict], question: str, 
-                                tenant_id: str, sql_query: str, schema_info: Dict = None) -> str:
-        """🔧 Fixed: Added schema_info parameter with default None"""
-        
-        if not results:
-            return f"ไม่พบข้อมูลที่ตรงกับคำถาม: {question}"
-        
-        config = self.tenant_configs[tenant_id]
-        business_emoji = self._get_business_emoji(tenant_id)
-        
-        response = f"{business_emoji} ผลการค้นหา - {config.name}\n\n"
-        response += f"🎯 คำถาม: {question}\n\n"
-        
-        # Format based on query type (simplified)
-        if self._is_counting_query(sql_query):
-            response += self._format_counting_results_simple(results, tenant_id)
-        elif self._is_relationship_query(sql_query):
-            response += self._format_relationship_results_simple(results, tenant_id)
-        else:
-            response += self._format_general_results_simple(results, tenant_id)
-        
-        # Add summary
-        response += f"\n💡 สรุป: พบข้อมูล {len(results)} รายการ"
-        
-        if schema_info and not schema_info.get('fallback', False):
-            response += " (ข้อมูลล่าสุดจากฐานข้อมูล)"
-        
-        return response
-    
-    # ========================================================================
-    # 💬 CONVERSATIONAL PROCESSING
-    # ========================================================================
-    def _format_counting_results_simple(self, results: List[Dict], tenant_id: str) -> str:
-        """📊 Simple counting format"""
-        
-        response = "📊 สถิติและจำนวน:\n"
-        
-        for i, row in enumerate(results, 1):
-            response += f"{i}. "
-            
-            for key, value in row.items():
-                if value is not None:
-                    if 'count' in key.lower():
-                        response += f"{key}: {value:,} คน, "
-                    elif key.lower() == 'department':
-                        response += f"แผนก{value}: "
-                    elif 'salary' in key.lower() and isinstance(value, (int, float)):
-                        currency = "USD" if tenant_id == 'company-c' else "บาท"
-                        response += f"เงินเดือนเฉลี่ย: {value:,.0f} {currency}, "
-                    else:
-                        response += f"{key}: {value}, "
-            
-            response = response.rstrip(', ') + "\n"
-        
-        return response
-
-    def _format_relationship_results_simple(self, results: List[Dict], tenant_id: str) -> str:
-        """🤝 Simple relationship format"""
-        
-        response = "👥 การมอบหมายงานและโปรเจค:\n"
-        
-        for i, row in enumerate(results[:15], 1):
-            response += f"{i:2d}. "
-            
-            # Safe handling of employee and project names
-            emp_name = row.get('employee_name') or row.get('Employee Name') or row.get('name', '[ไม่ระบุชื่อ]')
-            proj_name = row.get('project_name') or row.get('Project Name') or row.get('project', '')
-            role = row.get('role', '')
-            
-            response += f"👤 {emp_name}"
-            
-            if proj_name:
-                response += f" ➜ 📋 {proj_name}"
-            
-            if role:
-                response += f" ({role})"
-            
-            # Safe allocation handling
-            allocation = row.get('allocation')
-            if allocation is not None:
-                try:
-                    allocation_val = float(allocation)
-                    response += f" - จัดสรร: {allocation_val*100:.0f}%"
-                except (ValueError, TypeError):
-                    pass
-            
-            response += "\n"
-        
-        if len(results) > 15:
-            response += f"... และอีก {len(results) - 15} รายการ\n"
-        
-        return response
-
-    def _format_general_results_simple(self, results: List[Dict], tenant_id: str) -> str:
-        """📋 Simple general format"""
-        
-        response = "📋 ข้อมูลที่พบ:\n"
-        
-        for i, row in enumerate(results[:10], 1):
-            response += f"{i:2d}. "
-            
-            for key, value in row.items():
-                if value is not None:
-                    if key.lower() in ['salary', 'budget'] and isinstance(value, (int, float)):
-                        currency = "USD" if tenant_id == 'company-c' else "บาท"
-                        response += f"{key}: {value:,.0f} {currency}, "
-                    else:
-                        response += f"{key}: {value}, "
-            
-            response = response.rstrip(', ') + "\n"
-        
-        if len(results) > 10:
-            response += f"... และอีก {len(results) - 10} รายการ\n"
-        
-        return response
-
-    def _is_counting_query(self, sql: str) -> bool:
-        """Check if SQL is counting query"""
-        return 'count(' in sql.lower() or 'group by' in sql.lower()
-
-    def _is_relationship_query(self, sql: str) -> bool:
-        """Check if SQL is relationship query"""
-        return 'join' in sql.lower() and 'employee_projects' in sql.lower()
-
-    async def _process_conversational_unified(self, question: str, tenant_id: str, intent_result: Dict) -> Dict[str, Any]:
-        """💬 UNIFIED: Process conversational questions"""
-        
-        self.stats['conversational_queries'] += 1
-        
-        config = self.tenant_configs[tenant_id]
-        business_emoji = self._get_business_emoji(tenant_id)
-        
-        if self._is_greeting(question):
-            answer = self._create_greeting_response(tenant_id, business_emoji)
-        else:
-            answer = self._create_general_conversational_response(question, tenant_id, business_emoji)
-        
-        return {
-            "answer": answer,
-            "success": True,
-            "data_source_used": f"unified_conversational_{config.model_name}",
-            "sql_query": None,
-            "tenant_id": tenant_id,
-            "system_used": "unified_conversational"
-        }
-    
-    async def _process_hybrid_unified(self, question: str, tenant_id: str, intent_result: Dict) -> Dict[str, Any]:
-        """🔄 UNIFIED: Process hybrid questions"""
-        
-        logger.info(f"🔄 Using hybrid approach for: {question[:50]}...")
-        
-        # Try SQL first
-        try:
-            sql_result = await self._process_sql_unified_with_ai_response(question, tenant_id, intent_result)
-            
-            if sql_result.get('success') and sql_result.get('db_results_count', 0) > 0:
-                sql_result['system_used'] = 'unified_hybrid_sql_ai'
-                return sql_result
-        except Exception as e:
-            logger.warning(f"Hybrid SQL failed: {e}")
-        
-        # Fallback to conversational
-        conv_result = await self._process_conversational_unified(question, tenant_id, intent_result)
-        conv_result['system_used'] = 'unified_hybrid_conversational'
-        return conv_result
-    
-    # ========================================================================
-    # 🔧 HELPER METHODS
-    # ========================================================================
-    
-    def _get_business_context_unified(self, tenant_id: str) -> str:
-        """🏢 Get business context"""
-        
-        contexts = {
-            'company-a': """🏢 บริบท: สำนักงานใหญ่ กรุงเทพมฯ - Enterprise Banking & E-commerce
-💰 สกุลเงิน: บาท (THB) | งบประมาณ: 800K-3M+ บาท
-🎯 เน้น: ระบบธนาคาร, CRM, โปรเจคขนาดใหญ่""",
-
-            'company-b': """🏨 บริบท: สาขาภาคเหนือ เชียงใหม่ - Tourism & Hospitality tempnology  
-💰 สกุลเงิน: บาท (THB) | งบประมาณ: 300K-800K บาท
-🎯 เน้น: ระบบท่องเที่ยว, โรงแรม, วัฒนธรรมล้านนา""",
-
-            'company-c': """🌍 บริบท: International Office - Global Software Solutions
-💰 สกุลเงิน: USD และ Multi-currency | งบประมาณ: 1M-4M+ USD  
-🎯 เน้น: ระบบข้ามประเทศ, Global compliance, Multi-currency"""
-        }
-        
-        return contexts.get(tenant_id, contexts['company-a'])
-    
-    def _get_business_emoji(self, tenant_id: str) -> str:
-        emojis = {'company-a': '🏦', 'company-b': '🏨', 'company-c': '🌍'}
-        return emojis.get(tenant_id, '💼')
-    
-    def _is_greeting(self, question: str) -> bool:
-        greetings = ['สวัสดี', 'hello', 'hi', 'ช่วย', 'help', 'คุณคือใคร']
-        return any(word in question.lower() for word in greetings)
-    
-    def _create_greeting_response(self, tenant_id: str, business_emoji: str) -> str:
-        config = self.tenant_configs[tenant_id]
-        
-        return f"""สวัสดีครับ! ผมคือ AI Assistant สำหรับ {config.name} (Fixed v3.1)
-
-{business_emoji} พร้อมให้บริการ - ระบบแก้ไขแล้ว
-💡 ตัวอย่างคำถาม:
-  • "ใครอยู่ตำแหน่ง frontend บ้าง"
-  • "มีพนักงานกี่คนในแผนก IT"  
-  • "พนักงานแต่ละคนรับผิดชอบโปรเจคอะไรบ้าง"
-
-มีอะไรให้ช่วยไหมครับ?"""
-    
-    def _create_general_conversational_response(self, question: str, tenant_id: str, business_emoji: str) -> str:
-        config = self.tenant_configs[tenant_id]
-        
-        return f"""{business_emoji} ระบบ AI ที่แก้ไขแล้ว - {config.name}
-
-คำถาม: {question}
-
-🔧 Status: All missing methods fixed
-💡 ลองถามคำถามที่เฉพาะเจาะจงมากขึ้น เช่น:
-• การค้นหาพนักงาน: "ใครอยู่ตำแหน่ง [ตำแหน่ง] บ้าง"
-• การนับจำนวน: "มีพนักงานกี่คนในแผนก [แผนก]"  
-• การมอบหมายงาน: "พนักงานแต่ละคนรับผิดชอบโปรเจคอะไรบ้าง"
-
-🚀 Powered by Fixed Unified Agent v3.1"""
+        return False
     
     # ========================================================================
     # ❌ ERROR HANDLING
@@ -1485,39 +774,40 @@ Intent: {intent_result['intent']} (confidence: {intent_result['confidence']:.2f}
     
     def _create_error_response(self, error_message: str, tenant_id: str) -> Dict[str, Any]:
         return {
-            "answer": f"เกิดข้อผิดพลาดในระบบ: {error_message}",
+            "answer": f"เกิดข้อผิดพลาดในระบบ HVAC: {error_message}",
             "success": False,
-            "data_source_used": "unified_ai_error",
+            "data_source_used": "hvac_error",
             "sql_query": None,
             "tenant_id": tenant_id,
-            "system_used": "unified_ai_error_handler",
+            "system_used": "hvac_error_handler",
             "error": error_message
         }
     
     def _create_sql_error_response(self, question: str, tenant_id: str, error_message: str) -> Dict[str, Any]:
         config = self.tenant_configs[tenant_id]
-        business_emoji = self._get_business_emoji(tenant_id)
+        business_emoji = self._get_hvac_business_emoji(tenant_id)
         
-        answer = f"""{business_emoji} ไม่สามารถประมวลผลคำถามได้
+        answer = f"""{business_emoji} ไม่สามารถประมวลผลคำถาม HVAC ได้
 
 คำถาม: {question}
 
 ⚠️ ปัญหา: {error_message}
 
-🔧 Status: System has been fixed
-💡 คำแนะนำ:
-• ลองถามใหม่ด้วยรูปแบบที่ชัดเจนขึ้น
-• ตัวอย่าง: "ใครอยู่ตำแหน่ง frontend บ้าง" หรือ "มีพนักงานกี่คนในแผนก IT"
+💡 คำแนะนำสำหรับคำถาม HVAC:
+• ลูกค้า: "จำนวนลูกค้าทั้งหมด" หรือ "บริษัท ABC มีประวัติอะไรบ้าง"
+• อะไหล่: "ราคาอะไหล่ Hitachi chiller" หรือ "สต็อกอะไหล่ทั้งหมด"
+• แผนงาน: "แผนงานวันที่ 15/06/2568" หรือ "ทีมช่างมีใครบ้าง"
+• ยอดขาย: "ยอดขายปี 2567" หรือ "วิเคราะห์บริการ PM"
 
-หรือลองถามเกี่ยวกับข้อมูลทั่วไปของบริษัท"""
+หรือลองถามเกี่ยวกับข้อมูลทั่วไปของธุรกิจ HVAC"""
         
         return {
             "answer": answer,
             "success": False,
-            "data_source_used": f"unified_ai_sql_error_{config.model_name}",
+            "data_source_used": f"hvac_sql_error_{config.model_name}",
             "sql_query": None,
             "tenant_id": tenant_id,
-            "system_used": "unified_ai_sql_error_handler",
+            "system_used": "hvac_sql_error_handler",
             "error_reason": error_message
         }
     
@@ -1538,6 +828,40 @@ Intent: {intent_result['intent']} (confidence: {intent_result['confidence']:.2f}
         current_avg = self.stats['avg_response_time']
         new_avg = ((current_avg * (total_queries - 1)) + processing_time) / total_queries
         self.stats['avg_response_time'] = new_avg
+    
+    async def get_intelligent_schema_stats(self) -> Dict[str, Any]:
+        """📊 ดูสถิติของระบบ HVAC Intelligent Schema Discovery"""
+        
+        if self.intelligent_schema_available and self.schema_integration:
+            try:
+                cache_stats = self.schema_integration.schema_discovery.get_cache_statistics()
+                return {
+                    'hvac_intelligent_schema_system': 'active',
+                    'cache_statistics': cache_stats,
+                    'hvac_features': [
+                        'contextual_hvac_schema_discovery',
+                        'intelligent_hvac_prompt_building',
+                        'hvac_question_analysis',
+                        'hvac_business_data_extraction',
+                        'smart_caching'
+                    ]
+                }
+            except Exception as e:
+                return {'error': f'Failed to get HVAC stats: {str(e)}'}
+        else:
+            return {'hvac_intelligent_schema_system': 'not_available'}
+
+    def clear_schema_cache(self, tenant_id: Optional[str] = None):
+        """🗑️ ล้าง cache ของ HVAC schema discovery"""
+        
+        if self.intelligent_schema_available and self.schema_integration:
+            try:
+                self.schema_integration.schema_discovery.clear_cache(tenant_id)
+                logger.info(f"🗑️ HVAC Schema cache cleared for {tenant_id if tenant_id else 'all tenants'}")
+            except Exception as e:
+                logger.error(f"❌ Failed to clear HVAC cache: {e}")
+        else:
+            logger.warning("⚠️ HVAC Intelligent Schema Discovery not available")
     
     # ========================================================================
     # 🔄 COMPATIBILITY METHODS
