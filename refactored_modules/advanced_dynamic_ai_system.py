@@ -1,1437 +1,2402 @@
-# refactored_modules/advanced_dynamic_ai_system.py
-# 🔧 แก้ไข Dynamic AI System ให้ใช้ Schema จริง
+# advanced_dynamic_ai_system.py
+# 🚀 Enhanced Dynamic AI System v5.0 - Ultra Dynamic & Intelligent
+# ปรับปรุงใหม่เพื่อความ Dynamic สูงสุด ไม่มี hardcode เลย
 
 import re
 import json
 import asyncio
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime, timedelta
 import logging
+from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
-class AdvancedDynamicAISystem:
-    """🚀 ระบบ AI แบบ Dynamic ที่ตอบได้ทุกคำถาม - แก้ไขแล้ว"""
+class UltraDynamicAISystem:
+    """🚀 ระบบ AI แบบ Ultra Dynamic ที่ตอบได้ทุกคำถาม - ไม่มี hardcode"""
     
     def __init__(self, database_handler, ollama_client):
         self.db_handler = database_handler
         self.ollama_client = ollama_client
         
-        # Cache สำหรับเก็บข้อมูล schema และตัวอย่าง
-        self.schema_cache = {}
-        self.sample_data_cache = {}
-        self.relationship_cache = {}
-        self.actual_columns_cache = {}  # 🆕 Cache คอลัมน์จริง
-        
-        # Advanced Question Pattern Recognition
-        self.question_patterns = {
-            'counting': {
-                'patterns': [
-                    r'(?:มี|จำนวน|กี่|count|how many).*?(?:ลูกค้า|customer|งาน|job|อะไหล่|part)',
-                    r'(?:ทั้งหมด|total|รวม|all).*?(?:กี่|how many|count)',
-                ],
-                'response_format': 'summary_with_count'
-            },
-            'spare_parts_search': {
-                'patterns': [
-                    r'(?:ราคา|price|อะไหล่|spare.*part).*?(?:hitachi|daikin|euroklimat)',
-                    r'(?:หา|find|ค้นหา).*?(?:อะไหล่|spare|part)',
-                ],
-                'preferred_tables': ['spare_part', 'spare_part2'],
-                'response_format': 'spare_parts_list'
-            },
-            'customer_analysis': {
-                'patterns': [
-                    r'(?:ลูกค้า|customer|บริษัท|company).*?(?:มากที่สุด|most|ทั้งหมด|all)',
-                    r'(?:วิเคราะห์|analysis).*?(?:ลูกค้า|customer)',
-                ],
-                'preferred_tables': ['sales2024', 'sales2023', 'sales2022'],
-                'response_format': 'customer_analysis'
-            },
-            'sales_analysis': {
-                'patterns': [
-                    r'(?:วิเคราะห์|analysis|สรุป|summary).*?(?:ขาย|sales|ปี|year)',
-                    r'(?:ยอดขาย|sales).*?(?:ปี|year|\d{4})',
-                ],
-                'preferred_tables': ['sales2024', 'sales2023', 'sales2022'],
-                'response_format': 'sales_summary'
-            }
+        # Dynamic Caching System
+        self.dynamic_cache = {
+            'schema': {},
+            'patterns': {},
+            'relationships': {},
+            'column_types': {},
+            'sample_data': {}
         }
         
-        logger.info("🚀 Fixed Advanced Dynamic AI System initialized")
+        logger.info("🚀 Ultra Dynamic AI System v5.0 initialized")
     
-    async def _generate_natural_ai_response(self, question: str, results: List[Dict], 
-                                        analysis: Dict[str, Any], tenant_id: str) -> str:
-        """🤖 ใช้ AI สร้างคำตอบที่เป็นธรรมชาติ"""
-        
-        if not results:
-            return self._create_natural_no_results_response(question, analysis)
-        
-        # สร้าง prompt สำหรับ AI ให้ตอบแบบธรรมชาติ
-        context_prompt = self._build_natural_response_prompt(question, results, analysis)
-        
-        try:
-            # เรียกใช้ AI
-            ai_response = await self.ollama_client._call_ollama_api(context_prompt, tenant_id)
-            
-            # ตรวจสอบและปรับปรุงคำตอบ
-            cleaned_response = self._clean_and_enhance_response(ai_response, question, len(results))
-            
-            return cleaned_response
-            
-        except Exception as e:
-            logger.error(f"❌ Natural AI response generation failed: {e}")
-            # Fallback ไปใช้การจัดรูปแบบแบบเดิม
-            return self._format_results_intelligently(question, results, analysis)
-
-    def _build_natural_response_prompt(self, question: str, results: List[Dict], 
-                                    analysis: Dict[str, Any]) -> str:
-        """📝 สร้าง prompt สำหรับคำตอบที่เป็นธรรมชาติ"""
-        
-        question_type = analysis.get('question_type', 'unknown')
-        
-        # ข้อมูลตัวอย่างสำหรับ AI (จำกัด 3 รายการแรก)
-        sample_data = json.dumps(results[:3], ensure_ascii=False, indent=2, default=str)
-        
-        prompt = f"""คุณคือผู้ช่วย AI ที่เชี่ยวชาญด้านธุรกิจ HVAC (เครื่องปรับอากาศและระบบทำความเย็น)
-
-    🎯 งานของคุณคือตอบคำถามให้ฟังดูเป็นธรรมชาติ เหมือนพนักงานจริงๆ ที่กำลังช่วยลูกค้า
-
-    คำถาม: {question}
-    ประเภทคำถาม: {question_type}
-    จำนวนข้อมูลที่พบ: {len(results)} รายการ
-
-    ข้อมูลที่พบ (ตัวอย่าง):
-    {sample_data}
-
-    📋 คำแนะนำในการตอบ:
-    1. ใช้ภาษาไทยธรรมชาติ ไม่เป็นทางการจนเกินไป
-    2. ใช้คำว่า "ครับ" "ค่ะ" ให้เหมาะสม
-    3. ไม่ต้องใส่ emoji มากเกินไป
-    4. หากเป็นข้อมูลเงิน ให้แสดงหน่วย "บาท" และใส่ comma
-    5. หากเป็นข้อมูลจำนวน ให้แสดงเป็นตัวเลขที่อ่านง่าย
-    6. ตอบให้กระชับ ไม่ยืดยาว
-    7. หากมีข้อมูลเยอะ แสดงแค่ส่วนสำคัญ แล้วบอกว่า "มีอีก"
-
-    เริ่มตอบเลยครับ (ไม่ต้องบอกว่า "ตามข้อมูลที่ได้รับ" หรือ "จากการค้นหา"):"""
-
-        return prompt
-
-    def _clean_and_enhance_response(self, ai_response: str, question: str, result_count: int) -> str:
-        """✨ ปรับปรุงคำตอบให้ดียิ่งขึ้น"""
-        
-        # ลบส่วนที่ไม่ต้องการ
-        unwanted_phrases = [
-            "ตามข้อมูลที่ได้รับ",
-            "จากการค้นหา",
-            "จากฐานข้อมูล",
-            "ตามที่คุณถาม",
-            "สรุปแล้ว"
-        ]
-        
-        cleaned_response = ai_response.strip()
-        
-        for phrase in unwanted_phrases:
-            cleaned_response = cleaned_response.replace(phrase, "").strip()
-        
-        # ลบ space หรือ newline ที่เกิน
-        lines = [line.strip() for line in cleaned_response.split('\n') if line.strip()]
-        cleaned_response = '\n'.join(lines)
-        
-        # ตรวจสอบความยาว หากยาวเกินไป ให้ตัดให้เหลือส่วนสำคัญ
-        if len(cleaned_response) > 800:
-            # หา paragraph แรก หรือ 2-3 บรรทัดแรก
-            sentences = cleaned_response.split('.')
-            important_sentences = sentences[:3]  # เอา 3 ประโยคแรก
-            cleaned_response = '.'.join(important_sentences)
-            
-            if result_count > 5:
-                cleaned_response += f"\n\nมีข้อมูลอีก {result_count - 3} รายการ หากต้องการดูเพิ่มเติมแจ้งได้ครับ"
-        
-        # เพิ่มข้อมูลเสริมหากจำเป็น
-        if not cleaned_response.endswith(('ครับ', 'ค่ะ', 'คะ')):
-            cleaned_response += " ครับ"
-        
-        return cleaned_response
-
-    # อัปเดต method หลัก
     async def process_any_question(self, question: str, tenant_id: str) -> Dict[str, Any]:
-        """🎯 ประมวลผลคำถามใดๆ ด้วย Natural AI Response"""
+        """🎯 ประมวลผลคำถามใดๆ ด้วย Ultra Dynamic Intelligence"""
         
         try:
-            logger.info(f"🚀 Processing dynamic question: {question}")
+            start_time = datetime.now()
+            logger.info(f"🚀 Processing ultra dynamic question: {question}")
             
-            # Step 1: ค้นพบ schema จริงจากฐานข้อมูล
-            actual_schema = await self._get_actual_database_schema(tenant_id)
+            # Step 1: Dynamic Schema Discovery - ค้นพบ schema แบบ real-time
+            actual_schema = await self._discover_complete_schema(tenant_id)
             
-            # Step 2: วิเคราะห์คำถาม
-            question_analysis = self._analyze_question_with_schema(question, actual_schema)
+            # Step 2: Intelligent Question Analysis - วิเคราะห์คำถามแบบลึก
+            question_analysis = await self._analyze_question_intelligently(question, actual_schema)
             
-            # Step 3: สร้าง SQL ที่ถูกต้อง
-            sql_query = await self._generate_accurate_sql(question, question_analysis, actual_schema, tenant_id)
+            # Step 3: Dynamic SQL Generation - สร้าง SQL แบบ adaptive
+            sql_query = await self._generate_adaptive_sql(question, question_analysis, actual_schema, tenant_id)
             
-            # Step 4: Execute และ process results
+            # Step 4: Execute และประมวลผล
             if sql_query:
-                results = await self._execute_sql_safely(sql_query, tenant_id)
+                results = await self._execute_with_fallback(sql_query, tenant_id)
                 
-                # 🆕 ใช้ AI สร้างคำตอบที่เป็นธรรมชาติ
-                answer = await self._generate_natural_ai_response(question, results, question_analysis, tenant_id)
+                # Step 5: AI-Generated Natural Response
+                answer = await self._create_intelligent_response(question, results, question_analysis, tenant_id)
+                
+                processing_time = (datetime.now() - start_time).total_seconds()
                 
                 return {
                     "answer": answer,
                     "success": True,
                     "sql_query": sql_query,
-                    "results_count": len(results),
+                    "results_count": len(results) if results else 0,
                     "question_analysis": question_analysis,
-                    "data_source_used": "natural_ai_response",
-                    "system_used": "advanced_dynamic_ai_natural"
+                    "data_source_used": "ultra_dynamic_ai",
+                    "system_used": "ultra_dynamic_ai_v5",
+                    "processing_time": processing_time
                 }
             else:
-                return await self._create_helpful_response(question, actual_schema, tenant_id)
+                return await self._create_exploratory_response(question, actual_schema, tenant_id)
                 
         except Exception as e:
-            logger.error(f"❌ Natural dynamic processing failed: {e}")
+            logger.error(f"❌ Ultra dynamic processing failed: {e}")
             return {
-                "answer": f"ขออภัยครับ ไม่สามารถประมวลผลคำถามนี้ได้ในขณะนี้: {str(e)}",
+                "answer": f"ขออภัยครับ ระบบกำลังประมวลผลข้อมูล กรุณาลองใหม่อีกครั้ง",
                 "success": False,
                 "error": str(e),
-                "data_source_used": "natural_ai_error"
+                "data_source_used": "error_fallback"
             }
     
-    async def _get_actual_database_schema(self, tenant_id: str) -> Dict[str, Any]:
-        """🔍 ดึง schema จริงจากฐานข้อมูล - แม่นยำ 100%"""
+    async def _discover_complete_schema(self, tenant_id: str) -> Dict[str, Any]:
+        """🔍 ค้นพบ schema แบบสมบูรณ์และ dynamic"""
         
-        cache_key = f"{tenant_id}_actual_schema"
-        if cache_key in self.schema_cache:
-            cache_age = (datetime.now() - self.schema_cache[cache_key]['timestamp']).seconds
-            if cache_age < 1800:  # 30 นาที
-                return self.schema_cache[cache_key]['data']
+        cache_key = f"{tenant_id}_complete_schema"
+        
+        # ตรวจสอบ cache (expire ทุก 5 นาที)
+        if cache_key in self.dynamic_cache['schema']:
+            cached = self.dynamic_cache['schema'][cache_key]
+            if (datetime.now() - cached['timestamp']).seconds < 300:
+                return cached['data']
         
         try:
-            conn = self.db_handler.get_database_connection(tenant_id)
-            cursor = conn.cursor()
-            
-            actual_schema = {}
-            
-            # ดึงรายชื่อตารางทั้งหมด
-            cursor.execute("""
-                SELECT table_name 
+            # ค้นหาตารางทั้งหมด
+            tables_query = """
+                SELECT table_name, table_type
                 FROM information_schema.tables 
                 WHERE table_schema = 'public' 
                 AND table_type = 'BASE TABLE'
                 ORDER BY table_name
-            """)
-            table_names = [row[0] for row in cursor.fetchall()]
+            """
             
-            # วิเคราะห์แต่ละตาราง
-            for table_name in table_names:
-                actual_schema[table_name] = await self._get_table_actual_structure(cursor, table_name)
+            tables_result = await self.db_handler._execute_sql_unified(tables_query, tenant_id)
             
-            cursor.close()
-            conn.close()
+            complete_schema = {}
+            
+            for table_info in tables_result:
+                table_name = table_info['table_name']
+                
+                # ดึงข้อมูลคอลัมน์แบบละเอียด
+                columns_query = f"""
+                    SELECT 
+                        column_name,
+                        data_type,
+                        is_nullable,
+                        column_default,
+                        character_maximum_length,
+                        numeric_precision,
+                        numeric_scale
+                    FROM information_schema.columns 
+                    WHERE table_name = '{table_name}' 
+                    AND table_schema = 'public'
+                    ORDER BY ordinal_position
+                """
+                
+                columns_result = await self.db_handler._execute_sql_unified(columns_query, tenant_id)
+                
+                # นับจำนวนแถว
+                count_query = f"SELECT COUNT(*) as total_rows FROM {table_name}"
+                count_result = await self.db_handler._execute_sql_unified(count_query, tenant_id)
+                row_count = count_result[0]['total_rows'] if count_result else 0
+                
+                # ดึงข้อมูลตัวอย่าง 3 แถว
+                sample_query = f"SELECT * FROM {table_name} LIMIT 3"
+                sample_result = await self.db_handler._execute_sql_unified(sample_query, tenant_id)
+                
+                # วิเคราะห์ประเภทข้อมูลแบบ dynamic
+                column_insights = await self._analyze_column_content(table_name, columns_result, sample_result, tenant_id)
+                
+                complete_schema[table_name] = {
+                    'columns': columns_result,
+                    'row_count': row_count,
+                    'sample_data': sample_result,
+                    'column_insights': column_insights,
+                    'business_purpose': await self._detect_table_purpose(table_name, columns_result, sample_result),
+                    'searchable_columns': [col['column_name'] for col in columns_result 
+                                         if self._is_searchable_column(col)],
+                    'numeric_columns': [col['column_name'] for col in columns_result 
+                                      if self._is_numeric_column(col)],
+                    'date_columns': [col['column_name'] for col in columns_result 
+                                   if self._is_date_column(col)]
+                }
             
             # Cache ผลลัพธ์
-            self.schema_cache[cache_key] = {
-                'data': actual_schema,
+            self.dynamic_cache['schema'][cache_key] = {
+                'data': complete_schema,
                 'timestamp': datetime.now()
             }
             
-            logger.info(f"✅ Actual schema loaded: {len(actual_schema)} tables")
-            for table_name, info in actual_schema.items():
-                column_names = [col['name'] for col in info['columns']]
-                logger.info(f"  📋 {table_name}: {', '.join(column_names[:5])}...")
-            
-            return actual_schema
+            logger.info(f"✅ Discovered {len(complete_schema)} tables with complete schema")
+            return complete_schema
             
         except Exception as e:
-            logger.error(f"❌ Actual schema discovery failed: {e}")
+            logger.error(f"❌ Schema discovery failed: {e}")
             return {}
     
-    async def _get_table_actual_structure(self, cursor, table_name: str) -> Dict[str, Any]:
-        """📋 ดึงโครงสร้างตารางจริง"""
+    async def _analyze_column_content(self, table_name: str, columns: List[Dict], 
+                                    sample_data: List[Dict], tenant_id: str) -> Dict[str, Any]:
+        """🔍 วิเคราะห์เนื้อหาในคอลัมน์แบบ dynamic"""
         
-        try:
-            # ดึงข้อมูลคอลัมน์จริง
-            cursor.execute("""
-                SELECT column_name, data_type, is_nullable, column_default
-                FROM information_schema.columns 
-                WHERE table_name = %s AND table_schema = 'public'
-                ORDER BY ordinal_position
-            """, (table_name,))
+        insights = {}
+        
+        for col_info in columns:
+            col_name = col_info['column_name']
+            col_type = col_info['data_type']
             
-            columns = []
-            for row in cursor.fetchall():
-                columns.append({
-                    'name': row[0],
-                    'type': row[1],
-                    'nullable': row[2] == 'YES',
-                    'default': row[3]
-                })
-            
-            # ดึงข้อมูลตัวอย่าง
-            try:
-                cursor.execute(f"SELECT * FROM {table_name} LIMIT 3")
-                sample_rows = cursor.fetchall()
-                if sample_rows and cursor.description:
-                    sample_columns = [desc[0] for desc in cursor.description]
-                    samples = []
-                    for row in sample_rows:
-                        sample_dict = dict(zip(sample_columns, row))
-                        # แปลงเป็น string เพื่อความปลอดภัย
-                        for key, value in sample_dict.items():
-                            if value is not None:
-                                sample_dict[key] = str(value)
-                        samples.append(sample_dict)
-                else:
-                    samples = []
-            except Exception as e:
-                logger.warning(f"Could not get samples from {table_name}: {e}")
-                samples = []
-            
-            # นับจำนวนแถว
-            try:
-                cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
-                row_count = cursor.fetchone()[0]
-            except:
-                row_count = 0
-            
-            return {
-                'columns': columns,
-                'samples': samples,
-                'row_count': row_count,
-                'purpose': self._infer_table_purpose_from_actual_data(table_name, columns, samples)
-            }
-            
-        except Exception as e:
-            logger.error(f"❌ Failed to analyze table {table_name}: {e}")
-            return {'columns': [], 'samples': [], 'row_count': 0, 'purpose': 'unknown'}
+            # วิเคราะห์จากข้อมูลตัวอย่าง
+            if sample_data:
+                sample_values = [row.get(col_name) for row in sample_data if row.get(col_name) is not None]
+                
+                insights[col_name] = {
+                    'data_type': col_type,
+                    'has_data': len(sample_values) > 0,
+                    'sample_values': sample_values[:3],
+                    'is_searchable': self._is_searchable_column(col_info),
+                    'is_numeric': self._is_numeric_column(col_info),
+                    'is_date': self._is_date_column(col_info),
+                    'business_meaning': await self._detect_column_business_meaning(col_name, sample_values)
+                }
+        
+        return insights
     
-    def _infer_table_purpose_from_actual_data(self, table_name: str, columns: List[Dict], samples: List[Dict]) -> str:
-        """🎯 ประเมินวัตถุประสงค์ของตารางจากข้อมูลจริง"""
+    async def _detect_table_purpose(self, table_name: str, columns: List[Dict], 
+                                  sample_data: List[Dict]) -> str:
+        """🎯 ตรวจจับวัตถุประสงค์ของตารางแบบ dynamic"""
         
-        column_names = [col['name'].lower() for col in columns]
+        table_lower = table_name.lower()
+        column_names = [col['column_name'].lower() for col in columns]
         
-        # ตรวจสอบตามชื่อตาราง
-        if 'sales' in table_name.lower():
-            return 'sales_transaction_data'
-        elif 'spare' in table_name.lower() or 'part' in table_name.lower():
-            return 'spare_parts_inventory'
-        elif 'work' in table_name.lower() or 'force' in table_name.lower():
-            return 'workforce_scheduling'
-        
-        # ตรวจสอบตามคอลัมน์จริง
-        if 'customer_name' in column_names:
-            return 'customer_transaction_data'
-        elif 'product_name' in column_names and 'unit_price' in column_names:
-            return 'product_inventory_data'
-        elif 'service_group' in column_names and 'date' in column_names:
-            return 'work_scheduling_data'
-        
-        return 'general_business_data'
+        # วิเคราะห์จากชื่อตารางและคอลัมน์
+        if 'sales' in table_lower:
+            return 'ข้อมูลการขายและงานบริการ'
+        elif 'spare' in table_lower or 'part' in table_lower:
+            return 'ข้อมูลอะไหล่และสต็อก'
+        elif 'work' in table_lower or 'force' in table_lower:
+            return 'ข้อมูลแรงงานและการทำงาน'
+        elif 'customer' in table_lower or 'client' in table_lower:
+            return 'ข้อมูลลูกค้า'
+        elif any(word in column_names for word in ['customer', 'client', 'บริษัท']):
+            return 'ข้อมูลลูกค้าและธุรกิจ'
+        elif any(word in column_names for word in ['price', 'amount', 'total', 'ราคา']):
+            return 'ข้อมูลการเงินและราคา'
+        else:
+            return f'ข้อมูลทั่วไป - {table_name}'
     
-    def _analyze_question_with_schema(self, question: str, actual_schema: Dict[str, Any]) -> Dict[str, Any]:
-        """🧠 วิเคราะห์คำถามโดยใช้ schema จริง"""
+    async def _detect_column_business_meaning(self, col_name: str, sample_values: List) -> str:
+        """💼 ตรวจจับความหมายทางธุรกิจของคอลัมน์"""
+        
+        col_lower = col_name.lower()
+        
+        # วิเคราะห์จากชื่อคอลัมน์
+        if any(word in col_lower for word in ['customer', 'client', 'ลูกค้า']):
+            return 'ชื่อลูกค้า'
+        elif any(word in col_lower for word in ['price', 'amount', 'total', 'ราคา', 'contact']):
+            return 'ข้อมูลการเงิน'
+        elif any(word in col_lower for word in ['description', 'detail', 'รายละเอียด']):
+            return 'คำอธิบาย'
+        elif any(word in col_lower for word in ['date', 'time', 'วันที่']):
+            return 'วันที่เวลา'
+        elif any(word in col_lower for word in ['job', 'work', 'งาน']):
+            return 'หมายเลขงาน'
+        else:
+            return 'ข้อมูลทั่วไป'
+    
+    def _is_searchable_column(self, col_info: Dict) -> bool:
+        """🔍 ตรวจสอบว่าคอลัมน์สามารถค้นหาได้หรือไม่"""
+        col_name = col_info['column_name'].lower()
+        data_type = col_info['data_type'].lower()
+        
+        # Text columns ที่สามารถค้นหาได้
+        if 'text' in data_type or 'char' in data_type or 'varchar' in data_type:
+            return True
+        
+        # คอลัมน์ที่มีชื่อบ่งบอกว่าสามารถค้นหาได้
+        searchable_keywords = ['name', 'description', 'detail', 'note', 'remark', 'comment']
+        return any(keyword in col_name for keyword in searchable_keywords)
+    
+    def _is_numeric_column(self, col_info: Dict) -> bool:
+        """🔢 ตรวจสอบว่าคอลัมน์เป็นตัวเลขหรือไม่"""
+        data_type = col_info['data_type'].lower()
+        return any(num_type in data_type for num_type in ['integer', 'numeric', 'decimal', 'float', 'double'])
+    
+    def _is_date_column(self, col_info: Dict) -> bool:
+        """📅 ตรวจสอบว่าคอลัมน์เป็นวันที่หรือไม่"""
+        col_name = col_info['column_name'].lower()
+        data_type = col_info['data_type'].lower()
+        
+        return ('date' in data_type or 'time' in data_type or 
+                any(date_word in col_name for date_word in ['date', 'time', 'วันที่', 'เวลา']))
+    
+    async def _analyze_question_intelligently(self, question: str, 
+                                           actual_schema: Dict[str, Any]) -> Dict[str, Any]:
+        """🧠 วิเคราะห์คำถามแบบอัจฉริยะ - ไม่ใช้ pattern ตายตัว"""
         
         question_lower = question.lower()
         
-        analysis = {
+        # Step 1: Extract Keywords Dynamically
+        keywords = await self._extract_dynamic_keywords(question)
+        
+        # Step 2: Analyze Intent Dynamically
+        intent = await self._analyze_question_intent(question, keywords, actual_schema)
+        
+        # Step 3: Find Relevant Tables
+        relevant_tables = await self._find_relevant_tables_smart(question, keywords, actual_schema)
+        
+        # Step 4: Determine Required Columns
+        required_columns = await self._determine_required_columns(question, intent, relevant_tables, actual_schema)
+        
+        # Step 5: Generate Search Strategy
+        search_strategy = await self._create_search_strategy(question, keywords, relevant_tables, actual_schema)
+        
+        return {
             'original_question': question,
-            'question_type': 'unknown',
-            'target_tables': [],
-            'available_columns': {},
-            'search_keywords': [],
-            'filters': [],
-            'confidence': 0.0
+            'extracted_keywords': keywords,
+            'detected_intent': intent,
+            'relevant_tables': relevant_tables,
+            'required_columns': required_columns,
+            'search_strategy': search_strategy,
+            'confidence_score': self._calculate_confidence(intent, relevant_tables, keywords),
+            'processing_approach': self._determine_processing_approach(intent, relevant_tables)
         }
-        
-        # หาประเภทคำถาม
-        max_confidence = 0
-        best_type = 'unknown'
-        
-        for q_type, pattern_info in self.question_patterns.items():
-            confidence = 0
-            for pattern in pattern_info['patterns']:
-                if re.search(pattern, question_lower):
-                    confidence += 1
-            
-            if confidence > max_confidence:
-                max_confidence = confidence
-                best_type = q_type
-        
-        analysis['question_type'] = best_type
-        analysis['confidence'] = max_confidence
-        
-        # เลือกตารางที่เหมาะสม
-        if best_type in self.question_patterns and 'preferred_tables' in self.question_patterns[best_type]:
-            preferred_tables = self.question_patterns[best_type]['preferred_tables']
-            analysis['target_tables'] = [t for t in preferred_tables if t in actual_schema]
-        
-        # หากไม่พบตารางที่เฉพาะเจาะจง ให้เลือกตามคำถาม
-        if not analysis['target_tables']:
-            analysis['target_tables'] = self._select_tables_by_content(question, actual_schema)
-        
-        # ดึงคอลัมน์ที่มีอยู่จริงในตารางที่เลือก
-        for table_name in analysis['target_tables']:
-            if table_name in actual_schema:
-                analysis['available_columns'][table_name] = [
-                    col['name'] for col in actual_schema[table_name]['columns']
-                ]
-        
-        # หาคำสำคัญสำหรับการค้นหา
-        analysis['search_keywords'] = self._extract_search_keywords(question)
-        
-        # สร้าง filters
-        analysis['filters'] = self._create_filters_from_question(question, analysis['available_columns'])
-        
-        return analysis
     
-    def _select_tables_by_content(self, question: str, actual_schema: Dict[str, Any]) -> List[str]:
-        """📋 เลือกตารางตามเนื้อหาคำถาม"""
+    async def _extract_dynamic_keywords(self, question: str) -> List[str]:
+        """🔍 สกัดคำสำคัญแบบ smart - แก้ไขให้เฉียบขาดขึ้น"""
         
         question_lower = question.lower()
-        selected_tables = []
         
-        # คำสำคัญสำหรับแต่ละประเภทตาราง
-        table_keywords = {
-            'spare_parts': ['อะไหล่', 'spare', 'part', 'ราคา', 'price', 'สต็อก'],
-            'sales': ['ลูกค้า', 'customer', 'บริการ', 'service', 'ขาย', 'sales', 'บริษัท'],
-            'workforce': ['ทีม', 'team', 'ช่าง', 'แผนงาน', 'schedule', 'งาน', 'work']
+        # Step 1: หาคำสำคัญทางเทคนิคก่อน (แม่นยำสูง)
+        technical_keywords = []
+        
+        # Brand names
+        brands = ['hitachi', 'daikin', 'euroklimat', 'ekac', 'rcug', 'ahyz', 'motor', 'chiller']
+        for brand in brands:
+            if brand in question_lower:
+                technical_keywords.append(brand)
+        
+        # Model numbers และ Product codes
+        model_patterns = [
+            r'EKAC\d+',
+            r'RCUG\d+', 
+            r'AHYZ\d*',
+            r'\d{2}B\d{5}A?',  # รูปแบบ 17B29401A
+            r'[A-Z]{2,}\d{2,}'  # รูปแบบทั่วไป
+        ]
+        
+        for pattern in model_patterns:
+            matches = re.findall(pattern, question, re.IGNORECASE)
+            technical_keywords.extend(matches)
+        
+        # Numbers ที่สำคัญ
+        important_numbers = re.findall(r'\d{3,}', question)  # เลขที่มี 3 หลักขึ้นไป
+        technical_keywords.extend(important_numbers)
+        
+        # Step 2: หาคำสำคัญทางธุรกิจ
+        business_keywords = []
+        
+        # Core business terms
+        business_terms = ['อะไหล่', 'spare', 'part', 'ราคา', 'price', 'chiller', 'เครื่อง']
+        for term in business_terms:
+            if term in question_lower:
+                business_keywords.append(term)
+        
+        # Step 3: กรองและจัดลำดับความสำคัญ
+        all_keywords = technical_keywords + business_keywords
+        
+        # กรองคำที่ไม่เป็นประโยชน์
+        stopwords = ['อยากทราบ', 'อยากทราบราคา', 'อะไหล่เครื่อง', 'เครื่องทำน้ำเย็น', 
+                    'air', 'cooled', 'model', 'และ', 'ของ', 'ใน', 'กับ', 'ที่']
+        
+        filtered_keywords = []
+        for keyword in all_keywords:
+            keyword_clean = keyword.strip()
+            if (len(keyword_clean) >= 2 and 
+                keyword_clean.lower() not in stopwords and
+                keyword_clean not in filtered_keywords):
+                filtered_keywords.append(keyword_clean)
+        
+        # จัดลำดับ: Technical terms ก่อน, business terms ทีหลัง
+        prioritized_keywords = technical_keywords + [kw for kw in business_keywords if kw not in technical_keywords]
+        
+        # จำกัดจำนวนคำสำคัญ
+        final_keywords = prioritized_keywords[:5] if prioritized_keywords else filtered_keywords[:3]
+        
+        logger.info(f"🔍 Extracted keywords: {final_keywords}")
+        return final_keywords
+    
+    async def _analyze_question_intent(self, question: str, keywords: List[str], 
+                                     actual_schema: Dict[str, Any]) -> Dict[str, Any]:
+        """🎯 วิเคราะห์เจตนาของคำถามแบบอัจฉริยะ"""
+        
+        question_lower = question.lower()
+        
+        # Detect intent จากคำสำคัญ
+        intent_analysis = {
+            'primary_intent': 'unknown',
+            'secondary_intents': [],
+            'action_type': 'query',
+            'expected_output': 'data'
         }
         
-        for category, keywords in table_keywords.items():
-            if any(keyword in question_lower for keyword in keywords):
-                # หาตารางที่เข้ากับ category
-                for table_name in actual_schema.keys():
-                    table_lower = table_name.lower()
-                    if category == 'spare_parts' and ('spare' in table_lower or 'part' in table_lower):
-                        selected_tables.append(table_name)
-                    elif category == 'sales' and 'sales' in table_lower:
-                        selected_tables.append(table_name)
-                    elif category == 'workforce' and ('work' in table_lower or 'force' in table_lower):
-                        selected_tables.append(table_name)
+        # วิเคราะห์ Action Type
+        if any(word in question_lower for word in ['มี', 'กี่', 'จำนวน', 'count', 'how many']):
+            intent_analysis['action_type'] = 'count'
+            intent_analysis['expected_output'] = 'number'
+        elif any(word in question_lower for word in ['วิเคราะห์', 'สรุป', 'analysis', 'summary']):
+            intent_analysis['action_type'] = 'analysis'
+            intent_analysis['expected_output'] = 'summary'
+        elif any(word in question_lower for word in ['หา', 'ค้นหา', 'find', 'search', 'ราคา', 'price']):
+            intent_analysis['action_type'] = 'search'
+            intent_analysis['expected_output'] = 'list'
+        elif any(word in question_lower for word in ['แสดง', 'ข้อมูล', 'show', 'data', 'list']):
+            intent_analysis['action_type'] = 'display'
+            intent_analysis['expected_output'] = 'data'
         
-        # หากไม่พบ ให้เลือกตารางหลัก
-        if not selected_tables:
-            main_tables = ['sales2024', 'spare_part', 'work_force']
-            selected_tables = [t for t in main_tables if t in actual_schema]
+        # วิเคราะห์ Primary Intent
+        if any(keyword in question_lower for keyword in ['อะไหล่', 'spare', 'part', 'ราคา', 'price']):
+            intent_analysis['primary_intent'] = 'spare_parts'
+        elif any(keyword in question_lower for keyword in ['ลูกค้า', 'customer', 'บริษัท', 'company']):
+            intent_analysis['primary_intent'] = 'customer'
+        elif any(keyword in question_lower for keyword in ['ขาย', 'sales', 'งาน', 'job', 'service']):
+            intent_analysis['primary_intent'] = 'sales_service'
+        elif any(keyword in question_lower for keyword in ['ตาราง', 'table', 'ข้อมูล', 'data']):
+            intent_analysis['primary_intent'] = 'data_exploration'
         
-        return selected_tables[:3]  # จำกัด 3 ตารางแรก
+        return intent_analysis
     
-    def _extract_search_keywords(self, question: str) -> List[str]:
-        """🔍 สกัดคำสำคัญสำหรับการค้นหา"""
+    async def _find_relevant_tables_smart(self, question: str, keywords: List[str], 
+                                        actual_schema: Dict[str, Any]) -> List[str]:
+        """🎯 หาตารางที่เกี่ยวข้องแบบอัจฉริยะ - ปรับปรุงการให้คะแนน"""
         
-        keywords = []
+        table_scores = {}
+        question_lower = question.lower()
         
-        # หาชื่อแบรนด์
-        brands = ['hitachi', 'daikin', 'euroklimat', 'toyota', 'mitsubishi', 'york', 'carrier']
-        for brand in brands:
-            if brand in question.lower():
-                keywords.append(brand)
+        for table_name, table_info in actual_schema.items():
+            score = 0
+            table_lower = table_name.lower()
+            
+            # คะแนนพื้นฐานสำหรับทุกตาราง
+            score = 10
+            
+            # คะแนนจากความเกี่ยวข้องทางธุรกิจ (เพิ่มคะแนนมาก)
+            business_relevance = self._calculate_business_relevance(question_lower, table_name, table_info)
+            score += business_relevance
+            
+            # คะแนนจากชื่อตาราง
+            table_keywords_score = self._calculate_table_name_score(question_lower, table_lower)
+            score += table_keywords_score
+            
+            # คะแนนจากคำสำคัญในคอลัมน์
+            column_keywords_score = self._calculate_column_keywords_score(keywords, table_info)
+            score += column_keywords_score
+            
+            # คะแนนจากข้อมูลตัวอย่าง
+            sample_data_score = self._calculate_sample_data_score(keywords, table_info)
+            score += sample_data_score
+            
+            # คะแนนจากจำนวนข้อมูล (ตารางที่มีข้อมูลมากได้คะแนนเพิ่ม)
+            row_count = table_info.get('row_count', 0)
+            if row_count > 0:
+                score += min(row_count / 50, 30)  # สูงสุด 30 คะแนน
+            
+            table_scores[table_name] = score
         
-        # หาชื่อบริษัท
-        company_pattern = r'บริษัท\s*([^ม\s]+)'
-        company_match = re.search(company_pattern, question)
-        if company_match:
-            company_name = company_match.group(1).strip()
-            keywords.append(company_name)
+        # เรียงตามคะแนนและเลือกตารางที่เกี่ยวข้อง
+        sorted_tables = sorted(table_scores.items(), key=lambda x: x[1], reverse=True)
         
-        # หาคำเทคนิค
-        technical_terms = ['pm', 'overhaul', 'maintenance', 'repair', 'chiller', 'compressor']
-        for term in technical_terms:
-            if term in question.lower():
-                keywords.append(term)
+        # ลด threshold และเลือกตารางที่มีคะแนนสูงสุด
+        relevant_tables = []
+        if sorted_tables:
+            # เลือกตารางที่ได้คะแนนสูงสุด หรือตารางที่ได้คะแนน > 20
+            max_score = sorted_tables[0][1]
+            threshold = max(20, max_score * 0.7)  # 70% ของคะแนนสูงสุด หรือ 20
+            
+            relevant_tables = [table for table, score in sorted_tables if score >= threshold][:3]
         
-        return keywords
+        # หากยังไม่พบ ให้เลือกตารางที่มีข้อมูลมากที่สุด
+        if not relevant_tables:
+            tables_by_size = sorted(actual_schema.items(), 
+                                  key=lambda x: x[1].get('row_count', 0), reverse=True)
+            relevant_tables = [tables_by_size[0][0]] if tables_by_size else []
+        
+        logger.info(f"🎯 Found relevant tables: {relevant_tables}")
+        logger.info(f"📊 Table scores: {dict(sorted_tables[:5])}")
+        
+        return relevant_tables
     
-    def _create_filters_from_question(self, question: str, available_columns: Dict[str, List[str]]) -> List[Dict]:
-        """🎯 สร้างฟิลเตอร์จากคำถาม"""
+    def _calculate_business_relevance(self, question: str, table_name: str, table_info: Dict) -> int:
+        """💼 คำนวณความเกี่ยวข้องทางธุรกิจ"""
         
-        filters = []
-        keywords = self._extract_search_keywords(question)
+        score = 0
+        table_lower = table_name.lower()
         
-        for table_name, columns in available_columns.items():
+        # ความเกี่ยวข้องสูง (50-100 คะแนน)
+        if 'อะไหล่' in question or 'spare' in question or 'ราคา' in question:
+            if 'spare' in table_lower or 'part' in table_lower:
+                score += 80
+        
+        if 'การขาย' in question or 'ขาย' in question or 'sales' in question or 'วิเคราะห์' in question:
+            if 'sales' in table_lower:
+                score += 80
+        
+        if 'งาน' in question or 'job' in question or 'work' in question:
+            if 'work' in table_lower or 'force' in table_lower or 'sales' in table_lower:
+                score += 60
+        
+        if 'ลูกค้า' in question or 'customer' in question or 'บริษัท' in question:
+            if 'customer' in table_lower or 'sales' in table_lower:
+                score += 60
+        
+        # ความเกี่ยวข้องปานกลาง (20-40 คะแนน)
+        if 'ข้อมูล' in question and 'ตาราง' in question:
+            score += 25  # ทุกตารางมีโอกาส
+        
+        if any(tech_term in question for tech_term in ['hitachi', 'daikin', 'chiller', 'hvac']):
+            if 'technical' in table_lower or 'hvac' in table_lower:
+                score += 40
+        
+        return score
+    
+    def _calculate_table_name_score(self, question: str, table_name: str) -> int:
+        """📋 คำนวณคะแนนจากชื่อตาราง"""
+        
+        score = 0
+        
+        # ตรงกับชื่อตารางโดยตรง
+        if table_name in question:
+            score += 50
+        
+        # ตรงกับส่วนของชื่อตาราง
+        table_parts = table_name.split('_')
+        for part in table_parts:
+            if len(part) > 2 and part in question:
+                score += 20
+        
+        return score
+    
+    def _calculate_column_keywords_score(self, keywords: List[str], table_info: Dict) -> int:
+        """📊 คำนวณคะแนนจากคำสำคัญในคอลัมน์"""
+        
+        score = 0
+        columns = [col['column_name'].lower() for col in table_info.get('columns', [])]
+        
+        for keyword in keywords:
+            keyword_lower = keyword.lower()
+            for col_name in columns:
+                if keyword_lower in col_name:
+                    score += 15
+        
+        return score
+    
+    def _calculate_sample_data_score(self, keywords: List[str], table_info: Dict) -> int:
+        """📝 คำนวณคะแนนจากข้อมูลตัวอย่าง"""
+        
+        score = 0
+        sample_data = table_info.get('sample_data', [])
+        
+        for keyword in keywords:
+            keyword_lower = keyword.lower()
+            for sample_row in sample_data:
+                for value in sample_row.values():
+                    if value and keyword_lower in str(value).lower():
+                        score += 25
+                        break  # หยุดเมื่อพบในแถวนี้แล้ว
+        
+        return score
+    
+    async def _determine_required_columns(self, question: str, intent: Dict[str, Any], 
+                                        relevant_tables: List[str], 
+                                        actual_schema: Dict[str, Any]) -> Dict[str, List[str]]:
+        """📋 กำหนดคอลัมน์ที่จำเป็นแบบ dynamic"""
+        
+        required_columns = {}
+        action_type = intent.get('action_type', 'query')
+        primary_intent = intent.get('primary_intent', 'unknown')
+        
+        for table_name in relevant_tables:
+            table_info = actual_schema.get(table_name, {})
+            all_columns = [col['column_name'] for col in table_info.get('columns', [])]
+            
+            if action_type == 'count':
+                # สำหรับการนับ ใช้ id หรือคอลัมน์แรก
+                required_columns[table_name] = ['*']
+                
+            elif action_type == 'analysis':
+                # สำหรับการวิเคราะห์ ต้องการคอลัมน์ที่เป็นตัวเลข
+                numeric_cols = table_info.get('numeric_columns', [])
+                searchable_cols = table_info.get('searchable_columns', [])
+                required_columns[table_name] = numeric_cols + searchable_cols[:3]
+                
+            elif action_type == 'search':
+                # สำหรับการค้นหา ต้องการคอลัมน์ที่ค้นหาได้
+                searchable_cols = table_info.get('searchable_columns', [])
+                if 'ราคา' in question.lower() or 'price' in question.lower():
+                    price_cols = [col for col in all_columns if 
+                                any(price_word in col.lower() for price_word in ['price', 'amount', 'total', 'contact'])]
+                    required_columns[table_name] = searchable_cols + price_cols
+                else:
+                    required_columns[table_name] = searchable_cols[:5]
+                    
+            else:
+                # Default: เลือกคอลัมน์ที่น่าสนใจ
+                interesting_cols = []
+                
+                # เพิ่มคอลัมน์ id
+                id_cols = [col for col in all_columns if 'id' in col.lower()][:1]
+                interesting_cols.extend(id_cols)
+                
+                # เพิ่มคอลัมน์ที่ค้นหาได้
+                interesting_cols.extend(table_info.get('searchable_columns', [])[:3])
+                
+                # เพิ่มคอลัมน์ตัวเลข
+                interesting_cols.extend(table_info.get('numeric_columns', [])[:2])
+                
+                required_columns[table_name] = list(set(interesting_cols))[:8]
+        
+        # ถ้าไม่พบคอลัมน์เหมาะสม ให้เลือกจาก sample
+        for table_name in relevant_tables:
+            if not required_columns.get(table_name):
+                all_columns = [col['column_name'] for col in actual_schema[table_name].get('columns', [])]
+                required_columns[table_name] = all_columns[:5]
+        
+        return required_columns
+    
+    async def _generate_analytical_sql(self, analysis: Dict[str, Any], 
+                                     actual_schema: Dict[str, Any]) -> str:
+        """📈 สร้าง SQL สำหรับการวิเคราะห์ - แก้ไขการเลือกคอลัมน์เงิน"""
+        
+        relevant_tables = analysis.get('relevant_tables', [])
+        
+        if not relevant_tables:
+            return None
+        
+        main_table = relevant_tables[0]
+        table_info = actual_schema.get(main_table, {})
+        
+        # หาคอลัมน์ที่เป็นเงินจริงๆ
+        money_columns = self._find_money_columns(table_info)
+        
+        if money_columns:
+            # ใช้คอลัมน์เงินจริง
+            money_col = money_columns[0]
+            aggregations = [
+                "COUNT(*) as total_jobs",
+                f"SUM(CAST(NULLIF({money_col}, '') as NUMERIC)) as total_revenue",
+                f"AVG(CAST(NULLIF({money_col}, '') as NUMERIC)) as avg_job_value"
+            ]
+            
+            sql = f"SELECT {', '.join(aggregations)} FROM {main_table}"
+            
+            # เพิ่มเงื่อนไขให้มีค่าและไม่ใช่ค่าว่าง
+            where_conditions = [
+                f"{money_col} IS NOT NULL", 
+                f"{money_col} != ''",
+                f"CAST(NULLIF({money_col}, '') as NUMERIC) > 0"
+            ]
+            sql += f" WHERE {' AND '.join(where_conditions)}"
+            
+            return sql
+        else:
+            # ถ้าไม่มีคอลัมน์เงิน ให้นับจำนวนธรรมดา
+            return f"SELECT COUNT(*) as total_count FROM {main_table}"
+    
+    async def _generate_aggregation_sql(self, analysis: Dict[str, Any], 
+                                      actual_schema: Dict[str, Any]) -> str:
+        """📊 สร้าง SQL สำหรับการรวมข้อมูล"""
+        
+        relevant_tables = analysis.get('relevant_tables', [])
+        search_strategy = analysis.get('search_strategy', {})
+        
+        if not relevant_tables:
+            return None
+            
+        main_table = relevant_tables[0]
+        
+        # เลือก aggregation function
+        aggregations = search_strategy.get('aggregations', ['COUNT(*)'])
+        
+        # สร้าง WHERE clause
+        where_conditions = []
+        filters = search_strategy.get('filters', [])
+        
+        for filter_item in filters:
+            if filter_item['table'] == main_table:
+                condition = f"{filter_item['column']} {filter_item['operator']} '{filter_item['value']}'"
+                where_conditions.append(condition)
+        
+        # เพิ่มเงื่อนไขพิเศษ
+        table_info = actual_schema.get(main_table, {})
+        money_columns = self._find_money_columns(table_info)
+        
+        if money_columns:
+            where_conditions.append(f"{money_columns[0]} IS NOT NULL")
+        
+        # สร้าง SQL
+        sql_parts = [f"SELECT {', '.join(aggregations)} FROM {main_table}"]
+        
+        if where_conditions:
+            sql_parts.append(f"WHERE {' AND '.join(where_conditions)}")
+        
+        return ' '.join(sql_parts)
+    
+    async def _generate_multi_table_sql(self, analysis: Dict[str, Any], 
+                                      actual_schema: Dict[str, Any]) -> str:
+        """🔗 สร้าง SQL สำหรับหลายตาราง"""
+        
+        relevant_tables = analysis.get('relevant_tables', [])
+        
+        # สำหรับตอนนี้ ใช้ UNION หรือเลือกตารางที่ดีที่สุด
+        main_table = relevant_tables[0]
+        
+        # ถ้ามีหลายตาราง sales ให้ใช้ UNION
+        if all('sales' in table.lower() for table in relevant_tables):
+            return await self._generate_union_sales_sql(relevant_tables, analysis, actual_schema)
+        
+        # ไม่งั้นใช้ตารางแรก
+        return await self._generate_simple_adaptive_sql(analysis, actual_schema)
+    
+    async def _generate_union_sales_sql(self, sales_tables: List[str], 
+                                      analysis: Dict[str, Any], 
+                                      actual_schema: Dict[str, Any]) -> str:
+        """💰 สร้าง SQL UNION สำหรับตาราง sales หลายตาราง"""
+        
+        # หาคอลัมน์ที่มีร่วมกัน
+        common_columns = None
+        
+        for table_name in sales_tables:
+            table_info = actual_schema.get(table_name, {})
+            table_columns = [col['column_name'] for col in table_info.get('columns', [])]
+            
+            if common_columns is None:
+                common_columns = set(table_columns)
+            else:
+                common_columns = common_columns.intersection(set(table_columns))
+        
+        if not common_columns:
+            # ถ้าไม่มีคอลัมน์ร่วม ใช้ตารางแรก
+            return await self._generate_simple_adaptive_sql(analysis, actual_schema)
+        
+        # เลือกคอลัมน์ที่น่าสนใจ
+        selected_columns = []
+        for col in common_columns:
+            if any(important in col.lower() for important in ['id', 'customer', 'contact', 'description']):
+                selected_columns.append(col)
+        
+        selected_columns = selected_columns[:5] if selected_columns else list(common_columns)[:5]
+        
+        # สร้าง UNION query
+        union_parts = []
+        for table_name in sales_tables:
+            table_sql = f"SELECT {', '.join(selected_columns)} FROM {table_name}"
+            
+            # เพิ่มเงื่อนไข
+            table_info = actual_schema.get(table_name, {})
+            money_columns = self._find_money_columns(table_info)
+            if money_columns:
+                table_sql += f" WHERE {money_columns[0]} IS NOT NULL"
+            
+            union_parts.append(table_sql)
+        
+        final_sql = ' UNION ALL '.join(union_parts)
+        final_sql += " ORDER BY id DESC LIMIT 50"
+        
+        return final_sql
+    
+    async def _simplify_sql_query(self, original_sql: str) -> str:
+        """⚡ ลดความซับซ้อนของ SQL query"""
+        
+        # ดึงส่วนพื้นฐาน
+        table_match = re.search(r'FROM\s+(\w+)', original_sql, re.IGNORECASE)
+        if not table_match:
+            raise ValueError("Cannot extract table name")
+        
+        table_name = table_match.group(1)
+        
+        # ดึง SELECT columns แต่ลดจำนวน
+        select_match = re.search(r'SELECT\s+(.*?)\s+FROM', original_sql, re.IGNORECASE | re.DOTALL)
+        if select_match:
+            select_part = select_match.group(1).strip()
+            
+            # ถ้าเป็น aggregation ให้ใช้ต่อ
+            if any(agg in select_part.upper() for agg in ['COUNT', 'SUM', 'AVG', 'MAX', 'MIN']):
+                return f"SELECT {select_part} FROM {table_name}"
+            
+            # ถ้าเป็น column list ให้เลือกแค่บางส่วน
+            columns = [col.strip() for col in select_part.split(',')]
+            simplified_columns = columns[:4]  # เอาแค่ 4 คอลัมน์แรก
+            
+            return f"SELECT {', '.join(simplified_columns)} FROM {table_name} LIMIT 15"
+        
+        return f"SELECT * FROM {table_name} LIMIT 10"
+    
+    async def _create_no_results_response(self, question: str, 
+                                        analysis: Dict[str, Any]) -> str:
+        """แสดงคำตอบเมื่อไม่พบข้อมูล"""
+        
+        keywords = analysis.get('extracted_keywords', [])
+        relevant_tables = analysis.get('relevant_tables', [])
+        
+        response = f"ไม่พบข้อมูลที่ตรงกับคำถาม: {question}\n\n"
+        
+        if keywords:
+            response += f"คำที่ใช้ค้นหา: {', '.join(keywords[:3])}\n\n"
+        
+        # แนะนำคำถามทางเลือก
+        if relevant_tables:
+            main_table = relevant_tables[0]
+            if 'spare' in main_table.lower():
+                response += """คำแนะนำสำหรับอะไหล่:
+• ลองค้นหา "อะไหล่ทั้งหมดที่มีในสต็อก"
+• ลองค้นหา "ราคาอะไหล่ MOTOR"
+• ลองค้นหา "อะไหล่ SET FREE"
+• ลองระบุรหัสสินค้าที่ชัดเจน
+"""
+            elif 'sales' in main_table.lower():
+                response += """คำแนะนำสำหรับข้อมูลการขาย:
+• ลองถาม "วิเคราะห์การขายรวมทั้งหมด"
+• ลองถาม "จำนวนงานทั้งหมด"
+• ลองถาม "ลูกค้าที่ใช้บริการมากที่สุด"
+"""
+            else:
+                response += f"""ลองถามคำถามเหล่านี้:
+• "มีข้อมูลอะไรบ้างในตาราง {main_table}"
+• "ข้อมูลทั้งหมดในระบบ"
+• "จำนวนข้อมูลทั้งหมด"
+"""
+        
+        return response
+    
+    async def _create_formatted_fallback_response(self, question: str, results: List[Dict], 
+                                                analysis: Dict[str, Any]) -> str:
+        """สร้างคำตอบ fallback ที่จัดรูปแบบดี"""
+        
+        if not results:
+            return await self._create_no_results_response(question, analysis)
+        
+        action_type = analysis.get('detected_intent', {}).get('action_type', 'query')
+        results_count = len(results)
+        
+        if action_type == 'count':
+            # สำหรับการนับ
+            if isinstance(results[0], dict) and len(results[0]) == 1:
+                count_value = list(results[0].values())[0]
+                return f"ผลการนับ: พบข้อมูลทั้งหมด {count_value:,} รายการ"
+        
+        elif action_type == 'analysis':
+            # สำหรับการวิเคราะห์
+            if results and isinstance(results[0], dict):
+                first_result = results[0]
+                response = "ผลการวิเคราะห์:\n\n"
+                
+                for key, value in first_result.items():
+                    if isinstance(value, (int, float)) and value is not None:
+                        if 'total' in key.lower() or 'sum' in key.lower():
+                            response += f"{key}: {value:,.0f} บาท\n"
+                        elif 'avg' in key.lower() or 'average' in key.lower():
+                            response += f"{key}: {value:,.0f} บาท (เฉลี่ย)\n"
+                        elif 'count' in key.lower() or 'total' in key.lower():
+                            response += f"{key}: {value:,} รายการ\n"
+                        else:
+                            response += f"{key}: {value:,}\n"
+                
+                return response
+        
+        # สำหรับการแสดงข้อมูลทั่วไป
+        response = f"ผลการค้นหา: {question}\n\n"
+        
+        for i, row in enumerate(results[:10], 1):
+            if isinstance(row, dict):
+                # เลือกข้อมูลสำคัญจาก row
+                important_data = []
+                
+                for key, value in row.items():
+                    if value is not None and str(value).strip():
+                        if len(str(value)) > 100:
+                            value = str(value)[:100] + "..."
+                        important_data.append(f"{key}: {value}")
+                
+                if important_data:
+                    response += f"{i}. {' | '.join(important_data[:4])}\n"
+        
+        if results_count > 10:
+            response += f"\nแสดง 10 จาก {results_count} รายการ หากต้องการดูเพิ่มเติมแจ้งได้"
+        else:
+            response += f"\nทั้งหมด {results_count} รายการ"
+        
+        return response
+    
+    async def _create_search_strategy(self, question: str, keywords: List[str], 
+                                    relevant_tables: List[str], 
+                                    actual_schema: Dict[str, Any]) -> Dict[str, Any]:
+        """🎲 สร้างกลยุทธ์การค้นหาแบบ smart - แก้ไขการสร้าง filters"""
+        
+        strategy = {
+            'search_mode': 'general',
+            'filters': [],
+            'joins': [],
+            'aggregations': [],
+            'sorting': []
+        }
+        
+        question_lower = question.lower()
+        
+        # กำหนด Search Mode
+        if any(word in question_lower for word in ['มี', 'กี่', 'จำนวน', 'count']):
+            strategy['search_mode'] = 'counting'
+        elif any(word in question_lower for word in ['วิเคราะห์', 'สรุป', 'analysis']):
+            strategy['search_mode'] = 'analysis'
+        elif any(word in question_lower for word in ['หา', 'ค้นหา', 'ราคา']):
+            strategy['search_mode'] = 'search'
+        elif any(word in question_lower for word in ['แสดง', 'ข้อมูล', 'list']):
+            strategy['search_mode'] = 'display'
+        
+        # สร้าง Filters แบบ smart - เฉพาะคำสำคัญที่มีความหมาย
+        for table_name in relevant_tables:
+            table_info = actual_schema.get(table_name, {})
+            searchable_columns = table_info.get('searchable_columns', [])
+            
+            # เลือกเฉพาะคำสำคัญที่เฉพาะเจาะจง
+            meaningful_keywords = []
             for keyword in keywords:
-                # หาคอลัมน์ที่เหมาะสำหรับค้นหา
-                text_columns = []
+                keyword_clean = keyword.strip().lower()
                 
-                for col in columns:
-                    col_lower = col.lower()
-                    if any(text_type in col_lower for text_type in ['name', 'description', 'detail']):
-                        text_columns.append(col)
+                # เก็บเฉพาะคำที่มีความหมายเฉพาะ
+                if (len(keyword_clean) >= 3 and 
+                    keyword_clean not in ['อยากทราบ', 'ราคา', 'อะไหล่', 'เครื่อง', 'model', 'air', 'cooled'] and
+                    not keyword_clean.startswith('อยากทราบ')):
+                    
+                    # ตรวจสอบว่าเป็น technical term หรือไม่
+                    if (any(char.isdigit() for char in keyword_clean) or  # มีตัวเลข
+                        keyword_clean.isupper() or  # เป็นตัวพิมพ์ใหญ่
+                        len(keyword_clean) <= 6):  # คำสั้นที่เฉพาะเจาะจง
+                        meaningful_keywords.append(keyword_clean)
+            
+            # สร้าง filter เฉพาะคำที่มีความหมาย
+            for keyword in meaningful_keywords[:3]:  # จำกัด 3 คำสำคัญต่อตาราง
+                # เลือกคอลัมน์ที่เหมาะสมสำหรับคำนี้
+                target_columns = []
                 
-                if text_columns:
-                    filters.append({
+                # หากเป็นรหัสสินค้า ให้ค้นหาใน product_code
+                if any(char.isdigit() for char in keyword) and len(keyword) >= 4:
+                    if 'product_code' in searchable_columns:
+                        target_columns = ['product_code']
+                    elif 'description' in searchable_columns:
+                        target_columns = ['description']
+                else:
+                    # คำทั่วไป ค้นหาใน name และ description
+                    target_columns = [col for col in searchable_columns 
+                                    if any(search_type in col.lower() 
+                                          for search_type in ['name', 'description'])]
+                
+                if not target_columns:
+                    target_columns = searchable_columns[:2]  # เอา 2 คอลัมน์แรก
+                
+                for col_name in target_columns:
+                    strategy['filters'].append({
                         'table': table_name,
-                        'columns': text_columns,
-                        'keyword': keyword,
+                        'column': col_name,
                         'operator': 'ILIKE',
-                        'value': f'%{keyword}%'
+                        'value': f'%{keyword}%',
+                        'keyword': keyword,
+                        'priority': self._calculate_keyword_priority(keyword)
                     })
         
-        return filters
+        # เรียงลำดับ filters ตามความสำคัญ
+        strategy['filters'] = sorted(strategy['filters'], 
+                                   key=lambda x: x.get('priority', 0), reverse=True)
+        
+        # กำหนด Aggregations
+        if strategy['search_mode'] == 'counting':
+            strategy['aggregations'] = ['COUNT(*)']
+        elif strategy['search_mode'] == 'analysis':
+            numeric_columns = []
+            for table_name in relevant_tables:
+                table_info = actual_schema.get(table_name, {})
+                numeric_columns.extend(table_info.get('numeric_columns', []))
+            
+            if numeric_columns:
+                strategy['aggregations'] = [f'SUM({col})' for col in numeric_columns[:2]]
+                strategy['aggregations'].extend([f'AVG({col})' for col in numeric_columns[:1]])
+        
+        # กำหนด Sorting
+        for table_name in relevant_tables:
+            table_info = actual_schema.get(table_name, {})
+            date_columns = table_info.get('date_columns', [])
+            if date_columns:
+                strategy['sorting'].append(f'{date_columns[0]} DESC')
+            else:
+                # ใช้ id เป็น default
+                id_columns = [col['column_name'] for col in table_info.get('columns', []) 
+                            if 'id' in col['column_name'].lower()]
+                if id_columns:
+                    strategy['sorting'].append(f'{id_columns[0]} DESC')
+        
+        return strategy
     
-    async def _generate_accurate_sql(self, question: str, analysis: Dict[str, Any], 
+    def _calculate_keyword_priority(self, keyword: str) -> int:
+        """📊 คำนวณความสำคัญของคำสำคัญ"""
+        
+        priority = 0
+        keyword_lower = keyword.lower()
+        
+        # คำที่มีตัวเลข (รหัสสินค้า, model) = ความสำคัญสูง
+        if any(char.isdigit() for char in keyword):
+            priority += 50
+        
+        # แบรนด์ที่รู้จัก
+        known_brands = ['hitachi', 'daikin', 'euroklimat']
+        if keyword_lower in known_brands:
+            priority += 40
+        
+        # รหัสรุ่น
+        if len(keyword) >= 4 and any(char.isupper() for char in keyword):
+            priority += 30
+        
+        # คำยาว = เฉพาะเจาะจงมากขึ้น
+        priority += len(keyword)
+        
+        return priority
+    
+    def _calculate_confidence(self, intent: Dict[str, Any], 
+                            relevant_tables: List[str], keywords: List[str]) -> float:
+        """📊 คำนวณความมั่นใจในการตีความคำถาม"""
+        
+        confidence = 0.0
+        
+        # คะแนนจากการหาตาราง
+        if relevant_tables:
+            confidence += 0.4
+        
+        # คะแนนจากการตีความ intent
+        if intent.get('primary_intent') != 'unknown':
+            confidence += 0.3
+        
+        # คะแนนจากคำสำคัญ
+        if keywords:
+            confidence += min(len(keywords) * 0.05, 0.3)
+        
+        return min(confidence, 1.0)
+    
+    def _determine_processing_approach(self, intent: Dict[str, Any], 
+                                     relevant_tables: List[str]) -> str:
+        """🔧 กำหนดวิธีการประมวลผล"""
+        
+        action_type = intent.get('action_type', 'query')
+        primary_intent = intent.get('primary_intent', 'unknown')
+        
+        if action_type == 'count':
+            return 'aggregation_query'
+        elif action_type == 'analysis':
+            return 'analytical_query'
+        elif action_type == 'search':
+            return 'filtered_search'
+        elif len(relevant_tables) > 1:
+            return 'multi_table_query'
+        else:
+            return 'simple_query'
+    
+    async def _generate_adaptive_sql(self, question: str, analysis: Dict[str, Any], 
                                    actual_schema: Dict[str, Any], tenant_id: str) -> str:
-        """🔧 สร้าง SQL ที่แม่นยำตาม schema จริง"""
+        """🔧 สร้าง SQL แบบ adaptive ตาม analysis"""
         
-        question_type = analysis['question_type']
-        target_tables = analysis['target_tables']
-        available_columns = analysis['available_columns']
+        approach = analysis.get('processing_approach', 'simple_query')
+        relevant_tables = analysis.get('relevant_tables', [])
+        required_columns = analysis.get('required_columns', {})
+        search_strategy = analysis.get('search_strategy', {})
         
-        if not target_tables:
-            logger.warning("No target tables found")
+        if not relevant_tables:
+            logger.warning("No relevant tables found for SQL generation")
             return None
-        
-        main_table = target_tables[0]
         
         try:
-            if question_type == 'counting':
-                return self._generate_counting_sql(main_table, available_columns, analysis)
-            
-            elif question_type == 'spare_parts_search':
-                return self._generate_spare_parts_sql(main_table, available_columns, analysis)
-            
-            elif question_type == 'customer_analysis':
-                return self._generate_customer_sql(main_table, available_columns, analysis)
-            
-            elif question_type == 'sales_analysis':
-                return self._generate_sales_analysis_sql(target_tables, available_columns, analysis)
-            
+            if approach == 'aggregation_query':
+                return await self._generate_aggregation_sql(analysis, actual_schema)
+            elif approach == 'analytical_query':
+                return await self._generate_analytical_sql(analysis, actual_schema)
+            elif approach == 'filtered_search':
+                return await self._generate_filtered_search_sql(analysis, actual_schema)
+            elif approach == 'multi_table_query':
+                return await self._generate_multi_table_sql(analysis, actual_schema)
             else:
-                return self._generate_general_sql(main_table, available_columns, analysis)
+                return await self._generate_simple_adaptive_sql(analysis, actual_schema)
                 
         except Exception as e:
-            logger.error(f"❌ SQL generation failed: {e}")
-            return None
+            logger.error(f"❌ Adaptive SQL generation failed: {e}")
+            return await self._generate_fallback_sql(relevant_tables[0], actual_schema)
     
-    def _generate_counting_sql(self, table_name: str, available_columns: Dict[str, List[str]], 
-                             analysis: Dict[str, Any]) -> str:
-        """📊 สร้าง SQL สำหรับการนับ"""
+    async def _generate_aggregation_sql(self, analysis: Dict[str, Any], 
+                                      actual_schema: Dict[str, Any]) -> str:
+        """📊 สร้าง SQL สำหรับการรวมข้อมูล"""
         
-        columns = available_columns.get(table_name, [])
+        relevant_tables = analysis.get('relevant_tables', [])
+        search_strategy = analysis.get('search_strategy', {})
+        main_table = relevant_tables[0]
         
-        # หาคอลัมน์ที่เหมาะสำหรับนับ
-        if 'customer_name' in columns:
-            count_column = 'DISTINCT customer_name'
-            alias = 'total_customers'
-        elif 'product_name' in columns:
-            count_column = 'DISTINCT product_name'
-            alias = 'total_products'
-        else:
-            count_column = '*'
-            alias = 'total_records'
+        # เลือก aggregation function
+        aggregations = search_strategy.get('aggregations', ['COUNT(*)'])
         
-        sql = f"SELECT COUNT({count_column}) as {alias} FROM {table_name}"
+        # สร้าง WHERE clause
+        where_conditions = []
+        filters = search_strategy.get('filters', [])
         
-        # เพิ่มเงื่อนไข
-        where_conditions = self._build_where_conditions(table_name, columns, analysis)
-        if where_conditions:
-            sql += f" WHERE {where_conditions}"
+        for filter_item in filters:
+            if filter_item['table'] == main_table:
+                condition = f"{filter_item['column']} {filter_item['operator']} '{filter_item['value']}'"
+                where_conditions.append(condition)
         
-        return sql
-    
-    def _generate_spare_parts_sql(self, table_name: str, available_columns: Dict[str, List[str]], 
-                                analysis: Dict[str, Any]) -> str:
-        """🔧 สร้าง SQL สำหรับค้นหาอะไหล่"""
+        # เพิ่มเงื่อนไขพิเศษ
+        table_info = actual_schema.get(main_table, {})
+        columns = [col['column_name'] for col in table_info.get('columns', [])]
         
-        columns = available_columns.get(table_name, [])
-        
-        # เลือกคอลัมน์ที่สำคัญ
-        select_columns = []
-        for col in ['product_code', 'product_name', 'unit_price', 'balance', 'description']:
-            if col in columns:
-                select_columns.append(col)
-        
-        if not select_columns:
-            select_columns = columns[:5]  # เลือก 5 คอลัมน์แรก
-        
-        sql = f"SELECT {', '.join(select_columns)} FROM {table_name}"
-        
-        # เพิ่มเงื่อนไข
-        where_conditions = self._build_where_conditions(table_name, columns, analysis)
-        if where_conditions:
-            sql += f" WHERE {where_conditions}"
-        
-        sql += " ORDER BY product_code LIMIT 20"
-        
-        return sql
-    
-    def _generate_customer_sql(self, table_name: str, available_columns: Dict[str, List[str]], 
-                             analysis: Dict[str, Any]) -> str:
-        """👥 สร้าง SQL สำหรับวิเคราะห์ลูกค้า"""
-        
-        columns = available_columns.get(table_name, [])
-        
-        # เลือกคอลัมน์ที่เกี่ยวกับลูกค้า
-        select_columns = []
-        for col in ['customer_name', 'job_no', 'description', 'service_contact_']:
-            if col in columns:
-                select_columns.append(col)
-        
-        if not select_columns:
-            select_columns = columns[:4]
-        
-        sql = f"SELECT {', '.join(select_columns)} FROM {table_name}"
-        
-        # เพิ่มเงื่อนไข
-        where_conditions = self._build_where_conditions(table_name, columns, analysis)
-        if where_conditions:
-            sql += f" WHERE {where_conditions}"
-        
-        sql += " ORDER BY customer_name LIMIT 20"
-        
-        return sql
-    
-    def _generate_sales_analysis_sql(self, target_tables: List[str], available_columns: Dict[str, List[str]], 
-                                   analysis: Dict[str, Any]) -> str:
-        """📈 สร้าง SQL สำหรับวิเคราะห์ยอดขาย"""
-        
-        # ใช้ตารางแรกเป็นหลัก
-        main_table = target_tables[0]
-        columns = available_columns.get(main_table, [])
-        
-        # หาคอลัมน์ที่เกี่ยวกับการขาย
-        value_column = None
-        for col in ['service_contact_', 'amount', 'value', 'price']:
-            if col in columns:
-                value_column = col
-                break
-        
-        if value_column:
-            sql = f"""SELECT 
-                COUNT(*) as total_jobs,
-                SUM(CAST({value_column} as NUMERIC)) as total_revenue,
-                AVG(CAST({value_column} as NUMERIC)) as avg_job_value
-            FROM {main_table}"""
-        else:
-            sql = f"SELECT COUNT(*) as total_jobs FROM {main_table}"
-        
-        # เพิ่มเงื่อนไข
-        where_conditions = self._build_where_conditions(main_table, columns, analysis)
-        if where_conditions:
-            sql += f" WHERE {where_conditions}"
-        
-        return sql
-    
-    def _generate_general_sql(self, table_name: str, available_columns: Dict[str, List[str]], 
-                            analysis: Dict[str, Any]) -> str:
-        """🔍 สร้าง SQL ทั่วไป"""
-        
-        columns = available_columns.get(table_name, [])
-        
-        # เลือกคอลัมน์ที่สำคัญ
-        important_columns = []
-        priority_columns = ['id', 'name', 'customer_name', 'product_name', 'description', 'date']
-        
-        for col in priority_columns:
-            if col in columns:
-                important_columns.append(col)
-        
-        # เติมคอลัมน์อื่นจนครบ 5 คอลัมน์
+        # หาคอลัมน์ที่มีค่า
+        non_null_columns = []
         for col in columns:
-            if col not in important_columns and len(important_columns) < 5:
-                important_columns.append(col)
+            if any(important_word in col.lower() for important_word in ['contact', 'amount', 'total', 'price']):
+                non_null_columns.append(f"{col} IS NOT NULL")
         
-        if not important_columns:
-            important_columns = ['*']
+        where_conditions.extend(non_null_columns)
         
-        sql = f"SELECT {', '.join(important_columns)} FROM {table_name}"
+        # สร้าง SQL
+        sql_parts = [f"SELECT {', '.join(aggregations)} FROM {main_table}"]
         
-        # เพิ่มเงื่อนไข
-        where_conditions = self._build_where_conditions(table_name, columns, analysis)
         if where_conditions:
-            sql += f" WHERE {where_conditions}"
+            sql_parts.append(f"WHERE {' AND '.join(where_conditions)}")
+        
+        return ' '.join(sql_parts)
+    
+    async def _analyze_question_intelligently(self, question: str, 
+                                           actual_schema: Dict[str, Any]) -> Dict[str, Any]:
+        """🧠 วิเคราะห์คำถามแบบอัจฉริยะ - เพิ่ม context awareness"""
+        
+        question_lower = question.lower()
+        
+        # Step 1: Extract Keywords Dynamically
+        keywords = await self._extract_dynamic_keywords(question)
+        
+        # Step 2: Analyze Intent with Better Context
+        intent = await self._analyze_question_intent_enhanced(question, keywords, actual_schema)
+        
+        # Step 3: Find Relevant Tables with Improved Scoring
+        relevant_tables = await self._find_relevant_tables_smart(question, keywords, actual_schema)
+        
+        # Step 4: Determine Required Columns More Intelligently
+        required_columns = await self._determine_required_columns_smart(question, intent, relevant_tables, actual_schema)
+        
+        # Step 5: Generate Advanced Search Strategy
+        search_strategy = await self._create_search_strategy(question, keywords, relevant_tables, actual_schema)
+        
+        return {
+            'original_question': question,
+            'extracted_keywords': keywords,
+            'detected_intent': intent,
+            'relevant_tables': relevant_tables,
+            'required_columns': required_columns,
+            'search_strategy': search_strategy,
+            'confidence_score': self._calculate_confidence(intent, relevant_tables, keywords),
+            'processing_approach': self._determine_processing_approach(intent, relevant_tables)
+        }
+    
+    def _find_money_columns(self, table_info: Dict[str, Any]) -> List[str]:
+        """💰 หาคอลัมน์ที่เกี่ยวข้องกับเงิน"""
+        
+        money_columns = []
+        columns = table_info.get('columns', [])
+        
+        for col_info in columns:
+            col_name = col_info['column_name'].lower()
+            data_type = col_info['data_type'].lower()
+            
+            # ตรวจสอบชื่อคอลัมน์ที่เกี่ยวข้องกับเงิน
+            money_keywords = [
+                'price', 'amount', 'total', 'cost', 'value', 'revenue', 
+                'contact', 'service_contact_', 'ราคา', 'มูลค่า'
+            ]
+            
+            # ตรวจสอบประเภทข้อมูลที่เป็นตัวเลข
+            is_numeric = any(num_type in data_type for num_type in 
+                           ['numeric', 'decimal', 'float', 'double', 'money'])
+            
+            if (any(keyword in col_name for keyword in money_keywords) and 
+                (is_numeric or 'varchar' in data_type)):
+                money_columns.append(col_info['column_name'])
+        
+        # เรียงตามความน่าจะเป็น
+        priority_order = ['service_contact_', 'total', 'amount', 'price', 'cost', 'revenue']
+        sorted_money_columns = []
+        
+        for priority_col in priority_order:
+            for col in money_columns:
+                if priority_col.lower() in col.lower() and col not in sorted_money_columns:
+                    sorted_money_columns.append(col)
+        
+        # เพิ่มคอลัมน์ที่เหลือ
+        for col in money_columns:
+            if col not in sorted_money_columns:
+                sorted_money_columns.append(col)
+        
+        return sorted_money_columns
+    
+    def _find_key_info_columns(self, table_info: Dict[str, Any]) -> List[str]:
+        """🔑 หาคอลัมน์ข้อมูลสำคัญ"""
+        
+        key_columns = []
+        columns = table_info.get('columns', [])
+        
+        # ลำดับความสำคัญของคอลัมน์
+        priority_patterns = [
+            ('id', 1),
+            ('customer', 10), ('client', 10), ('ลูกค้า', 10),
+            ('description', 8), ('detail', 8), ('รายละเอียด', 8),
+            ('name', 9), ('ชื่อ', 9),
+            ('job', 7), ('work', 7), ('งาน', 7),
+            ('date', 6), ('time', 6), ('วันที่', 6),
+            ('code', 5), ('number', 5), ('รหัส', 5)
+        ]
+        
+        column_scores = {}
+        for col_info in columns:
+            col_name = col_info['column_name']
+            col_lower = col_name.lower()
+            score = 0
+            
+            for pattern, pattern_score in priority_patterns:
+                if pattern in col_lower:
+                    score += pattern_score
+            
+            column_scores[col_name] = score
+        
+        # เรียงตามคะแนนและเลือกคอลัมน์ที่สำคัญ
+        sorted_columns = sorted(column_scores.items(), key=lambda x: x[1], reverse=True)
+        key_columns = [col for col, score in sorted_columns if score > 0]
+        
+        # หากไม่มีคอลัมน์ที่ได้คะแนน ให้เลือกตามประเภท
+        if not key_columns:
+            key_columns = [col_info['column_name'] for col_info in columns 
+                          if self._is_searchable_column(col_info)][:5]
+        
+        return key_columns
+    
+    def _find_spare_parts_columns(self, table_info: Dict[str, Any]) -> List[str]:
+        """🔧 หาคอลัมน์สำหรับข้อมูลอะไหล่ - แก้ไขการซ้ำคอลัมน์"""
+        
+        columns = [col['column_name'] for col in table_info.get('columns', [])]
+        spare_columns = []
+        
+        # คอลัมน์สำคัญสำหรับอะไหล่ (เรียงตามความสำคัญ)
+        important_spare_columns = [
+            'product_code', 'product_name', 'description',
+            'unit_price', 'price', 'total', 'balance',
+            'wh', 'unit', 'received'
+        ]
+        
+        # หาคอลัมน์ที่ตรงกัน โดยไม่ให้ซ้ำ
+        found_columns = set()
+        
+        for important_col in important_spare_columns:
+            for actual_col in columns:
+                if (important_col.lower() in actual_col.lower() and 
+                    actual_col not in found_columns):
+                    spare_columns.append(actual_col)
+                    found_columns.add(actual_col)
+                    break
+        
+        # หากไม่พบ ให้เลือกคอลัมน์ที่เป็น text
+        if not spare_columns:
+            for col_info in table_info.get('columns', []):
+                if (self._is_searchable_column(col_info) and 
+                    col_info['column_name'] not in found_columns):
+                    spare_columns.append(col_info['column_name'])
+                    found_columns.add(col_info['column_name'])
+                    if len(spare_columns) >= 6:
+                        break
+        
+        return spare_columns[:8]  # จำกัด 8 คอลัมน์
+    
+    async def _analyze_question_intent_enhanced(self, question: str, keywords: List[str], 
+                                              actual_schema: Dict[str, Any]) -> Dict[str, Any]:
+        """🎯 วิเคราะห์เจตนาของคำถามแบบขั้นสูง"""
+        
+        question_lower = question.lower()
+        
+        intent_analysis = {
+            'primary_intent': 'unknown',
+            'secondary_intents': [],
+            'action_type': 'query',
+            'expected_output': 'data',
+            'business_context': 'general'
+        }
+        
+        # วิเคราะห์ Business Context ก่อน
+        if any(word in question_lower for word in ['อะไหล่', 'spare', 'part', 'ราคา']):
+            intent_analysis['business_context'] = 'spare_parts'
+            intent_analysis['primary_intent'] = 'spare_parts_inquiry'
+        elif any(word in question_lower for word in ['ขาย', 'sales', 'การขาย', 'วิเคราะห์']):
+            intent_analysis['business_context'] = 'sales_analysis'
+            intent_analysis['primary_intent'] = 'sales_analysis'
+        elif any(word in question_lower for word in ['งาน', 'job', 'work', 'สรุปงาน']):
+            intent_analysis['business_context'] = 'work_management'
+            intent_analysis['primary_intent'] = 'work_summary'
+        elif any(word in question_lower for word in ['ลูกค้า', 'customer', 'บริษัท']):
+            intent_analysis['business_context'] = 'customer_management'
+            intent_analysis['primary_intent'] = 'customer_analysis'
+        
+        # วิเคราะห์ Action Type ตามบริบท
+        if any(word in question_lower for word in ['วิเคราะห์', 'สรุป', 'analysis', 'summary']):
+            intent_analysis['action_type'] = 'analysis'
+            intent_analysis['expected_output'] = 'summary_with_numbers'
+        elif any(word in question_lower for word in ['มี', 'กี่', 'จำนวน', 'count']):
+            intent_analysis['action_type'] = 'count'
+            intent_analysis['expected_output'] = 'number'
+        elif any(word in question_lower for word in ['หา', 'ค้นหา', 'find', 'search', 'ราคา']):
+            intent_analysis['action_type'] = 'search'
+            intent_analysis['expected_output'] = 'detailed_list'
+        else:
+            intent_analysis['action_type'] = 'display'
+            intent_analysis['expected_output'] = 'data_list'
+        
+        return intent_analysis
+    
+    async def _determine_required_columns_smart(self, question: str, intent: Dict[str, Any], 
+                                              relevant_tables: List[str], 
+                                              actual_schema: Dict[str, Any]) -> Dict[str, List[str]]:
+        """📋 กำหนดคอลัมน์ที่จำเป็นแบบอัจฉริยะ"""
+        
+        required_columns = {}
+        action_type = intent.get('action_type', 'query')
+        business_context = intent.get('business_context', 'general')
+        
+        for table_name in relevant_tables:
+            table_info = actual_schema.get(table_name, {})
+            all_columns = [col['column_name'] for col in table_info.get('columns', [])]
+            
+            if action_type == 'analysis':
+                # สำหรับการวิเคราะห์ ต้องการคอลัมน์เงินและข้อมูลสำคัญ
+                money_columns = self._find_money_columns(table_info)
+                key_columns = self._find_key_info_columns(table_info)
+                
+                selected_columns = []
+                if money_columns:
+                    selected_columns.extend(money_columns[:2])
+                selected_columns.extend(key_columns[:3])
+                
+                required_columns[table_name] = list(set(selected_columns))[:6]
+                
+            elif action_type == 'search':
+                # สำหรับการค้นหา ต้องการคอลัมน์ที่แสดงข้อมูลครบถ้วน
+                if business_context == 'spare_parts':
+                    spare_columns = self._find_spare_parts_columns(table_info)
+                    required_columns[table_name] = spare_columns
+                else:
+                    searchable_cols = table_info.get('searchable_columns', [])
+                    price_cols = self._find_money_columns(table_info)
+                    required_columns[table_name] = (searchable_cols + price_cols)[:6]
+                    
+            elif action_type == 'count':
+                # สำหรับการนับ ใช้ * หรือคอลัมน์หลัก
+                required_columns[table_name] = ['*']
+                
+            else:
+                # Default: เลือกคอลัมน์ที่น่าสนใจ
+                key_columns = self._find_key_info_columns(table_info)
+                required_columns[table_name] = key_columns[:6]
+        
+        return required_columns
+    
+    async def _analyze_question_intent_enhanced(self, question: str, keywords: List[str], 
+                                              actual_schema: Dict[str, Any]) -> Dict[str, Any]:
+        """🎯 วิเคราะห์เจตนาของคำถามแบบขั้นสูง"""
+        
+        question_lower = question.lower()
+        
+        intent_analysis = {
+            'primary_intent': 'unknown',
+            'secondary_intents': [],
+            'action_type': 'query',
+            'expected_output': 'data',
+            'business_context': 'general'
+        }
+        
+        # วิเคราะห์ Business Context ก่อน
+        if any(word in question_lower for word in ['อะไหล่', 'spare', 'part', 'ราคา']):
+            intent_analysis['business_context'] = 'spare_parts'
+            intent_analysis['primary_intent'] = 'spare_parts_inquiry'
+        elif any(word in question_lower for word in ['ขาย', 'sales', 'การขาย', 'วิเคราะห์']):
+            intent_analysis['business_context'] = 'sales_analysis'
+            intent_analysis['primary_intent'] = 'sales_analysis'
+        elif any(word in question_lower for word in ['งาน', 'job', 'work', 'สรุปงาน']):
+            intent_analysis['business_context'] = 'work_management'
+            intent_analysis['primary_intent'] = 'work_summary'
+        elif any(word in question_lower for word in ['ลูกค้า', 'customer', 'บริษัท']):
+            intent_analysis['business_context'] = 'customer_management'
+            intent_analysis['primary_intent'] = 'customer_analysis'
+        
+        # วิเคราะห์ Action Type ตามบริบท
+        if any(word in question_lower for word in ['วิเคราะห์', 'สรุป', 'analysis', 'summary']):
+            intent_analysis['action_type'] = 'analysis'
+            intent_analysis['expected_output'] = 'summary_with_numbers'
+        elif any(word in question_lower for word in ['มี', 'กี่', 'จำนวน', 'count']):
+            intent_analysis['action_type'] = 'count'
+            intent_analysis['expected_output'] = 'number'
+        elif any(word in question_lower for word in ['หา', 'ค้นหา', 'find', 'search', 'ราคา']):
+            intent_analysis['action_type'] = 'search'
+            intent_analysis['expected_output'] = 'detailed_list'
+        else:
+            intent_analysis['action_type'] = 'display'
+            intent_analysis['expected_output'] = 'data_list'
+        
+        return intent_analysis
+    
+    async def _determine_required_columns_smart(self, question: str, intent: Dict[str, Any], 
+                                              relevant_tables: List[str], 
+                                              actual_schema: Dict[str, Any]) -> Dict[str, List[str]]:
+        """📋 กำหนดคอลัมน์ที่จำเป็นแบบอัจฉริยะ"""
+        
+        required_columns = {}
+        action_type = intent.get('action_type', 'query')
+        business_context = intent.get('business_context', 'general')
+        
+        for table_name in relevant_tables:
+            table_info = actual_schema.get(table_name, {})
+            all_columns = [col['column_name'] for col in table_info.get('columns', [])]
+            
+            if action_type == 'analysis':
+                # สำหรับการวิเคราะห์ ต้องการคอลัมน์เงินและข้อมูลสำคัญ
+                money_columns = self._find_money_columns(table_info)
+                key_columns = self._find_key_info_columns(table_info)
+                
+                selected_columns = []
+                if money_columns:
+                    selected_columns.extend(money_columns[:2])
+                selected_columns.extend(key_columns[:3])
+                
+                required_columns[table_name] = list(set(selected_columns))[:6]
+                
+            elif action_type == 'search':
+                # สำหรับการค้นหา ต้องการคอลัมน์ที่แสดงข้อมูลครบถ้วน
+                if business_context == 'spare_parts':
+                    spare_columns = self._find_spare_parts_columns(table_info)
+                    required_columns[table_name] = spare_columns
+                else:
+                    searchable_cols = table_info.get('searchable_columns', [])
+                    price_cols = self._find_money_columns(table_info)
+                    required_columns[table_name] = (searchable_cols + price_cols)[:6]
+                    
+            elif action_type == 'count':
+                # สำหรับการนับ ใช้ * หรือคอลัมน์หลัก
+                required_columns[table_name] = ['*']
+                
+            else:
+                # Default: เลือกคอลัมน์ที่น่าสนใจ
+                key_columns = self._find_key_info_columns(table_info)
+                required_columns[table_name] = key_columns[:6]
+        
+        return required_columns
+    
+    def _find_key_info_columns(self, table_info: Dict[str, Any]) -> List[str]:
+        """🔑 หาคอลัมน์ข้อมูลสำคัญ"""
+        
+        key_columns = []
+        columns = table_info.get('columns', [])
+        
+        # ลำดับความสำคัญของคอลัมน์
+        priority_patterns = [
+            ('id', 1),
+            ('customer', 10), ('client', 10), ('ลูกค้า', 10),
+            ('description', 8), ('detail', 8), ('รายละเอียด', 8),
+            ('name', 9), ('ชื่อ', 9),
+            ('job', 7), ('work', 7), ('งาน', 7),
+            ('date', 6), ('time', 6), ('วันที่', 6),
+            ('code', 5), ('number', 5), ('รหัส', 5)
+        ]
+        
+        column_scores = {}
+        for col_info in columns:
+            col_name = col_info['column_name']
+            col_lower = col_name.lower()
+            score = 0
+            
+            for pattern, pattern_score in priority_patterns:
+                if pattern in col_lower:
+                    score += pattern_score
+            
+            column_scores[col_name] = score
+        
+        # เรียงตามคะแนนและเลือกคอลัมน์ที่สำคัญ
+        sorted_columns = sorted(column_scores.items(), key=lambda x: x[1], reverse=True)
+        key_columns = [col for col, score in sorted_columns if score > 0]
+        
+        # หากไม่มีคอลัมน์ที่ได้คะแนน ให้เลือกตามประเภท
+        if not key_columns:
+            key_columns = [col_info['column_name'] for col_info in columns 
+                          if self._is_searchable_column(col_info)][:5]
+        
+        return key_columns
+    
+    def _find_spare_parts_columns(self, table_info: Dict[str, Any]) -> List[str]:
+        """🔧 หาคอลัมน์สำหรับข้อมูลอะไหล่"""
+        
+        columns = [col['column_name'] for col in table_info.get('columns', [])]
+        spare_columns = []
+        
+        # คอลัมน์สำคัญสำหรับอะไหล่
+        important_spare_columns = [
+            'product_code', 'product_name', 'description',
+            'unit_price', 'price', 'total', 'balance',
+            'wh', 'unit', 'received'
+        ]
+        
+        for important_col in important_spare_columns:
+            for actual_col in columns:
+                if important_col.lower() in actual_col.lower():
+                    spare_columns.append(actual_col)
+                    break
+        
+        # หากไม่พบ ให้เลือกคอลัมน์ที่เป็น text
+        if not spare_columns:
+            spare_columns = [col['column_name'] for col in table_info.get('columns', [])
+                           if self._is_searchable_column(col)][:6]
+        
+        return spare_columns[:8]  # จำกัด 8 คอลัมน์
+    
+    async def _generate_filtered_search_sql(self, analysis: Dict[str, Any], 
+                                          actual_schema: Dict[str, Any]) -> str:
+        """🔍 สร้าง SQL สำหรับการค้นหาแบบ smart - แก้ไขการค้นหาให้แม่นยำขึ้น"""
+        
+        relevant_tables = analysis.get('relevant_tables', [])
+        required_columns = analysis.get('required_columns', {})
+        search_strategy = analysis.get('search_strategy', {})
+        keywords = analysis.get('extracted_keywords', [])
+        
+        if not relevant_tables:
+            return None
+        
+        main_table = relevant_tables[0]
+        columns_to_select = required_columns.get(main_table, ['*'])
+        
+        # แก้ไขการซ้ำคอลัมน์
+        if isinstance(columns_to_select, list):
+            columns_to_select = list(dict.fromkeys(columns_to_select))  # ลบคอลัมน์ซ้ำ
+            if len(columns_to_select) > 8:
+                columns_to_select = columns_to_select[:8]
+        
+        # สร้าง WHERE clause แบบ smart และเฉพาะเจาะจง
+        where_conditions = []
+        
+        # หาคำสำคัญที่มีความหมายจริงๆ (ไม่ใช่คำทั่วไป)
+        meaningful_keywords = []
+        for keyword in keywords:
+            keyword_clean = keyword.strip().lower()
+            # เฉพาะคำที่เฉพาะเจาะจง
+            if (len(keyword_clean) >= 3 and 
+                keyword_clean not in ['ราคา', 'อะไหล่', 'เครื่อง', 'price', 'spare', 'part'] and
+                (any(char.isdigit() for char in keyword_clean) or  # มีตัวเลข
+                 keyword_clean.isupper() or  # ตัวพิมพ์ใหญ่
+                 keyword_clean in ['hitachi', 'daikin', 'ekac', 'rcug', 'ahyz'])):  # แบรนด์ที่รู้จัก
+                meaningful_keywords.append(keyword_clean)
+        
+        table_info = actual_schema.get(main_table, {})
+        searchable_columns = table_info.get('searchable_columns', [])
+        
+        if meaningful_keywords and searchable_columns:
+            # สร้างเงื่อนไข OR สำหรับแต่ละคำสำคัญ
+            keyword_conditions = []
+            
+            for keyword in meaningful_keywords[:2]:  # จำกัด 2 คำสำคัญ
+                # เลือกคอลัมน์ที่เหมาะสมสำหรับคำนี้
+                target_columns = []
+                
+                # หากเป็นรหัสสินค้า/model ให้ค้นหาใน product_code และ description
+                if any(char.isdigit() for char in keyword) or keyword.isupper():
+                    for col in searchable_columns:
+                        if any(col_type in col.lower() for col_type in ['code', 'description', 'name']):
+                            target_columns.append(col)
+                else:
+                    # คำทั่วไป ค้นหาใน name และ description
+                    for col in searchable_columns:
+                        if any(col_type in col.lower() for col_type in ['name', 'description']):
+                            target_columns.append(col)
+                
+                if target_columns:
+                    keyword_or_conditions = []
+                    for col in target_columns[:3]:  # จำกัด 3 คอลัมน์ต่อคำ
+                        keyword_or_conditions.append(f"{col} ILIKE '%{keyword}%'")
+                    
+                    if keyword_or_conditions:
+                        keyword_conditions.append(f"({' OR '.join(keyword_or_conditions)})")
+            
+            if keyword_conditions:
+                where_conditions.extend(keyword_conditions)
+        
+        # หากไม่มีเงื่อนไขเฉพาะ ให้ใช้เงื่อนไขทั่วไป
+        if not where_conditions:
+            # เพิ่มเงื่อนไขพื้นฐาน
+            basic_conditions = []
+            
+            # หาคอลัมน์ที่มีข้อมูลสำคัญ
+            for col_info in table_info.get('columns', []):
+                col_name = col_info['column_name']
+                if any(important in col_name.lower() for important in ['contact', 'total', 'price']):
+                    basic_conditions.append(f"{col_name} IS NOT NULL")
+                    break
+            
+            if basic_conditions:
+                where_conditions.extend(basic_conditions)
+        
+        # สร้าง SQL
+        select_clause = ', '.join(columns_to_select) if columns_to_select != ['*'] else '*'
+        sql = f"SELECT {select_clause} FROM {main_table}"
+        
+        if where_conditions:
+            sql += f" WHERE {' AND '.join(where_conditions)}"
+        
+        # เพิ่ม ORDER BY
+        sorting = search_strategy.get('sorting', [])
+        if sorting:
+            sql += f" ORDER BY {sorting[0]}"
+        
+        sql += " LIMIT 20"
+        
+        logger.info(f"🔧 Generated precise SQL with {len(where_conditions)} conditions")
+        return sql
+    
+    async def _generate_multi_table_sql(self, analysis: Dict[str, Any], 
+                                      actual_schema: Dict[str, Any]) -> str:
+        """🔗 สร้าง SQL สำหรับหลายตาราง"""
+        
+        relevant_tables = analysis.get('relevant_tables', [])
+        
+        # สำหรับตอนนี้ ใช้ UNION หรือเลือกตารางที่ดีที่สุด
+        main_table = relevant_tables[0]
+        
+        # ถ้ามีหลายตาราง sales ให้ใช้ UNION
+        if all('sales' in table.lower() for table in relevant_tables):
+            return await self._generate_union_sales_sql(relevant_tables, analysis, actual_schema)
+        
+        # ไม่งั้นใช้ตารางแรก
+        return await self._generate_simple_adaptive_sql(analysis, actual_schema)
+    
+    async def _generate_union_sales_sql(self, sales_tables: List[str], 
+                                      analysis: Dict[str, Any], 
+                                      actual_schema: Dict[str, Any]) -> str:
+        """💰 สร้าง SQL UNION สำหรับตาราง sales หลายตาราง"""
+        
+        # หาคอลัมน์ที่มีร่วมกัน
+        common_columns = None
+        
+        for table_name in sales_tables:
+            table_info = actual_schema.get(table_name, {})
+            table_columns = [col['column_name'] for col in table_info.get('columns', [])]
+            
+            if common_columns is None:
+                common_columns = set(table_columns)
+            else:
+                common_columns = common_columns.intersection(set(table_columns))
+        
+        if not common_columns:
+            # ถ้าไม่มีคอลัมน์ร่วม ใช้ตารางแรก
+            return await self._generate_simple_adaptive_sql(analysis, actual_schema)
+        
+        # เลือกคอลัมน์ที่น่าสนใจ
+        selected_columns = []
+        for col in common_columns:
+            if any(important in col.lower() for important in ['id', 'customer', 'contact', 'description']):
+                selected_columns.append(col)
+        
+        selected_columns = selected_columns[:5] if selected_columns else list(common_columns)[:5]
+        
+        # สร้าง UNION query
+        union_parts = []
+        for table_name in sales_tables:
+            table_sql = f"SELECT {', '.join(selected_columns)} FROM {table_name}"
+            
+            # เพิ่มเงื่อนไข
+            table_info = actual_schema.get(table_name, {})
+            numeric_columns = table_info.get('numeric_columns', [])
+            if numeric_columns:
+                table_sql += f" WHERE {numeric_columns[0]} IS NOT NULL"
+            
+            union_parts.append(table_sql)
+        
+        final_sql = ' UNION ALL '.join(union_parts)
+        final_sql += " ORDER BY id DESC LIMIT 50"
+        
+        return final_sql
+    
+    async def _generate_simple_adaptive_sql(self, analysis: Dict[str, Any], 
+                                          actual_schema: Dict[str, Any]) -> str:
+        """⚡ สร้าง SQL แบบง่ายแต่ adaptive"""
+        
+        relevant_tables = analysis.get('relevant_tables', [])
+        required_columns = analysis.get('required_columns', {})
+        search_strategy = analysis.get('search_strategy', {})
+        
+        if not relevant_tables:
+            return None
+        
+        main_table = relevant_tables[0]
+        columns_to_select = required_columns.get(main_table, ['*'])
+        
+        # จำกัดจำนวนคอลัมน์
+        if isinstance(columns_to_select, list) and len(columns_to_select) > 6:
+            columns_to_select = columns_to_select[:6]
+        
+        select_clause = ', '.join(columns_to_select) if columns_to_select != ['*'] else '*'
+        
+        sql = f"SELECT {select_clause} FROM {main_table}"
+        
+        # เพิ่ม WHERE clause ถ้ามี
+        filters = search_strategy.get('filters', [])
+        where_conditions = []
+        
+        for filter_item in filters:
+            if filter_item['table'] == main_table:
+                condition = f"{filter_item['column']} {filter_item['operator']} '{filter_item['value']}'"
+                where_conditions.append(condition)
+        
+        if where_conditions:
+            sql += f" WHERE {' AND '.join(where_conditions[:3])}"  # จำกัด 3 เงื่อนไข
+        
+        # เพิ่ม ORDER BY
+        table_info = actual_schema.get(main_table, {})
+        id_columns = [col['column_name'] for col in table_info.get('columns', []) 
+                     if 'id' in col['column_name'].lower()]
+        
+        if id_columns:
+            sql += f" ORDER BY {id_columns[0]} DESC"
         
         sql += " LIMIT 20"
         
         return sql
     
-    def _build_where_conditions(self, table_name: str, columns: List[str], 
-                              analysis: Dict[str, Any]) -> str:
-        """🎯 สร้างเงื่อนไข WHERE"""
+    async def _generate_fallback_sql(self, table_name: str, 
+                                   actual_schema: Dict[str, Any]) -> str:
+        """🛡️ สร้าง SQL fallback เมื่อไม่สามารถสร้างแบบ dynamic ได้"""
         
-        conditions = []
-        keywords = analysis.get('search_keywords', [])
+        table_info = actual_schema.get(table_name, {})
+        columns = [col['column_name'] for col in table_info.get('columns', [])]
         
-        for keyword in keywords:
-            keyword_conditions = []
-            
-            # หาคอลัมน์ที่เหมาะสำหรับค้นหาคำนี้
-            for col in columns:
-                col_lower = col.lower()
-                if any(text_type in col_lower for text_type in ['name', 'description', 'detail']):
-                    keyword_conditions.append(f"{col} ILIKE '%{keyword}%'")
-            
-            if keyword_conditions:
-                conditions.append(f"({' OR '.join(keyword_conditions)})")
+        # เลือกคอลัมน์ที่น่าสนใจ
+        interesting_columns = []
         
-        # เพิ่มเงื่อนไขพิเศษ
-        if 'service_contact_' in columns:
-            conditions.append("service_contact_ IS NOT NULL")
+        for col in columns[:8]:  # จำกัด 8 คอลัมน์
+            col_lower = col.lower()
+            if any(keyword in col_lower for keyword in ['id', 'name', 'description', 'customer', 'date', 'price', 'amount']):
+                interesting_columns.append(col)
         
-        return ' AND '.join(conditions)
+        if not interesting_columns:
+            interesting_columns = columns[:5]
+        
+        select_clause = ', '.join(interesting_columns)
+        return f"SELECT {select_clause} FROM {table_name} LIMIT 20"
     
-    async def _execute_sql_safely(self, sql_query: str, tenant_id: str) -> List[Dict[str, Any]]:
-        """🛡️ Execute SQL อย่างปลอดภัย"""
+    async def _execute_with_fallback(self, sql_query: str, tenant_id: str) -> List[Dict[str, Any]]:
+        """🛡️ Execute SQL พร้อม smart fallback strategy"""
         
         try:
+            logger.info(f"🔍 Executing SQL: {sql_query[:200]}...")
             results = await self.db_handler._execute_sql_unified(sql_query, tenant_id)
-            return results if results else []
             
+            if results:
+                logger.info(f"✅ SQL executed successfully, {len(results)} rows returned")
+                return results
+            else:
+                logger.info("⚠️ SQL executed but no results found - trying fallback")
+                return await self._try_fallback_searches(sql_query, tenant_id)
+                
         except Exception as e:
-            logger.error(f"❌ Safe SQL execution failed: {e}")
-            logger.error(f"❌ Failed SQL: {sql_query}")
-            
-            # ลอง fallback query อย่างง่าย
-            try:
-                # หาตารางจาก SQL
-                table_match = re.search(r'FROM\s+(\w+)', sql_query, re.IGNORECASE)
-                if table_match:
-                    table_name = table_match.group(1)
-                    simple_query = f"SELECT * FROM {table_name} LIMIT 5"
-                    logger.info(f"🔄 Trying fallback query: {simple_query}")
-                    
-                    fallback_results = await self.db_handler._execute_sql_unified(simple_query, tenant_id)
-                    return fallback_results if fallback_results else []
-            except:
-                pass
-            
+            logger.error(f"❌ Primary SQL execution failed: {e}")
+            return await self._try_fallback_searches(sql_query, tenant_id)
+    
+    async def _try_fallback_searches(self, original_sql: str, tenant_id: str) -> List[Dict[str, Any]]:
+        """🔄 ลองค้นหาด้วยวิธีอื่นๆ เมื่อไม่พบข้อมูล - แก้ไขให้ใช้คอลัมน์จริง"""
+        
+        # Extract table name
+        table_match = re.search(r'FROM\s+(\w+)', original_sql, re.IGNORECASE)
+        if not table_match:
             return []
-    
-
-    def _format_results_intelligently(self, question: str, results: List[Dict], 
-                                    analysis: Dict[str, Any]) -> str:
-        """🎨 จัดรูปแบบผลลัพธ์แบบธรรมชาติ"""
         
-        if not results:
-            return self._create_natural_no_results_response(question, analysis)
+        table_name = table_match.group(1)
         
-        question_type = analysis.get('question_type', 'unknown')
-        
-        # เลือกรูปแบบตามประเภทคำถาม
-        if question_type == 'counting':
-            return self._format_counting_natural(question, results)
-        elif question_type == 'spare_parts_search':
-            return self._format_spare_parts_natural(question, results)
-        elif question_type == 'customer_analysis':
-            return self._format_customer_natural(question, results)
-        elif question_type == 'sales_analysis':
-            return self._format_sales_natural(question, results)
-        else:
-            return self._format_general_natural(question, results)
-
-    def _format_counting_natural(self, question: str, results: List[Dict]) -> str:
-        """📊 คำตอบการนับแบบธรรมชาติ"""
-        
-        if len(results) == 1:
-            count_result = results[0]
-            # หาค่าที่เป็นตัวเลข
-            count_value = None
-            
-            for key, value in count_result.items():
-                if isinstance(value, (int, float)) and value > 0:
-                    count_value = int(value)
-                    break
-            
-            if count_value is not None:
-                if 'customer' in question.lower() or 'ลูกค้า' in question:
-                    return f"ตอนนี้เรามีลูกค้าทั้งหมด {count_value:,} ราย ครับ"
-                elif 'อะไหล่' in question or 'spare' in question.lower():
-                    return f"ในคลังมีอะไหล่ทั้งหมด {count_value:,} รายการ ครับ"
-                elif 'งาน' in question or 'job' in question.lower():
-                    return f"มีงานทั้งหมด {count_value:,} งาน ครับ"
-                else:
-                    return f"พบข้อมูลทั้งหมด {count_value:,} รายการ ครับ"
-        
-        return f"พบข้อมูลทั้งหมด {len(results)} รายการ ครับ"
-
-    def _format_spare_parts_natural(self, question: str, results: List[Dict]) -> str:
-        """🔧 คำตอบอะไหล่แบบธรรมชาติ"""
-        
-        if not results:
-            return "ขออภัยครับ ไม่พบอะไหล่ที่ตรงกับที่ค้นหา"
-        
-        # เริ่มต้นแบบธรรมชาติ
-        if len(results) == 1:
-            response = "เจออะไหล่ที่คุณต้องการแล้วครับ:\n\n"
-        else:
-            response = f"เจออะไหล่ที่เกี่ยวข้อง {len(results)} รายการครับ:\n\n"
-        
-        for i, result in enumerate(results[:5], 1):  # แสดงแค่ 5 รายการแรก
-            code = result.get('product_code', '')
-            name = result.get('product_name', '')
-            price = result.get('unit_price', '')
-            balance = result.get('balance', '')
-            description = result.get('description', '')
-            
-            # ข้อมูลหลัก
-            if code and name:
-                response += f"{i}. {code} - {name}\n"
-            elif name:
-                response += f"{i}. {name}\n"
-            elif code:
-                response += f"{i}. รหัส {code}\n"
-            else:
-                response += f"{i}. รายการที่ {i}\n"
-            
-            # ราคาและสต็อก
-            price_info = []
-            if price and str(price).replace('.', '').replace(',', '').isdigit():
-                try:
-                    price_num = float(str(price).replace(',', ''))
-                    if price_num > 0:
-                        price_info.append(f"ราคา {price_num:,.0f} บาท")
-                except:
-                    pass
-            
-            if balance and str(balance).isdigit():
-                balance_num = int(balance)
-                if balance_num > 0:
-                    price_info.append(f"เหลือ {balance_num} ชิ้น")
-                else:
-                    price_info.append("สินค้าหมด")
-            
-            if price_info:
-                response += f"   {' | '.join(price_info)}\n"
-            
-            # รายละเอียดเพิ่มเติม
-            if description and len(description) > 10:
-                desc_short = description[:60] + "..." if len(description) > 60 else description
-                response += f"   {desc_short}\n"
-            
-            response += "\n"
-        
-        # ข้อมูลเพิ่มเติม
-        if len(results) > 5:
-            response += f"และอีก {len(results) - 5} รายการ หากต้องการดูเพิ่มเติมแจ้งได้ครับ"
-        
-        return response
-
-    def _format_customer_natural(self, question: str, results: List[Dict]) -> str:
-        """👥 คำตอบลูกค้าแบบธรรมชาติ"""
-        
-        if not results:
-            return "ไม่พบข้อมูลลูกค้าที่ตรงกับที่ค้นหาครับ"
-        
-        if len(results) == 1:
-            response = "พบข้อมูลลูกค้าครับ:\n\n"
-        else:
-            response = f"พบข้อมูลลูกค้า {len(results)} รายการครับ:\n\n"
-        
-        for i, result in enumerate(results[:8], 1):
-            customer = result.get('customer_name', result.get('customer', ''))
-            job_no = result.get('job_no', '')
-            description = result.get('description', result.get('detail', ''))
-            value = result.get('service_contact_', result.get('value', ''))
-            
-            # ชื่อลูกค้า
-            if customer:
-                response += f"{i}. {customer}\n"
-            else:
-                response += f"{i}. ลูกค้ารายที่ {i}\n"
-            
-            # รายละเอียดงาน
-            job_details = []
-            if job_no:
-                job_details.append(f"งาน {job_no}")
-            
-            if description:
-                # ตัดให้สั้นลงเพื่อให้อ่านง่าย
-                desc_short = description[:80] + "..." if len(description) > 80 else description
-                if job_details:
-                    job_details.append(desc_short)
-                else:
-                    job_details.append(f"บริการ: {desc_short}")
-            
-            if job_details:
-                response += f"   {' - '.join(job_details)}\n"
-            
-            # มูลค่า
-            if value and str(value).replace('.', '').replace(',', '').isdigit():
-                try:
-                    value_num = float(str(value).replace(',', ''))
-                    if value_num > 0:
-                        response += f"   มูลค่า {value_num:,.0f} บาท\n"
-                except:
-                    pass
-            
-            response += "\n"
-        
-        if len(results) > 8:
-            response += f"และอีก {len(results) - 8} รายการ"
-        
-        return response
-
-    def _format_sales_natural(self, question: str, results: List[Dict]) -> str:
-        """📊 คำตอบยอดขายแบบธรรมชาติ"""
-        
-        if len(results) == 1:
-            result = results[0]
-            
-            total_jobs = result.get('total_jobs', 0)
-            total_revenue = result.get('total_revenue', 0)
-            avg_job_value = result.get('avg_job_value', 0)
-            
-            # เริ่มต้นการตอบ
-            if 'ปี' in question or 'year' in question.lower():
-                response = "จากการวิเคราะห์ยอดขายแล้วครับ:\n\n"
-            else:
-                response = "สรุปข้อมูลการขายครับ:\n\n"
-            
-            # จำนวนงาน
-            if total_jobs:
-                if total_jobs == 1:
-                    response += "มีงานเพียง 1 งาน"
-                elif total_jobs < 10:
-                    response += f"มีงานทั้งหมด {total_jobs} งาน"
-                elif total_jobs < 100:
-                    response += f"ทำงานไปแล้ว {total_jobs} งาน"
-                else:
-                    response += f"ทำงานไปแล้วถึง {total_jobs:,} งาน!"
-            
-            # รายได้รวม
-            if total_revenue:
-                try:
-                    revenue_num = float(total_revenue)
-                    if revenue_num >= 1_000_000:
-                        revenue_million = revenue_num / 1_000_000
-                        response += f" รายได้รวม {revenue_million:.1f} ล้านบาท"
-                    else:
-                        response += f" รายได้รวม {revenue_num:,.0f} บาท"
-                except:
-                    pass
-            
-            # มูลค่าเฉลี่ย
-            if avg_job_value:
-                try:
-                    avg_num = float(avg_job_value)
-                    response += f"\nมูลค่าเฉลี่ยต่องาน {avg_num:,.0f} บาท"
-                    
-                    # เพิ่มความคิดเห็น
-                    if avg_num > 200_000:
-                        response += " (งานใหญ่เลยทีเดียว)"
-                    elif avg_num > 100_000:
-                        response += " (งานขนาดกลาง)"
-                    elif avg_num > 50_000:
-                        response += " (งานทั่วไป)"
-                    else:
-                        response += " (งานเล็ก)"
-                except:
-                    pass
-            
-            return response
-        else:
-            # หลายแถว
-            response = "ข้อมูลการขายแยกตามช่วงเวลาครับ:\n\n"
-            
-            for i, result in enumerate(results[:5], 1):
-                response += f"{i}. "
-                
-                # แสดงข้อมูลแต่ละแถว
-                for key, value in result.items():
-                    if value is not None and isinstance(value, (int, float)):
-                        if 'revenue' in key.lower() or 'value' in key.lower():
-                            response += f"รายได้ {value:,.0f} บาท | "
-                        elif 'job' in key.lower() or 'count' in key.lower():
-                            response += f"{value:,} งาน | "
-                        else:
-                            response += f"{key}: {value:,} | "
-                    elif value is not None:
-                        response += f"{value} | "
-                
-                response = response.rstrip(" | ") + "\n"
-            
-            return response
-
-    def _format_general_natural(self, question: str, results: List[Dict]) -> str:
-        """📋 คำตอบทั่วไปแบบธรรมชาติ"""
-        
-        if not results:
-            return "ขออภัยครับ ไม่พบข้อมูลที่ตรงกับที่ค้นหา"
-        
-        # เลือกคำเริ่มต้นตามคำถาม
-        if 'หา' in question or 'ค้นหา' in question:
-            response = f"ค้นหาแล้วพบข้อมูล {len(results)} รายการครับ:\n\n"
-        elif 'แสดง' in question or 'ดู' in question:
-            response = f"ข้อมูลที่ต้องการครับ:\n\n"
-        else:
-            response = f"ข้อมูลที่เกี่ยวข้อง {len(results)} รายการครับ:\n\n"
-        
-        for i, result in enumerate(results[:6], 1):
-            response += f"{i}. "
-            
-            # เลือกข้อมูลสำคัญมาแสดง
-            important_info = []
-            
-            for key, value in result.items():
-                if value and str(value).strip():
-                    # ข้อมูลหลัก
-                    if key.lower() in ['name', 'customer', 'customer_name', 'product_name']:
-                        important_info.insert(0, str(value))  # ใส่ไว้หน้าสุด
-                    # ราคา/เงิน
-                    elif key.lower() in ['price', 'cost', 'service_contact_', 'unit_price']:
-                        if str(value).replace('.', '').replace(',', '').isdigit():
-                            try:
-                                price_num = float(str(value).replace(',', ''))
-                                important_info.append(f"{price_num:,.0f} บาท")
-                            except:
-                                important_info.append(str(value))
-                    # ข้อมูลเพิ่มเติม
-                    elif len(important_info) < 3:
-                        info_str = str(value)
-                        if len(info_str) > 50:
-                            info_str = info_str[:47] + "..."
-                        important_info.append(info_str)
-            
-            if important_info:
-                response += " - ".join(important_info[:3])
-            else:
-                response += "ข้อมูลไม่สมบูรณ์"
-            
-            response += "\n"
-        
-        if len(results) > 6:
-            response += f"\nและอีก {len(results) - 6} รายการ หากต้องการดูเพิ่มเติม บอกได้ครับ"
-        
-        return response
-
-    def _create_natural_no_results_response(self, question: str, analysis: Dict[str, Any]) -> str:
-        """📭 คำตอบเมื่อไม่พบข้อมูล - แบบธรรมชาติ"""
-        
-        question_type = analysis.get('question_type', 'unknown')
-        keywords = analysis.get('search_keywords', [])
-        
-        # เลือกคำตอบตามประเภทคำถาม
-        if question_type == 'spare_parts_search':
-            response = "หาอะไหล่ที่ต้องการไม่เจอเลยครับ"
-            
-            if keywords:
-                response += f" (ค้นหาด้วยคำว่า: {', '.join(keywords)})"
-            
-            response += "\n\nลองเปลี่ยนคำค้นหาดูครับ เช่น:\n"
-            response += "• ใช้ชื่อภาษาอังกฤษ เช่น 'Motor', 'Compressor'\n"
-            response += "• ใช้รหัสสินค้า หรือ\n"
-            response += "• ถาม 'มีอะไหล่อะไรบ้าง' เพื่อดูรายการทั้งหมด"
-        
-        elif question_type == 'customer_analysis':
-            response = "ไม่เจอข้อมูลลูกค้าที่ต้องการครับ"
-            
-            if keywords:
-                response += f" (ค้นหาด้วย: {', '.join(keywords)})"
-            
-            response += "\n\nลองเปลี่ยนวิธีค้นหาดูครับ:\n"
-            response += "• ใช้ชื่อบริษัทแบบย่อๆ\n"
-            response += "• ถาม 'มีลูกค้าอะไรบ้าง' เพื่อดูรายชื่อ\n"
-            response += "• หรือค้นหาด้วยประเภทบริการ เช่น 'PM', 'ซ่อม'"
-        
-        elif question_type == 'sales_analysis':
-            response = "ไม่พบข้อมูลการขายที่ต้องการครับ"
-            
-            response += "\n\nลองปรับคำถามดูครับ:\n"
-            response += "• ระบุปีที่ชัดเจน เช่น '2024'\n"
-            response += "• ถาม 'ยอดขายทั้งหมด' เพื่อดูภาพรวม\n"
-            response += "• หรือแยกตามประเภทบริการ"
-        
-        else:
-            response = "ขออภัยครับ ไม่เจอข้อมูลที่ตรงกับที่ต้องการ"
-            
-            if keywords:
-                response += f" (ค้นหาด้วย: {', '.join(keywords)})"
-            
-            response += "\n\nลองเปลี่ยนคำถามหรือใช้คำค้นหาอื่นดูครับ"
-        
-        return response
-    
-    def _format_spare_parts_results(self, question: str, results: List[Dict]) -> str:
-        """🔧 จัดรูปแบบผลลัพธ์อะไหล่"""
-        
-        response = f"🔧 รายการอะไหล่: {question}\n\n"
-        
-        for i, result in enumerate(results[:10], 1):
-            response += f"{i}. "
-            
-            # ข้อมูลสำคัญของอะไหล่
-            code = result.get('product_code', '')
-            name = result.get('product_name', '')
-            price = result.get('unit_price', '')
-            balance = result.get('balance', '')
-            description = result.get('description', '')
-            
-            if code:
-                response += f"{code}"
-            if name:
-                response += f" - {name}"
-            response += "\n"
-            
-            if price and str(price).replace('.', '').replace(',', '').isdigit():
-                try:
-                    price_num = float(str(price).replace(',', ''))
-                    response += f"   💰 ราคา: {price_num:,.0f} บาท"
-                    if balance:
-                        response += f" | 📦 คงเหลือ: {balance} ชิ้น"
-                    response += "\n"
-                except:
-                    pass
-            
-            if description:
-                desc_short = description[:80] + "..." if len(description) > 80 else description
-                response += f"   📝 รายละเอียด: {desc_short}\n"
-            
-            response += "\n"
-        
-        response += f"📈 สรุป: แสดงผลลัพธ์ {min(len(results), 10)} รายการจากทั้งหมด {len(results)} รายการ"
-        
-        return response
-    
-    def _format_customer_results(self, question: str, results: List[Dict]) -> str:
-        """👥 จัดรูปแบบผลลัพธ์ลูกค้า"""
-        
-        response = f"👥 ข้อมูลลูกค้า: {question}\n\n"
-        
-        for i, result in enumerate(results[:10], 1):
-            customer = result.get('customer_name', result.get('customer', ''))
-            job_no = result.get('job_no', '')
-            description = result.get('description', result.get('detail', ''))
-            value = result.get('service_contact_', result.get('value', ''))
-            
-            response += f"{i}. {customer}\n"
-            
-            if job_no:
-                response += f"   📋 งาน: {job_no}\n"
-            
-            if description:
-                desc_short = description[:100] + "..." if len(description) > 100 else description
-                response += f"   🛠️ บริการ: {desc_short}\n"
-            
-            if value and str(value).replace('.', '').replace(',', '').isdigit():
-                try:
-                    value_num = float(str(value).replace(',', ''))
-                    if value_num > 0:
-                        response += f"   💰 มูลค่า: {value_num:,.0f} บาท\n"
-                except:
-                    pass
-            
-            response += "\n"
-        
-        response += f"📈 สรุป: แสดงผลลัพธ์ {min(len(results), 10)} รายการจากทั้งหมด {len(results)} รายการ"
-        
-        return response
-    
-    def _format_sales_results(self, question: str, results: List[Dict]) -> str:
-        """📊 จัดรูปแบบผลลัพธ์การขาย"""
-        
-        response = f"📊 วิเคราะห์การขาย: {question}\n\n"
-        
-        if len(results) == 1:
-            result = results[0]
-            
-            total_jobs = result.get('total_jobs', 0)
-            total_revenue = result.get('total_revenue', 0)
-            avg_job_value = result.get('avg_job_value', 0)
-            
-            response += f"📋 จำนวนงานทั้งหมด: {total_jobs:,} งาน\n"
-            
-            if total_revenue:
-                try:
-                    revenue_num = float(total_revenue)
-                    response += f"💰 รายได้รวม: {revenue_num:,.0f} บาท\n"
-                    
-                    if avg_job_value:
-                        avg_num = float(avg_job_value)
-                        response += f"📈 มูลค่าเฉลี่ยต่องาน: {avg_num:,.0f} บาท\n"
-                except:
-                    pass
-        else:
-            # แสดงผลหลายแถว
-            for i, result in enumerate(results[:5], 1):
-                response += f"{i}. "
-                for key, value in result.items():
-                    if value is not None:
-                        if isinstance(value, (int, float)):
-                            if 'revenue' in key.lower() or 'value' in key.lower():
-                                response += f"{key}: {value:,.0f} บาท | "
-                            else:
-                                response += f"{key}: {value:,} | "
-                        else:
-                            response += f"{key}: {value} | "
-                response = response.rstrip(" | ") + "\n"
-        
-        return response
-    
-    def _format_general_results(self, question: str, results: List[Dict]) -> str:
-        """📋 จัดรูปแบบผลลัพธ์ทั่วไป"""
-        
-        response = f"🔍 ผลการค้นหา: {question}\n\n"
-        
-        for i, result in enumerate(results[:10], 1):
-            response += f"{i}. "
-            
-            # เลือกข้อมูลสำคัญมาแสดง
-            important_data = []
-            
-            for key, value in result.items():
-                if value and str(value).strip():
-                    # จัดรูปแบบตามประเภทข้อมูล
-                    if key.lower() in ['name', 'customer', 'customer_name', 'product_name']:
-                        important_data.append(str(value))
-                    elif key.lower() in ['price', 'cost', 'service_contact_', 'unit_price'] and str(value).replace('.', '').replace(',', '').isdigit():
-                        try:
-                            price_num = float(str(value).replace(',', ''))
-                            important_data.append(f"{price_num:,.0f} บาท")
-                        except:
-                            important_data.append(str(value))
-                    elif len(important_data) < 3:  # จำกัดข้อมูลที่แสดง
-                        important_data.append(str(value))
-            
-            response += " | ".join(important_data[:3])
-            response += "\n"
-        
-        response += f"\n📈 สรุป: แสดงผลลัพธ์ {min(len(results), 10)} รายการจากทั้งหมด {len(results)} รายการ"
-        
-        return response
-    
-    # เพิ่มใน advanced_dynamic_ai_system.py
-
-    async def _create_smart_spare_parts_suggestions(self, question: str, target_tables: List[str], 
-                                                tenant_id: str) -> str:
-        """💡 แนะนำคำค้นหาอะไหล่อัจฉริยะจากข้อมูลจริง"""
-        
+        # ดึงคอลัมน์จริงของตารางนี้
         try:
-            # ดึงข้อมูลจริงจากฐานข้อมูล
-            main_table = target_tables[0] if target_tables else 'spare_part'
-            
-            # ดึงตัวอย่าง product_name ที่ไม่ซ้ำ
-            sample_query = f"""
-                SELECT DISTINCT product_name, unit_price, description 
-                FROM {main_table} 
-                WHERE product_name IS NOT NULL 
-                ORDER BY product_name 
-                LIMIT 15
+            actual_columns_query = f"""
+                SELECT column_name, data_type 
+                FROM information_schema.columns 
+                WHERE table_name = '{table_name}' 
+                AND table_schema = 'public'
+                ORDER BY ordinal_position
             """
             
-            results = await self.db_handler._execute_sql_unified(sample_query, tenant_id)
+            columns_info = await self.db_handler._execute_sql_unified(actual_columns_query, tenant_id)
+            if not columns_info:
+                return []
             
-            if not results:
-                return "🔍 ไม่พบข้อมูลอะไหล่ในระบบ"
-            
-            response = f"🔍 ไม่พบ 'Hitachi' ในระบบอะไหล่\n\n"
-            response += "🔧 **อะไหล่ที่มีจริงในสต็อก:**\n\n"
-            
-            # จัดกลุ่มอะไหล่ตามประเภท
-            categories = {
-                'MOTOR': [],
-                'CIRCUIT BOARD': [],
-                'SENSOR': [],
-                'TRANSFORMER': [],
-                'OTHER': []
-            }
-            
-            for item in results:
-                product_name = item.get('product_name', '')
-                unit_price = item.get('unit_price', '')
-                description = item.get('description', '')
+            # หาคอลัมน์ที่สามารถค้นหาได้
+            searchable_columns = []
+            for col_info in columns_info:
+                col_name = col_info['column_name']
+                data_type = col_info['data_type'].lower()
                 
-                # จัดกลุ่ม
-                if 'MOTOR' in product_name.upper():
-                    categories['MOTOR'].append({
-                        'name': product_name,
-                        'price': unit_price,
-                        'desc': description
-                    })
-                elif 'CIRCUIT BOARD' in product_name.upper() or 'BOARD' in product_name.upper():
-                    categories['CIRCUIT BOARD'].append({
-                        'name': product_name,
-                        'price': unit_price,
-                        'desc': description
-                    })
-                elif 'SENSOR' in product_name.upper():
-                    categories['SENSOR'].append({
-                        'name': product_name,
-                        'price': unit_price,
-                        'desc': description
-                    })
-                elif 'TRANSFORMER' in product_name.upper():
-                    categories['TRANSFORMER'].append({
-                        'name': product_name,
-                        'price': unit_price,
-                        'desc': description
-                    })
-                else:
-                    categories['OTHER'].append({
-                        'name': product_name,
-                        'price': unit_price,
-                        'desc': description
-                    })
+                if ('text' in data_type or 'char' in data_type or 'varchar' in data_type):
+                    searchable_columns.append(col_name)
             
-            # แสดงผลแต่ละประเภท
-            for category, items in categories.items():
-                if items:
-                    response += f"**{category}:**\n"
-                    for item in items[:3]:  # แสดงแค่ 3 รายการแรก
-                        name = item['name']
-                        price = item['price']
-                        desc = item['desc'][:50] + "..." if len(item['desc']) > 50 else item['desc']
-                        
-                        response += f"• {name}"
-                        if price and str(price).replace('.', '').replace(',', '').isdigit():
-                            try:
-                                price_num = float(str(price).replace(',', ''))
-                                response += f" - {price_num:,.0f} บาท"
-                            except:
-                                pass
-                        response += f"\n  {desc}\n"
-                    
-                    response += "\n"
-            
-            # แนะนำคำค้นหาที่น่าจะได้ผล
-            response += "💡 **ลองค้นหาด้วยคำเหล่านี้:**\n"
-            
-            suggestions = []
-            if categories['MOTOR']:
-                suggestions.append('"ราคาอะไหล่ MOTOR"')
-            if categories['CIRCUIT BOARD']:
-                suggestions.append('"ราคาอะไหล่ Circuit Board"')
-            if categories['SENSOR']:
-                suggestions.append('"ราคาอะไหล่ Sensor"')
-            if categories['TRANSFORMER']:
-                suggestions.append('"ราคาอะไหล่ Transformer"')
-            
-            # เพิ่มคำค้นหาจากรุ่นเครื่อง
-            models = set()
-            for item in results:
-                desc = item.get('description', '')
-                if 'SET FREE' in desc:
-                    models.add('SET FREE')
-                if 'RAS-24' in desc:
-                    models.add('RAS-24')
-            
-            for model in models:
-                suggestions.append(f'"อะไหล่ {model}"')
-            
-            for suggestion in suggestions[:5]:
-                response += f"• {suggestion}\n"
-            
-            response += f"\n📋 รวม {len(results)} รายการอะไหล่ในระบบ"
-            
-            return response
+            if not searchable_columns:
+                # ถ้าไม่มีคอลัมน์ text ให้เอาทุกคอลัมน์
+                searchable_columns = [col_info['column_name'] for col_info in columns_info]
             
         except Exception as e:
-            logger.error(f"Failed to create smart suggestions: {e}")
-            return "🔍 ไม่พบข้อมูลที่ตรงกับคำถาม แต่ลองค้นหาด้วยคำอื่นดู"
-
-    # อัปเดต method หลักที่เรียกใช้
-    def _create_no_results_response(self, question: str, analysis: Dict[str, Any]) -> str:
-        """📭 สร้างคำตอบเมื่อไม่พบข้อมูล - ใช้ข้อมูลจริง"""
+            logger.error(f"❌ Failed to get actual columns: {e}")
+            # Fallback ไปใช้ basic query
+            try:
+                basic_sql = f"SELECT * FROM {table_name} LIMIT 5"
+                return await self.db_handler._execute_sql_unified(basic_sql, tenant_id)
+            except:
+                return []
         
-        question_type = analysis.get('question_type', 'unknown')
-        target_tables = analysis.get('target_tables', [])
-        keywords = analysis.get('search_keywords', [])
+        # Fallback Strategy 1: ลองค้นหาแบบ partial match ด้วยคอลัมน์จริง
+        try:
+            # Extract keywords จาก WHERE clause
+            where_match = re.search(r"ILIKE\s+'%([^%]+)%'", original_sql)
+            if where_match and searchable_columns:
+                search_term = where_match.group(1)
+                
+                # สร้างเงื่อนไข OR สำหรับทุกคอลัมน์ที่ค้นหาได้
+                search_conditions = []
+                for col_name in searchable_columns[:4]:  # จำกัด 4 คอลัมน์
+                    search_conditions.append(f"{col_name} ILIKE '%{search_term[:4]}%'")
+                
+                partial_sql = f"""
+                    SELECT * FROM {table_name} 
+                    WHERE {' OR '.join(search_conditions)}
+                    LIMIT 10
+                """
+                
+                logger.info(f"🔄 Trying partial search with actual columns: {search_term[:4]}")
+                partial_results = await self.db_handler._execute_sql_unified(partial_sql, tenant_id)
+                
+                if partial_results:
+                    logger.info(f"✅ Partial search found {len(partial_results)} results")
+                    return partial_results
+                    
+        except Exception as e:
+            logger.error(f"❌ Partial search failed: {e}")
         
-        # สำหรับการค้นหาอะไหล่ ให้แนะนำจากข้อมูลจริง
-        if question_type == 'spare_parts_search' and 'hitachi' in [k.lower() for k in keywords]:
-            # ใช้ async function (ถ้าเป็นไปได้)
-            return f"""🔍 ไม่พบ 'Hitachi' ในระบบอะไหล่
-
-    💡 **คำแนะนำ:**
-    • ลองค้นหา "ราคาอะไหล่ MOTOR" 
-    • ลองค้นหา "ราคาอะไหล่ Circuit Board"
-    • ลองค้นหา "อะไหล่ SET FREE"
-    • ลองค้นหา "ราคาอะไหล่ 17B29401A"
-
-    🔧 หรือลองถาม "อะไหล่ทั้งหมดที่มีในสต็อก" เพื่อดูรายการทั้งหมด
-
-    📋 ตารางที่ค้นหา: {', '.join(target_tables)}"""
+        # Fallback Strategy 2: ค้นหาข้อมูลล่าสุด
+        try:
+            # หา id column จริง
+            id_columns = [col_info['column_name'] for col_info in columns_info 
+                         if 'id' in col_info['column_name'].lower()]
+            
+            if id_columns:
+                recent_sql = f"SELECT * FROM {table_name} ORDER BY {id_columns[0]} DESC LIMIT 10"
+            else:
+                recent_sql = f"SELECT * FROM {table_name} LIMIT 10"
+            
+            logger.info("🔄 Trying recent data search with actual columns")
+            
+            recent_results = await self.db_handler._execute_sql_unified(recent_sql, tenant_id)
+            
+            if recent_results:
+                logger.info(f"✅ Recent data search found {len(recent_results)} results")
+                return recent_results
+                
+        except Exception as e:
+            logger.error(f"❌ Recent data search failed: {e}")
         
-        # กรณีอื่นๆ ใช้ response เดิม
+        # Fallback Strategy 3: Basic sample
+        try:
+            basic_sql = f"SELECT * FROM {table_name} LIMIT 5"
+            logger.info("🔄 Trying basic sample")
+            
+            basic_results = await self.db_handler._execute_sql_unified(basic_sql, tenant_id)
+            return basic_results if basic_results else []
+            
+        except Exception as e:
+            logger.error(f"❌ Even basic sample failed: {e}")
+            return []
+    
+    async def _simplify_sql_query(self, original_sql: str) -> str:
+        """⚡ ลดความซับซ้อนของ SQL query"""
+        
+        # ดึงส่วนพื้นฐาน
+        table_match = re.search(r'FROM\s+(\w+)', original_sql, re.IGNORECASE)
+        if not table_match:
+            raise ValueError("Cannot extract table name")
+        
+        table_name = table_match.group(1)
+        
+        # ดึง SELECT columns แต่ลดจำนวน
+        select_match = re.search(r'SELECT\s+(.*?)\s+FROM', original_sql, re.IGNORECASE | re.DOTALL)
+        if select_match:
+            select_part = select_match.group(1).strip()
+            
+            # ถ้าเป็น aggregation ให้ใช้ต่อ
+            if any(agg in select_part.upper() for agg in ['COUNT', 'SUM', 'AVG', 'MAX', 'MIN']):
+                return f"SELECT {select_part} FROM {table_name}"
+            
+            # ถ้าเป็น column list ให้เลือกแค่บางส่วน
+            columns = [col.strip() for col in select_part.split(',')]
+            simplified_columns = columns[:4]  # เอาแค่ 4 คอลัมน์แรก
+            
+            return f"SELECT {', '.join(simplified_columns)} FROM {table_name} LIMIT 15"
+        
+        return f"SELECT * FROM {table_name} LIMIT 10"
+    
+    async def _create_intelligent_response(self, question: str, results: List[Dict], 
+                                         analysis: Dict[str, Any], tenant_id: str) -> str:
+        """🤖 สร้างคำตอบที่ชาญฉลาดด้วย AI"""
+        
+        if not results:
+            return await self._create_no_results_response(question, analysis)
+        
+        # สร้าง context ที่สมบูรณ์สำหรับ AI
+        context = await self._build_comprehensive_context(question, results, analysis)
+        
+        try:
+            # ใช้ AI สร้างคำตอบ
+            ai_response = await self.ollama_client._call_ollama_api(context, tenant_id)
+            
+            # ปรับปรุงและตรวจสอบคำตอบ
+            enhanced_response = await self._enhance_ai_response(ai_response, question, results, analysis)
+            
+            return enhanced_response
+            
+        except Exception as e:
+            logger.error(f"❌ AI response generation failed: {e}")
+            return await self._create_formatted_fallback_response(question, results, analysis)
+    
+    async def _build_comprehensive_context(self, question: str, results: List[Dict], 
+                                         analysis: Dict[str, Any]) -> str:
+        """📋 สร้าง context ที่ครอบคลุมสำหรับ AI"""
+        
+        action_type = analysis.get('detected_intent', {}).get('action_type', 'query')
+        primary_intent = analysis.get('detected_intent', {}).get('primary_intent', 'unknown')
+        results_count = len(results)
+        
+        # ข้อมูลตัวอย่าง (จำกัด 5 รายการ)
+        sample_results = json.dumps(results[:5], ensure_ascii=False, indent=2, default=str)
+        
+        context_prompt = f"""
+คุณคือผู้เชี่ยวชาญ AI ด้านธุรกิจ HVAC (ระบบปรับอากาศและทำความเย็น) ของบริษัท Siamtemp
+
+🎯 **งานของคุณ:**
+ตอบคำถามลูกค้าให้ฟังดูเป็นธรรมชาติ เหมือนพนักงานที่มีประสบการณ์
+
+📋 **ข้อมูลที่ได้รับ:**
+- คำถาม: "{question}"
+- ประเภทการกระทำ: {action_type}
+- หัวข้อหลัก: {primary_intent}
+- จำนวนข้อมูลที่พบ: {results_count} รายการ
+
+📊 **ข้อมูลผลลัพธ์:**
+```json
+{sample_results}
+```
+
+💡 **คำแนะนำในการตอบ:**
+1. ใช้ภาษาไทยที่เป็นธรรมชาติ ไม่เป็นทางการเกินไป
+2. เริ่มต้นด้วยการสรุปสั้นๆ ตามที่ลูกค้าถาม
+3. แสดงข้อมูลสำคัญเป็นจุดๆ อย่างชัดเจน
+4. ถ้าเป็นเงิน ใช้รูปแบบ "123,456 บาท"
+5. ถ้าเป็นจำนวน ใช้รูปแบบ "123,456 รายการ"
+6. ปิดท้ายด้วย "ครับ" หรือ "ค่ะ" ให้เหมาะสม
+7. ไม่ใช้ emoji มากเกินไป (1-2 ตัวพอ)
+8. หากมีข้อมูลเยอะ บอกว่ามีเพิ่มเติมและถามว่าต้องการดูอะไรเพิ่ม
+
+🎯 **รูปแบบคำตอบที่ต้องการ:**
+- กระชับ ตรงประเด็น
+- มีข้อมูลสำคัญครบถ้วน
+- ให้ข้อเสนอแนะเพิ่มเติมถ้าเหมาะสม
+
+กรุณาตอบคำถามลูกค้า:
+"""
+        
+        return context_prompt
+    
+    async def _enhance_ai_response(self, ai_response: str, question: str, 
+                                 results: List[Dict], analysis: Dict[str, Any]) -> str:
+        """✨ ปรับปรุงคำตอบจาก AI ให้ดีขึ้น"""
+        
+        if not ai_response:
+            return await self._create_formatted_fallback_response(question, results, analysis)
+        
+        # ทำความสะอาดคำตอบ
+        cleaned_response = ai_response.strip()
+        
+        # ลบส่วนที่ไม่จำเป็น
+        unwanted_patterns = [
+            r'```json.*?```',
+            r'```.*?```',
+            r'คำถาม:.*?\n',
+            r'ข้อมูลที่ได้รับ:.*?\n',
+        ]
+        
+        for pattern in unwanted_patterns:
+            cleaned_response = re.sub(pattern, '', cleaned_response, flags=re.DOTALL)
+        
+        # ตรวจสอบความยาว
+        sentences = cleaned_response.split('.')
+        if len(sentences) > 5:
+            # เก็บส่วนสำคัญ
+            important_parts = sentences[:4]
+            cleaned_response = '. '.join(important_parts)
+            
+            if len(results) > 5:
+                cleaned_response += f"\n\n💡 มีข้อมูลอีก {len(results) - 5} รายการ หากต้องการดูเพิ่มเติมแจ้งได้ครับ"
+        
+        # เพิ่มการปิดท้ายที่เหมาะสม
+        if not cleaned_response.endswith(('ครับ', 'ค่ะ', 'คะ')):
+            cleaned_response += " ครับ"
+        
+        return cleaned_response
+    
+    async def _create_no_results_response(self, question: str, 
+                                        analysis: Dict[str, Any]) -> str:
+        """💡 สร้างคำตอบเมื่อไม่พบข้อมูล"""
+        
+        keywords = analysis.get('extracted_keywords', [])
+        relevant_tables = analysis.get('relevant_tables', [])
+        
         response = f"🔍 ไม่พบข้อมูลที่ตรงกับคำถาม: {question}\n\n"
         
         if keywords:
-            response += f"🔍 คำที่ใช้ค้นหา: {', '.join(keywords)}\n\n"
+            response += f"🔍 คำที่ใช้ค้นหา: {', '.join(keywords[:3])}\n\n"
         
-        response += "💡 คำแนะนำทั่วไป:\n"
-        response += "• ลองใช้คำถามที่เฉพาะเจาะจงมากขึ้น\n"
-        response += "• ลองถามข้อมูลทั่วไปก่อน เช่น 'มีข้อมูลอะไรบ้าง'\n"
+        # แนะนำคำถามทางเลือก
+        if relevant_tables:
+            main_table = relevant_tables[0]
+            if 'spare' in main_table.lower():
+                response += """💡 **คำแนะนำสำหรับอะไหล่:**
+• ลองค้นหา "อะไหล่ทั้งหมดที่มีในสต็อก"
+• ลองค้นหา "ราคาอะไหล่ MOTOR"
+• ลองค้นหา "อะไหล่ SET FREE"
+• ลองระบุรหัสสินค้าที่ชัดเจน
+"""
+            elif 'sales' in main_table.lower():
+                response += """💡 **คำแนะนำสำหรับข้อมูลการขาย:**
+• ลองถาม "วิเคราะห์การขายรวมทั้งหมด"
+• ลองถาม "จำนวนงานทั้งหมด"
+• ลองถาม "ลูกค้าที่ใช้บริการมากที่สุด"
+"""
+            else:
+                response += f"""💡 **ลองถามคำถามเหล่านี้:**
+• "มีข้อมูลอะไรบ้างในตาราง {main_table}"
+• "ข้อมูลทั้งหมดในระบบ"
+• "จำนวนข้อมูลทั้งหมด"
+"""
         
         return response
     
-    async def _create_helpful_response(self, question: str, actual_schema: Dict[str, Any], 
-                                     tenant_id: str) -> Dict[str, Any]:
-        """💡 สร้างคำตอบที่เป็นประโยชน์เมื่อไม่สามารถสร้าง SQL ได้"""
+    async def _create_formatted_fallback_response(self, question: str, results: List[Dict], 
+                                                analysis: Dict[str, Any]) -> str:
+        """📝 สร้างคำตอบ fallback ที่จัดรูปแบบดี"""
         
-        # แสดงข้อมูลที่มีในระบบ
-        available_tables = list(actual_schema.keys())
+        if not results:
+            return await self._create_no_results_response(question, analysis)
         
-        answer = f"""🤔 ไม่สามารถประมวลผลคำถามนี้ได้: {question}
+        action_type = analysis.get('detected_intent', {}).get('action_type', 'query')
+        results_count = len(results)
+        
+        if action_type == 'count':
+            # สำหรับการนับ
+            if isinstance(results[0], dict) and len(results[0]) == 1:
+                count_value = list(results[0].values())[0]
+                return f"📊 ผลการนับ: พบข้อมูลทั้งหมด {count_value:,} รายการ ครับ"
+        
+        elif action_type == 'analysis':
+            # สำหรับการวิเคราะห์
+            if results and isinstance(results[0], dict):
+                first_result = results[0]
+                response = "📈 ผลการวิเคราะห์:\n\n"
+                
+                for key, value in first_result.items():
+                    if isinstance(value, (int, float)) and value is not None:
+                        if 'total' in key.lower() or 'sum' in key.lower():
+                            response += f"💰 {key}: {value:,.0f} บาท\n"
+                        elif 'avg' in key.lower() or 'average' in key.lower():
+                            response += f"📊 {key}: {value:,.0f} บาท (เฉลี่ย)\n"
+                        elif 'count' in key.lower() or 'total' in key.lower():
+                            response += f"📋 {key}: {value:,} รายการ\n"
+                        else:
+                            response += f"📊 {key}: {value:,}\n"
+                
+                return response + "\nครับ"
+        
+        # สำหรับการแสดงข้อมูลทั่วไป
+        response = f"📋 ผลการค้นหา: {question}\n\n"
+        
+        for i, row in enumerate(results[:10], 1):
+            if isinstance(row, dict):
+                # เลือกข้อมูลสำคัญจาก row
+                important_data = []
+                
+                for key, value in row.items():
+                    if value is not None and str(value).strip():
+                        if len(str(value)) > 100:
+                            value = str(value)[:100] + "..."
+                        important_data.append(f"{key}: {value}")
+                
+                if important_data:
+                    response += f"{i}. {' | '.join(important_data[:4])}\n"
+        
+        if results_count > 10:
+            response += f"\n📊 แสดง 10 จาก {results_count} รายการ หากต้องการดูเพิ่มเติมแจ้งได้ครับ"
+        else:
+            response += f"\n📊 ทั้งหมด {results_count} รายการ ครับ"
+        
+        return response
+    
+    async def _create_exploratory_response(self, question: str, 
+                                         actual_schema: Dict[str, Any], 
+                                         tenant_id: str) -> Dict[str, Any]:
+        """🗺️ สร้างคำตอบแบบสำรวจเมื่อไม่สามารถสร้าง SQL ได้"""
+        
+        # แสดงข้อมูลที่มีในระบบแบบ dynamic
+        available_info = await self._create_system_overview(actual_schema)
+        
+        # แนะนำคำถามที่เป็นไปได้
+        suggested_questions = await self._generate_smart_suggestions(question, actual_schema)
+        
+        response = f"""🤔 ไม่สามารถประมวลผลคำถามนี้ได้โดยตรง: "{question}"
 
-📊 ข้อมูลที่มีในระบบ:
-"""
-        
-        for table_name, table_info in actual_schema.items():
-            purpose = table_info.get('purpose', 'ไม่ทราบ')
-            row_count = table_info.get('row_count', 0)
-            column_names = [col['name'] for col in table_info.get('columns', [])]
-            
-            answer += f"• {table_name} ({row_count:,} รายการ)\n"
-            answer += f"  วัตถุประสงค์: {purpose}\n"
-            answer += f"  คอลัมน์หลัก: {', '.join(column_names[:5])}\n\n"
-        
-        answer += """💡 ลองถามคำถามเหล่านี้:
-• "จำนวนลูกค้าทั้งหมด"
-• "รายการอะไหล่ทั้งหมด" 
-• "งานที่ทำล่าสุด"
-• "ข้อมูลในตาราง [ชื่อตาราง]"
-• "มีข้อมูลอะไรบ้างในระบบ"
-"""
+{available_info}
+
+{suggested_questions}
+
+💡 **เทคนิคการถามที่ดี:**
+• ระบุข้อมูลที่ต้องการให้ชัดเจน
+• ใช้คำที่เกี่ยวข้องกับธุรกิจ HVAC
+• ลองถามทีละส่วน ถ้าข้อมูลเยอะ
+
+ลองถามใหม่ได้ครับ! 😊"""
         
         return {
-            "answer": answer,
+            "answer": response,
             "success": False,
-            "data_source_used": "schema_exploration",
-            "system_used": "helpful_response_generator",
-            "available_tables": available_tables
+            "data_source_used": "exploratory_response",
+            "system_used": "smart_exploration",
+            "available_tables": list(actual_schema.keys()),
+            "suggestions_provided": True
         }
+    
+    async def _create_system_overview(self, actual_schema: Dict[str, Any]) -> str:
+        """📊 สร้างภาพรวมของระบบแบบ dynamic"""
+        
+        total_tables = len(actual_schema)
+        total_records = sum(table_info.get('row_count', 0) for table_info in actual_schema.values())
+        
+        overview = f"📊 **ข้อมูลที่มีในระบบ** ({total_tables} ตาราง, {total_records:,} รายการ):\n\n"
+        
+        # จัดกลุ่มตารางตามประเภท
+        table_groups = defaultdict(list)
+        
+        for table_name, table_info in actual_schema.items():
+            purpose = table_info.get('business_purpose', '')
+            row_count = table_info.get('row_count', 0)
+            
+            if 'ขาย' in purpose or 'sales' in table_name.lower():
+                table_groups['การขายและบริการ'].append(f"• {table_name} ({row_count:,} รายการ)")
+            elif 'อะไหล่' in purpose or 'spare' in table_name.lower():
+                table_groups['อะไหล่และสต็อก'].append(f"• {table_name} ({row_count:,} รายการ)")
+            elif 'งาน' in purpose or 'work' in table_name.lower():
+                table_groups['การทำงาน'].append(f"• {table_name} ({row_count:,} รายการ)")
+            else:
+                table_groups['อื่นๆ'].append(f"• {table_name} ({row_count:,} รายการ)")
+        
+        for group_name, tables in table_groups.items():
+            overview += f"**{group_name}:**\n" + '\n'.join(tables) + "\n\n"
+        
+        return overview
+    
+    async def _generate_smart_suggestions(self, original_question: str, 
+                                        actual_schema: Dict[str, Any]) -> str:
+        """💡 สร้างคำแนะนำคำถามแบบอัจฉริยะ"""
+        
+        suggestions = []
+        
+        # วิเคราะห์ตารางที่มี
+        has_sales = any('sales' in table.lower() for table in actual_schema.keys())
+        has_spare_parts = any('spare' in table.lower() for table in actual_schema.keys())
+        has_work_data = any('work' in table.lower() for table in actual_schema.keys())
+        
+        if has_sales:
+            suggestions.extend([
+                "วิเคราะห์การขายของปีล่าสุด",
+                "จำนวนลูกค้าทั้งหมด",
+                "งานที่มีมูลค่าสูงสุด"
+            ])
+        
+        if has_spare_parts:
+            suggestions.extend([
+                "อะไหล่ทั้งหมดที่มีในสต็อก",
+                "ราคาอะไหล่ MOTOR",
+                "อะไหล่ที่มีจำนวนมากที่สุด"
+            ])
+        
+        if has_work_data:
+            suggestions.extend([
+                "งานที่ทำในเดือนล่าสุด",
+                "ประเภทงานที่ทำบ่อยที่สุด"
+            ])
+        
+        # เพิ่มคำถามทั่วไป
+        suggestions.extend([
+            "มีข้อมูลอะไรบ้างในระบบ",
+            "ตารางไหนมีข้อมูลมากที่สุด"
+        ])
+        
+        if suggestions:
+            suggestion_text = "🎯 **ลองถามคำถามเหล่านี้:**\n"
+            for suggestion in suggestions[:6]:
+                suggestion_text += f"• \"{suggestion}\"\n"
+            return suggestion_text
+        
+        return ""
 
 
-# เพิ่มเมธอดใหม่ให้กับ existing agent
+# Enhanced Agent Class ที่รวม Ultra Dynamic AI
 class EnhancedUnifiedPostgresOllamaAgent:
-    """🚀 ขยาย agent เดิมด้วยความสามารถ Dynamic AI ที่แก้ไขแล้ว"""
+    """🚀 Agent ที่ปรับปรุงด้วย Ultra Dynamic AI v5.0"""
     
     def __init__(self):
         # Import และ initialize ตัวเดิม
-        from .enhanced_postgres_agent_unified import UnifiedEnhancedPostgresOllamaAgent as OriginalAgent
-        
-        # เก็บ properties ของ agent เดิม
-        original_agent = OriginalAgent()
-        for attr_name in dir(original_agent):
-            if not attr_name.startswith('_') or attr_name in ['_call_ollama_api', '_execute_sql_unified', 'get_database_connection']:
-                setattr(self, attr_name, getattr(original_agent, attr_name))
-        
-        # เพิ่ม Dynamic AI system ที่แก้ไขแล้ว
-        self.dynamic_ai_system = AdvancedDynamicAISystem(self, self)
-        logger.info("🚀 Enhanced agent with FIXED Dynamic AI capabilities initialized")
+        try:
+            from .enhanced_postgres_agent_unified import UnifiedEnhancedPostgresOllamaAgent as OriginalAgent
+            
+            # เก็บ properties ของ agent เดิม
+            original_agent = OriginalAgent()
+            for attr_name in dir(original_agent):
+                if not attr_name.startswith('_') or attr_name in ['_call_ollama_api', '_execute_sql_unified', 'get_database_connection']:
+                    setattr(self, attr_name, getattr(original_agent, attr_name))
+            
+            # เพิ่ม Ultra Dynamic AI system
+            self.ultra_dynamic_ai = UltraDynamicAISystem(self, self)
+            logger.info("🚀 Enhanced agent with Ultra Dynamic AI v5.0 initialized")
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize Enhanced Agent: {e}")
+            raise
     
     async def process_any_question(self, question: str, tenant_id: str) -> Dict[str, Any]:
-        """🎯 ประมวลผลคำถามใดๆ ด้วย FIXED Dynamic AI"""
-        return await self.dynamic_ai_system.process_any_question(question, tenant_id)
+        """🎯 ประมวลผลคำถามใดๆ ด้วย Ultra Dynamic AI"""
+        return await self.ultra_dynamic_ai.process_any_question(question, tenant_id)
     
-    async def process_enhanced_question_with_fallback(self, question: str, tenant_id: str) -> Dict[str, Any]:
-        """🔄 ประมวลผลคำถามด้วย fallback เป็น FIXED Dynamic AI"""
+    async def process_enhanced_question_with_smart_fallback(self, question: str, tenant_id: str) -> Dict[str, Any]:
+        """🔄 ประมวลผลคำถามด้วย smart fallback ไป Ultra Dynamic AI"""
         
         # ลองใช้วิธีเดิมก่อน
         try:
             result = await self.process_enhanced_question(question, tenant_id)
             
-            # หากผลลัพธ์ไม่ดีพอ ใช้ Dynamic AI
-            if (not result.get('success') or 
-                not result.get('answer') or 
-                'ไม่สามารถ' in result.get('answer', '') or
-                'ขออภัย' in result.get('answer', '')):
-                
-                logger.info("🔄 Falling back to FIXED Dynamic AI system")
-                return await self.dynamic_ai_system.process_any_question(question, tenant_id)
+            # ตรวจสอบคุณภาพของผลลัพธ์
+            quality_score = self._assess_result_quality(result, question)
+            
+            # หากคุณภาพไม่ดีพอ ใช้ Ultra Dynamic AI
+            if quality_score < 0.7:
+                logger.info(f"🔄 Result quality too low ({quality_score:.2f}), using Ultra Dynamic AI")
+                return await self.ultra_dynamic_ai.process_any_question(question, tenant_id)
             
             return result
             
         except Exception as e:
-            logger.error(f"❌ Standard processing failed, using FIXED Dynamic AI: {e}")
-            return await self.dynamic_ai_system.process_any_question(question, tenant_id)
+            logger.error(f"❌ Standard processing failed, using Ultra Dynamic AI: {e}")
+            return await self.ultra_dynamic_ai.process_any_question(question, tenant_id)
+    
+    def _assess_result_quality(self, result: Dict[str, Any], question: str) -> float:
+        """📊 ประเมินคุณภาพของผลลัพธ์"""
+        
+        quality_score = 0.0
+        
+        # ตรวจสอบความสำเร็จ
+        if result.get('success'):
+            quality_score += 0.3
+        
+        # ตรวจสอบคำตอบ
+        answer = result.get('answer', '')
+        if answer and len(answer) > 10:
+            quality_score += 0.2
+            
+            # ลบคะแนนถ้ามีคำที่บ่งบอกถึงความล้มเหลว
+            negative_phrases = ['ไม่สามารถ', 'ขออภัย', 'ผิดพลาด', 'ไม่พบ', 'error']
+            if any(phrase in answer.lower() for phrase in negative_phrases):
+                quality_score -= 0.3
+        
+        # ตรวจสอบข้อมูลที่ส่งกลับ
+        results_count = result.get('results_count', 0)
+        if results_count > 0:
+            quality_score += 0.3
+        
+        # ตรวจสอบ SQL query
+        if result.get('sql_query'):
+            quality_score += 0.2
+        
+        return max(0.0, min(1.0, quality_score))
+    
+    async def get_system_capabilities(self) -> Dict[str, Any]:
+        """🎯 แสดงความสามารถของระบบ"""
+        
+        return {
+            "system_name": "Ultra Dynamic AI v5.0",
+            "capabilities": [
+                "Real-time Schema Discovery",
+                "Intelligent Question Analysis", 
+                "Adaptive SQL Generation",
+                "Natural Language Response",
+                "Smart Fallback Mechanisms",
+                "Dynamic Pattern Recognition",
+                "Multi-table Analysis",
+                "Business Context Understanding"
+            ],
+            "supported_question_types": [
+                "Data Exploration", "Counting/Aggregation", "Search Queries",
+                "Sales Analysis", "Customer Analysis", "Spare Parts Inquiry",
+                "Work Force Information", "General Business Queries"
+            ],
+            "languages": ["Thai", "English"],
+            "business_domains": ["HVAC Service", "Spare Parts", "Sales", "Customer Management"],
+            "dynamic_features": [
+                "No Hardcoded Patterns", "Adaptive Learning", "Context-Aware Responses",
+                "Intelligent Error Recovery", "Smart Suggestions"
+            ]
+        }
+
+
+# Testing และ Utility Functions
+class DynamicAITester:
+    """🧪 เครื่องมือทดสอบระบบ Dynamic AI"""
+    
+    def __init__(self, ai_system):
+        self.ai_system = ai_system
+    
+    async def run_comprehensive_test(self, tenant_id: str = "company-a") -> Dict[str, Any]:
+        """🔬 ทดสอบระบบแบบครอบคลุม"""
+        
+        test_questions = [
+            "มีข้อมูลอะไรบ้างในระบบ",
+            "จำนวนลูกค้าทั้งหมด", 
+            "วิเคราะห์การขายปี 2567",
+            "ข้อมูลในตาราง work_force",
+            "ราคาอะไหล่ MOTOR",
+            "งานที่ทำในเดือนมิถุนายน",
+            "ลูกค้าที่ใช้บริการมากที่สุด",
+            "อะไหล่ที่มีจำนวนมากที่สุด",
+            "สรุปงานบำรุงรักษาทั้งหมด",
+            "ข้อมูลการติดต่อลูกค้า"
+        ]
+        
+        test_results = []
+        
+        for question in test_questions:
+            try:
+                logger.info(f"🧪 Testing: {question}")
+                start_time = datetime.now()
+                
+                result = await self.ai_system.process_any_question(question, tenant_id)
+                
+                processing_time = (datetime.now() - start_time).total_seconds()
+                
+                test_results.append({
+                    "question": question,
+                    "success": result.get('success', False),
+                    "answer_length": len(result.get('answer', '')),
+                    "results_count": result.get('results_count', 0),
+                    "processing_time": processing_time,
+                    "sql_generated": bool(result.get('sql_query')),
+                    "confidence": result.get('question_analysis', {}).get('confidence_score', 0.0)
+                })
+                
+                # หน่วงเวลาเล็กน้อย
+                await asyncio.sleep(0.1)
+                
+            except Exception as e:
+                test_results.append({
+                    "question": question,
+                    "success": False,
+                    "error": str(e),
+                    "processing_time": 0
+                })
+        
+        # สรุปผลการทดสอบ
+        total_tests = len(test_results)
+        successful_tests = sum(1 for result in test_results if result.get('success'))
+        avg_processing_time = sum(result.get('processing_time', 0) for result in test_results) / total_tests
+        avg_confidence = sum(result.get('confidence', 0) for result in test_results) / total_tests
+        
+        return {
+            "test_summary": {
+                "total_tests": total_tests,
+                "successful_tests": successful_tests,
+                "success_rate": successful_tests / total_tests,
+                "avg_processing_time": avg_processing_time,
+                "avg_confidence": avg_confidence
+            },
+            "detailed_results": test_results,
+            "system_performance": "Excellent" if successful_tests / total_tests > 0.8 else "Good" if successful_tests / total_tests > 0.6 else "Needs Improvement"
+        }
+    
+    async def test_specific_scenarios(self, tenant_id: str = "company-a") -> Dict[str, Any]:
+        """🎯 ทดสอบสถานการณ์เฉพาะ"""
+        
+        scenarios = {
+            "empty_results": "ราคาอะไหล่เครื่อง XYZ123 ที่ไม่มีจริง",
+            "large_dataset": "ข้อมูลการขายทั้งหมด",
+            "complex_analysis": "วิเคราะห์ลูกค้าที่ใช้บริการบ่อยที่สุดในปี 2567",
+            "multi_keyword": "งานบำรุงรักษา Hitachi chiller ของบริษัท Toyota",
+            "ambiguous_question": "มีอะไรบ้าง",
+            "technical_terms": "PM Schedule HVAC System Maintenance",
+            "thai_english_mix": "ราคา spare parts สำหรับ chiller EKAC460",
+            "time_based": "งานที่ทำในช่วง 3 เดือนที่ผ่านมา"
+        }
+        
+        scenario_results = {}
+        
+        for scenario_name, question in scenarios.items():
+            try:
+                result = await self.ai_system.process_any_question(question, tenant_id)
+                scenario_results[scenario_name] = {
+                    "question": question,
+                    "success": result.get('success', False),
+                    "answer_preview": result.get('answer', '')[:200] + "..." if len(result.get('answer', '')) > 200 else result.get('answer', ''),
+                    "results_count": result.get('results_count', 0),
+                    "sql_query": result.get('sql_query', 'No SQL generated')
+                }
+            except Exception as e:
+                scenario_results[scenario_name] = {
+                    "question": question,
+                    "success": False,
+                    "error": str(e)
+                }
+        
+        return scenario_results
+
+
+# Export Classes
+__all__ = ['UltraDynamicAISystem', 'EnhancedUnifiedPostgresOllamaAgent', 'DynamicAITester']

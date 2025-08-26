@@ -167,7 +167,7 @@ export default function Layout({ children }: LayoutProps) {
             </nav>
 
             {/* Quick Stats */}
-            <div className="px-4 py-4">
+            {/* <div className="px-4 py-4">
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4">
                 <h3 className="text-sm font-medium text-gray-900 mb-2">สถิติการใช้งาน</h3>
                 <div className="space-y-2">
@@ -185,7 +185,7 @@ export default function Layout({ children }: LayoutProps) {
                   </div>
                 </div>
               </div>
-            </div>
+            </div> */}
           </div>
           
           <div className="flex-shrink-0 flex border-t border-gray-200 p-4">
