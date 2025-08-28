@@ -8,14 +8,23 @@ tenants:
     language: "th"
     
     # AI Model Configuration
+    ai_models:
+      sql_generation:
+        model_name: "mannix/defog-llama3-sqlcoder-8b:latest"
+        temperature: 0.1        # ต่ำสำหรับความแม่นยำของ SQL
+        max_tokens: 1000
+        purpose: "text_to_sql"
+      
+      response_generation:
+        model_name: "llama3.2:3b"
+        temperature: 0.7        # สูงกว่าสำหรับความเป็นธรรมชาติ
+        max_tokens: 2000
+        purpose: "sql_to_text"
+
     ai_model:
-      provider: "ollama"
-      base_url: "http://52.74.36.160:12434"
-      model_name: "llama3.1:8b"  # โมเดลหลักสำหรับ Company A
+      model_name: "llama3.1:8b"
       temperature: 0.7
-      max_tokens: 2000
-      context_length: 4096
-    
+          
     # Database Configuration
     database:
       host: "postgres-company-a"

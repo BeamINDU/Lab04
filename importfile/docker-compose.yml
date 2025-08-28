@@ -17,7 +17,6 @@ services:
     networks:
       - company-network
       - chatbot_siamtemp_network
-      - lab04_siamtemp_network
     restart: unless-stopped
 
   # PostgreSQL Database (เก็บไว้สำหรับ auth และ import logs)
@@ -35,7 +34,6 @@ services:
     networks:
       - company-network
       - chatbot_siamtemp_network
-      - lab04_siamtemp_network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -66,5 +64,4 @@ networks:
     driver: bridge
   chatbot_siamtemp_network:
     external: true
-  lab04_siamtemp_network:
-    external: true
+
