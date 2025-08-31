@@ -1,0 +1,199 @@
+# =============================================================================
+# Ultra-Simplified Docker Compose for Siamtemp HVAC AI System
+# Version: 5.1-NoProxy (Direct Connection)
+# =============================================================================
+
+services:
+  # =============================================================================
+  # DATABASE SERVICES - One PostgreSQL instance per tenant
+  # =============================================================================
+  
+  postgres-company-a:
+    image: postgres:15-alpine
+    container_name: postgres-company-a
+    environment:
+      POSTGRES_DB: siamtemp_company_a
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password123
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_company_a_data:/var/lib/postgresql/data
+    networks:
+      - hvac_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d siamtemp_company_a"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  postgres-company-b:
+    image: postgres:15-alpine
+    container_name: postgres-company-b
+    environment:
+      POSTGRES_DB: siamtemp_company_b
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password123
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_company_b_data:/var/lib/postgresql/data
+    networks:
+      - hvac_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d siamtemp_company_b"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  postgres-company-c:
+    image: postgres:15-alpine
+    container_name: postgres-company-c
+    environment:
+      POSTGRES_DB: siamtemp_company_c
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password123
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_company_c_data:/var/lib/postgresql/data
+    networks:
+      - hvac_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d siamtemp_company_c"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # =============================================================================
+  # MAIN HVAC AI SERVICE (All-in-One)
+  # =============================================================================
+  
+  hvac-ai-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hvac-ai-service
+    ports:
+      - "5000:5000"  # Main API
+      - "8001:8001"  # OpenAI-compatible API (built into the service)
+    environment:
+      # Basic service configuration
+      - PORT=5000
+      - PROXY_PORT=8001
+      - TENANT_ID=company-a
+      
+      # External Ollama Server
+      - OLLAMA_BASE_URL=http://52.74.36.160:12434
+      - OLLAMA_TIMEOUT=60
+      
+      # Database connections for all tenants
+      - POSTGRES_HOST_COMPANY_A=postgres-company-a
+      - POSTGRES_PORT_COMPANY_A=5432
+      - POSTGRES_DB_COMPANY_A=siamtemp_company_a
+      - POSTGRES_USER_COMPANY_A=postgres
+      - POSTGRES_PASSWORD_COMPANY_A=password123
+      
+      - POSTGRES_HOST_COMPANY_B=postgres-company-b
+      - POSTGRES_PORT_COMPANY_B=5432
+      - POSTGRES_DB_COMPANY_B=siamtemp_company_b
+      - POSTGRES_USER_COMPANY_B=postgres
+      - POSTGRES_PASSWORD_COMPANY_B=password123
+      
+      - POSTGRES_HOST_COMPANY_C=postgres-company-c
+      - POSTGRES_PORT_COMPANY_C=5432
+      - POSTGRES_DB_COMPANY_C=siamtemp_company_c
+      - POSTGRES_USER_COMPANY_C=postgres
+      - POSTGRES_PASSWORD_COMPANY_C=password123
+      
+      # AI Models Configuration
+      - MODEL_COMPANY_A=llama3.1:8b
+      - MODEL_COMPANY_B=llama3.1:8b
+      - MODEL_COMPANY_C=llama3.1:8b
+      
+      # Performance settings
+      - ENABLE_DUAL_MODEL=true
+      - ENABLE_DYNAMIC_AI=true
+      - LOG_LEVEL=INFO
+      - PYTHONUNBUFFERED=1
+      
+    networks:
+      - hvac_network
+    depends_on:
+      postgres-company-a:
+        condition: service_healthy
+      postgres-company-b:
+        condition: service_healthy
+      postgres-company-c:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "/app/healthcheck.py"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 60s
+
+  # =============================================================================
+  # OPENWEBUI FRONTEND (Connects directly to main service)
+  # =============================================================================
+  
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    ports:
+      - "3000:8080"
+    environment:
+      - ENV=development
+      - WEBUI_SECRET_KEY=siamtemp-hvac-secret-2024
+      - ENABLE_SIGNUP=true
+      - DEFAULT_USER_ROLE=user
+      
+      # Connect directly to our HVAC AI service
+      - OPENAI_API_BASE_URL=http://hvac-ai-service:8001/v1
+      - OPENAI_API_KEY=sk-hvac-ai-service
+      
+      # UI Configuration
+      - WEBUI_NAME=Siamtemp HVAC AI Assistant
+      - WEBUI_URL=http://localhost:3000
+      - WEBUI_DESCRIPTION=AI Assistant สำหรับธุรกิจ HVAC - บริการซ่อมบำรุงและอะไหล่
+      - SHOW_ADMIN_DETAILS=false
+      
+      # Theme
+      - WEBUI_THEME_COLOR=#667eea
+      
+    volumes:
+      - open_webui_data:/app/backend/data
+    networks:
+      - hvac_network
+    depends_on:
+      hvac-ai-service:
+        condition: service_healthy
+    restart: unless-stopped
+
+# =============================================================================
+# VOLUMES
+# =============================================================================
+volumes:
+  postgres_company_a_data:
+    driver: local
+  postgres_company_b_data:
+    driver: local
+  postgres_company_c_data:
+    driver: local
+  open_webui_data:
+    driver: local
+
+# =============================================================================
+# NETWORK
+# =============================================================================
+networks:
+  hvac_network:
+    driver: bridge
+    name: hvac_network
