@@ -1,9 +1,3 @@
-# =============================================================================
-# Self-Contained Dual Model Dynamic AI Agent
-# Version: 5.0-Simplified
-# No external dependencies, fully self-contained
-# =============================================================================
-
 import os
 import re
 import json
@@ -144,8 +138,8 @@ class DualModelDynamicAISystem:
         self.sql_cache = {}  # Cache SQL patterns ที่ใช้บ่อย
         self.schema_cache = {}  # Cache database schema
         self.enable_parallel = True
-        self.timeout_sql = 12  # ลด timeout SQL generation เหลือ 12 วินาที
-        self.timeout_nl = 8   # ลด timeout NL generation เหลือ 8 วินาที
+        self.timeout_sql = 20  # เพิ่ม timeout SQL generation เป็น 20 วินาที
+        self.timeout_nl = 10   # เพิ่ม timeout NL generation เป็น 10 วินาที
         
         # HVAC Business Knowledge
         self.hvac_context = {
@@ -184,11 +178,25 @@ class DualModelDynamicAISystem:
         logger.info("Dual-Model Dynamic AI System with Performance Optimization initialized successfully")
     
     def _classify_question_intent(self, question: str) -> str:
-        """Enhanced question intent classification for comprehensive HVAC business queries"""
+        """Enhanced question intent classification with priority-based matching"""
         question_lower = question.lower()
         
+        # HIGH PRIORITY: Overhaul analysis (must be checked first before spare_parts)
+        overhaul_keywords = ['overhaul', 'ยกเครื่อง', 'ซ่อมใหญ่', 'รายงานยอดขาย overhaul', 
+                            'ยอดขาย overhaul', 'วิเคราะห์ overhaul']
+        if any(keyword in question_lower for keyword in overhaul_keywords):
+            logger.info(f"🔧 Classified as OVERHAUL_ANALYSIS: found '{[k for k in overhaul_keywords if k in question_lower]}'")
+            return 'overhaul_analysis'
+        
+        # HIGH PRIORITY: Sales analysis with year patterns
+        sales_keywords = ['รายงานยอดขาย', 'วิเคราะห์การขาย', 'ยอดขาย', 'รายงาน', 'analysis', 
+                         'เปรียบเทียบยอดขาย', 'สรุปยอดขาย']
+        if any(keyword in question_lower for keyword in sales_keywords):
+            logger.info(f"📊 Classified as SALES_ANALYSIS: found '{[k for k in sales_keywords if k in question_lower]}'")
+            return 'sales_analysis'
+        
         # Customer-specific queries
-        customer_keywords = ['บริษัท', 'ลูกค้า', 'customer', 'จำนวนลูกค้า', 'ประวัติ', 'ซื้อขาย', 'การซ่อม']
+        customer_keywords = ['บริษัท', 'ลูกค้า', 'customer', 'จำนวนลูกค้า', 'ประวัติลูกค้า', 'ซื้อขาย']
         if any(keyword in question_lower for keyword in customer_keywords):
             return 'customer_analysis'
         
@@ -199,32 +207,24 @@ class DualModelDynamicAISystem:
         if any(keyword in question_lower for keyword in schedule_keywords):
             return 'work_schedule'
             
-        # Specific model/part number queries
+        # Specific model/part number queries (exclude compressor from here)
         model_keywords = ['model', 'rcug', 'ekac', 'ek258', 'ราคาอะไหล่', 'air cooled', 'water cooled']
         if any(keyword in question_lower for keyword in model_keywords):
             return 'specific_parts'
         
-        # Enhanced spare parts detection
-        spare_parts_keywords = ['อะไหล่', 'spare', 'parts', 'motor', 'chiller', 'compressor', 
-                               'hitachi', 'daikin', 'mitsubishi', 'carrier', 'trane', 'york', 
-                               'fan', 'circuit', 'board', 'transformer', 'valve']
-        if any(keyword in question_lower for keyword in spare_parts_keywords):
-            return 'spare_parts'
-        
-        # Overhaul-specific analysis
-        overhaul_keywords = ['overhaul', 'ยกเครื่อง', 'ซ่อมใหญ่', 'compressor']
-        if any(keyword in question_lower for keyword in overhaul_keywords):
-            return 'overhaul_analysis'
-            
         # Standard job quotations  
         job_keywords = ['เสนอราคา', 'งาน', 'quotation', 'standard', 'สรุปงาน']
         if any(keyword in question_lower for keyword in job_keywords):
             return 'job_quotation'
-            
-        # Sales analysis
-        sales_keywords = ['วิเคราะห์', 'การขาย', 'ยอดขาย', 'รายงาน', 'analysis']
-        if any(keyword in question_lower for keyword in sales_keywords):
-            return 'sales_analysis'
+        
+        # LOWER PRIORITY: Spare parts detection (moved to end to avoid conflicts)
+        spare_parts_keywords = ['อะไหล่', 'spare', 'parts', 'motor', 'chiller', 
+                               'hitachi', 'daikin', 'mitsubishi', 'carrier', 'trane', 'york', 
+                               'fan', 'circuit', 'board', 'transformer', 'valve']
+        if any(keyword in question_lower for keyword in spare_parts_keywords):
+            # Additional check to avoid overhaul conflicts
+            if 'overhaul' not in question_lower and 'ยอดขาย' not in question_lower:
+                return 'spare_parts'
             
         return 'general'
     
@@ -290,105 +290,86 @@ class DualModelDynamicAISystem:
                     job_pattern_help = f"\nSPECIAL: For {month_info.get('month_thai', 'unknown month')} {month_info.get('year_full', 'unknown year')}, search job_no pattern like '%{month_info['year_short']}-{month_info['month']}-%'"
             
             # Enhanced prompt with comprehensive HVAC business examples
-            sql_prompt = f"""Generate PostgreSQL query for HVAC business.
+            sql_prompt = f"""Generate PostgreSQL query for HVAC business data analysis.
 
 DATABASE SCHEMA:
 - sales2022,2023,2024,2025: id, job_no, customer_name, description, overhaul_, replacement, service_contact_
 - spare_part, spare_part2: id, wh, product_code, product_name, unit, balance, unit_price, description
 - work_force: id, date, customer, project, detail, service_group
 
+IMPORTANT DATA TYPES: 
+- overhaul_, replacement, service_contact_, unit_price are TEXT fields - ALWAYS use CAST(field AS NUMERIC)
+- For revenue analysis, use COALESCE to handle NULL values
+
 JOB_NO PATTERN: JAE[year]-[month]-[sequence]-[type]
-DATA TYPES: service_contact_, unit_price are TEXT - use CAST(field AS NUMERIC)
+BUSINESS CONTEXT: HVAC service company with overhaul, maintenance, and spare parts sales{job_pattern_help}
 
-BUSINESS EXAMPLES WITH SQL PATTERNS:{job_pattern_help}
+BUSINESS QUERY PATTERNS:
 
-1. Customer Analysis:
-"จำนวนลูกค้าทั้งหมด"
+1. OVERHAUL REVENUE ANALYSIS (Most Important):
+"รายงานยอดขาย overhaul compressor ปี 2567-2568"
 ```sql
-SELECT COUNT(DISTINCT customer_name) as total_customers FROM sales2024 WHERE customer_name IS NOT NULL;
+SELECT year, jobs, overhaul_revenue, service_revenue, total_revenue FROM (
+    SELECT '2024' as year, COUNT(*) as jobs, 
+           SUM(CAST(overhaul_ AS NUMERIC)) as overhaul_revenue,
+           SUM(CAST(service_contact_ AS NUMERIC)) as service_revenue,
+           SUM(COALESCE(CAST(overhaul_ AS NUMERIC), 0) + COALESCE(CAST(service_contact_ AS NUMERIC), 0)) as total_revenue
+    FROM sales2024 WHERE LOWER(description) LIKE '%overhaul%' AND LOWER(description) LIKE '%compressor%'
+    UNION ALL
+    SELECT '2025' as year, COUNT(*) as jobs,
+           SUM(CAST(overhaul_ AS NUMERIC)) as overhaul_revenue,
+           SUM(CAST(service_contact_ AS NUMERIC)) as service_revenue, 
+           SUM(COALESCE(CAST(overhaul_ AS NUMERIC), 0) + COALESCE(CAST(service_contact_ AS NUMERIC), 0)) as total_revenue
+    FROM sales2025 WHERE LOWER(description) LIKE '%overhaul%' AND LOWER(description) LIKE '%compressor%'
+) sub ORDER BY year;
 ```
 
-2. Customer Purchase History:
-"บริษัท ABC มีการซื้อขายย้อนหลัง 3 ปี มีอะไรบ้าง มูลค่าเท่าไหร่"
+2. YEARLY REVENUE COMPARISON:
+"เปรียบเทียบยอดขายปี 2567 กับ 2568"
 ```sql
-SELECT job_no, description, CAST(service_contact_ AS NUMERIC) as value FROM sales2022 WHERE customer_name ILIKE '%ABC%'
+SELECT year, total_jobs, total_revenue FROM (
+    SELECT '2024' as year, COUNT(*) as total_jobs, 
+           SUM(COALESCE(CAST(overhaul_ AS NUMERIC), 0) + COALESCE(CAST(service_contact_ AS NUMERIC), 0) + COALESCE(CAST(replacement AS NUMERIC), 0)) as total_revenue
+    FROM sales2024 WHERE (overhaul_ IS NOT NULL OR service_contact_ IS NOT NULL OR replacement IS NOT NULL)
+    UNION ALL
+    SELECT '2025' as year, COUNT(*) as total_jobs,
+           SUM(COALESCE(CAST(overhaul_ AS NUMERIC), 0) + COALESCE(CAST(service_contact_ AS NUMERIC), 0) + COALESCE(CAST(replacement AS NUMERIC), 0)) as total_revenue
+    FROM sales2025 WHERE (overhaul_ IS NOT NULL OR service_contact_ IS NOT NULL OR replacement IS NOT NULL)
+) sub ORDER BY year;
+```
+
+3. CUSTOMER ANALYSIS:
+"บริษัท ABC มีการซื้อขายย้อนหลัง มูลค่าเท่าไหร่"
+```sql
+SELECT job_no, description, CAST(service_contact_ AS NUMERIC) as value, CAST(overhaul_ AS NUMERIC) as overhaul FROM sales2024 WHERE customer_name ILIKE '%ABC%'
 UNION ALL
-SELECT job_no, description, CAST(service_contact_ AS NUMERIC) as value FROM sales2023 WHERE customer_name ILIKE '%ABC%'
-UNION ALL  
-SELECT job_no, description, CAST(service_contact_ AS NUMERIC) as value FROM sales2024 WHERE customer_name ILIKE '%ABC%'
+SELECT job_no, description, CAST(service_contact_ AS NUMERIC) as value, CAST(overhaul_ AS NUMERIC) as overhaul FROM sales2025 WHERE customer_name ILIKE '%ABC%'
 ORDER BY job_no;
 ```
 
-3. Customer Service History:
-"บริษัท ABC มีประวัติการซ่อมอะไรบ้าง เมื่อไหร่"
-```sql
-SELECT job_no, customer_name, description, CAST(overhaul_ AS NUMERIC) as overhaul, CAST(replacement AS NUMERIC) as replacement
-FROM sales2024 WHERE customer_name ILIKE '%ABC%' AND (overhaul_ IS NOT NULL OR replacement IS NOT NULL);
-```
-
-4. Work Schedule:
-"แผนงานวันที่... มีงานอะไรบ้าง"
-```sql
-SELECT date, customer, project, detail, service_group FROM work_force WHERE date = '2024-08-31';
-```
-
-5. Specific Spare Parts Search:
-"ราคาอะไหล่เครื่องทำน้ำเย็น Hitachi air cooled chiller model RCUG120"
+4. SPARE PARTS SEARCH:
+"ราคาอะไหล่ Hitachi motor"
 ```sql
 SELECT product_code, product_name, CAST(unit_price AS NUMERIC) as price, balance, description FROM spare_part
-WHERE (LOWER(product_name) LIKE '%hitachi%' OR LOWER(description) LIKE '%hitachi%')
-AND (LOWER(product_name) LIKE '%rcug120%' OR LOWER(description) LIKE '%rcug120%')
+WHERE LOWER(product_name) LIKE '%hitachi%' AND LOWER(product_name) LIKE '%motor%'
 UNION ALL
 SELECT product_code, product_name, CAST(unit_price AS NUMERIC) as price, balance, description FROM spare_part2
-WHERE (LOWER(product_name) LIKE '%hitachi%' OR LOWER(description) LIKE '%hitachi%')
-AND (LOWER(product_name) LIKE '%rcug120%' OR LOWER(description) LIKE '%rcug120%');
-```
-
-6. Standard Job Summary:
-"สรุปเสนอราคางาน Standard ทั้งหมด"
-```sql
-SELECT job_no, customer_name, description, CAST(service_contact_ AS NUMERIC) as price FROM sales2024
-WHERE LOWER(description) LIKE '%standard%' ORDER BY CAST(service_contact_ AS NUMERIC) DESC NULLS LAST;
-```
-
-7. Overhaul Analysis (IMPROVED):
-"รายงานยอดขาย overhaul compressor ปี 2567-2568"
-```sql
-SELECT '2024' as year, COUNT(*) as jobs, 
-       SUM(CAST(overhaul_ AS NUMERIC)) as overhaul_revenue,
-       SUM(CAST(service_contact_ AS NUMERIC)) as service_revenue,
-       SUM(COALESCE(CAST(overhaul_ AS NUMERIC), 0) + COALESCE(CAST(service_contact_ AS NUMERIC), 0)) as total_revenue
-FROM sales2024 WHERE LOWER(description) LIKE '%overhaul%' AND LOWER(description) LIKE '%compressor%'
-UNION ALL
-SELECT '2025' as year, COUNT(*) as jobs,
-       SUM(CAST(overhaul_ AS NUMERIC)) as overhaul_revenue,
-       SUM(CAST(service_contact_ AS NUMERIC)) as service_revenue, 
-       SUM(COALESCE(CAST(overhaul_ AS NUMERIC), 0) + COALESCE(CAST(service_contact_ AS NUMERIC), 0)) as total_revenue
-FROM sales2025 WHERE LOWER(description) LIKE '%overhaul%' AND LOWER(description) LIKE '%compressor%';
-```
-
-"แสดงรายละเอียดงาน overhaul ปี 2568"
-```sql
-SELECT job_no, customer_name, description, 
-       CAST(overhaul_ AS NUMERIC) as overhaul_cost,
-       CAST(service_contact_ AS NUMERIC) as service_cost,
-       COALESCE(CAST(overhaul_ AS NUMERIC), 0) + COALESCE(CAST(service_contact_ AS NUMERIC), 0) as total_cost
-FROM sales2025 WHERE LOWER(description) LIKE '%overhaul%' 
-ORDER BY total_cost DESC NULLS LAST;
-```
-
-8. Monthly Work Schedule:
-"งานที่วางแผนของเดือน สิงหาคม - กันยายน 2568 มีกี่งานอะไรบ้าง"
-```sql
-SELECT COUNT(*) as total_jobs, customer, project FROM work_force 
-WHERE date >= '2025-08-01' AND date <= '2025-09-30' GROUP BY customer, project;
+WHERE LOWER(product_name) LIKE '%hitachi%' AND LOWER(product_name) LIKE '%motor%'
+ORDER BY price DESC NULLS LAST;
 ```
 
 Question: {converted_question}
-Original: {question}  
-Intent: {intent}
+Original Question: {question}  
+Intent Category: {intent}
 
-Generate appropriate SQL based on similar patterns above:"""
+CRITICAL RULES:
+- For overhaul/revenue analysis: ALWAYS use UNION ALL to combine multiple years
+- ALWAYS use CAST(field AS NUMERIC) for price calculations
+- Use COALESCE for NULL handling in revenue calculations
+- Use ILIKE for case-insensitive text search
+- Include ORDER BY for consistent results
+
+Generate the most appropriate SQL query:"""
             
             # Use timeout for faster response
             sql_response = await asyncio.wait_for(
@@ -458,14 +439,31 @@ Generate appropriate SQL based on similar patterns above:"""
                              ORDER BY price DESC NULLS LAST
                              LIMIT 15""",
             
-            'sales_analysis': """SELECT '2022' as year, COUNT(*) as jobs, SUM(CAST(service_contact_ AS NUMERIC)) as revenue FROM sales2022 WHERE service_contact_ IS NOT NULL
+            'sales_analysis': """SELECT '2024' as year, COUNT(*) as jobs, 
+                                SUM(CAST(overhaul_ AS NUMERIC)) as overhaul_revenue,
+                                SUM(CAST(service_contact_ AS NUMERIC)) as service_revenue,
+                                SUM(COALESCE(CAST(overhaul_ AS NUMERIC), 0) + COALESCE(CAST(service_contact_ AS NUMERIC), 0)) as total_revenue
+                                FROM sales2024 WHERE service_contact_ IS NOT NULL OR overhaul_ IS NOT NULL
                                 UNION ALL
-                                SELECT '2023' as year, COUNT(*) as jobs, SUM(CAST(service_contact_ AS NUMERIC)) as revenue FROM sales2023 WHERE service_contact_ IS NOT NULL  
-                                UNION ALL
-                                SELECT '2024' as year, COUNT(*) as jobs, SUM(CAST(service_contact_ AS NUMERIC)) as revenue FROM sales2024 WHERE service_contact_ IS NOT NULL
-                                UNION ALL  
-                                SELECT '2025' as year, COUNT(*) as jobs, SUM(CAST(service_contact_ AS NUMERIC)) as revenue FROM sales2025 WHERE service_contact_ IS NOT NULL
+                                SELECT '2025' as year, COUNT(*) as jobs,
+                                SUM(CAST(overhaul_ AS NUMERIC)) as overhaul_revenue,
+                                SUM(CAST(service_contact_ AS NUMERIC)) as service_revenue,
+                                SUM(COALESCE(CAST(overhaul_ AS NUMERIC), 0) + COALESCE(CAST(service_contact_ AS NUMERIC), 0)) as total_revenue  
+                                FROM sales2025 WHERE service_contact_ IS NOT NULL OR overhaul_ IS NOT NULL
                                 ORDER BY year""",
+            
+            'overhaul_analysis': """SELECT '2024' as year, COUNT(*) as jobs, 
+                                   SUM(CAST(overhaul_ AS NUMERIC)) as overhaul_revenue,
+                                   SUM(CAST(service_contact_ AS NUMERIC)) as service_revenue,
+                                   SUM(COALESCE(CAST(overhaul_ AS NUMERIC), 0) + COALESCE(CAST(service_contact_ AS NUMERIC), 0)) as total_revenue
+                                   FROM sales2024 WHERE LOWER(description) LIKE '%overhaul%' AND LOWER(description) LIKE '%compressor%'
+                                   UNION ALL
+                                   SELECT '2025' as year, COUNT(*) as jobs,
+                                   SUM(CAST(overhaul_ AS NUMERIC)) as overhaul_revenue,
+                                   SUM(CAST(service_contact_ AS NUMERIC)) as service_revenue,
+                                   SUM(COALESCE(CAST(overhaul_ AS NUMERIC), 0) + COALESCE(CAST(service_contact_ AS NUMERIC), 0)) as total_revenue
+                                   FROM sales2025 WHERE LOWER(description) LIKE '%overhaul%' AND LOWER(description) LIKE '%compressor%'
+                                   ORDER BY year""",
             
             'work_summary': """SELECT date, customer, detail, service_group
                               FROM work_force 
@@ -476,8 +474,25 @@ Generate appropriate SQL based on similar patterns above:"""
             'general': "SELECT COUNT(*) as total_records FROM sales2024"
         }
         
+        return fallback_queries.get(intent, fallback_queries['general'])
+    
     def _get_fallback_sql_with_context(self, intent: str, month_info: Dict[str, Any]) -> str:
-        """Get contextual fallback SQL queries"""
+        """Get contextual fallback SQL queries with improved overhaul detection"""
+        
+        # Special handling for overhaul analysis
+        if intent == 'overhaul_analysis' or intent == 'sales_analysis':
+            return """SELECT '2024' as year, COUNT(*) as jobs, 
+                     SUM(CAST(overhaul_ AS NUMERIC)) as overhaul_revenue,
+                     SUM(CAST(service_contact_ AS NUMERIC)) as service_revenue,
+                     SUM(COALESCE(CAST(overhaul_ AS NUMERIC), 0) + COALESCE(CAST(service_contact_ AS NUMERIC), 0)) as total_revenue
+                     FROM sales2024 WHERE LOWER(description) LIKE '%overhaul%' AND LOWER(description) LIKE '%compressor%'
+                     UNION ALL
+                     SELECT '2025' as year, COUNT(*) as jobs,
+                     SUM(CAST(overhaul_ AS NUMERIC)) as overhaul_revenue,
+                     SUM(CAST(service_contact_ AS NUMERIC)) as service_revenue, 
+                     SUM(COALESCE(CAST(overhaul_ AS NUMERIC), 0) + COALESCE(CAST(service_contact_ AS NUMERIC), 0)) as total_revenue
+                     FROM sales2025 WHERE LOWER(description) LIKE '%overhaul%' AND LOWER(description) LIKE '%compressor%'
+                     ORDER BY year"""
         
         # If we have month and year info, use job_no pattern matching
         if month_info.get('year_short') and month_info.get('month'):
@@ -496,42 +511,6 @@ Generate appropriate SQL based on similar patterns above:"""
         
         # Otherwise use standard fallback
         return self._get_fallback_sql(intent)
-    
-    async def _generate_natural_response(self, question: str, sql_results: List[Dict], sql_query: str, tenant_id: str) -> str:
-        """Generate natural language response using NL model with optimization"""
-        try:
-            self.stats['nl_responses'] += 1
-            
-            if not sql_results:
-                return f"ขออภัยครับ ไม่พบข้อมูลที่เกี่ยวข้องกับคำถาม: {question}"
-            
-            # Create concise data summary for faster processing
-            data_summary = self._create_concise_summary(sql_results)
-            
-            # Use shorter, focused prompt for faster NL generation
-            nl_prompt = f"""คำถาม: {question}
-ข้อมูลจากฐานข้อมูล HVAC: {data_summary}
-
-ตอบคำถามในภาษาไทยแบบกระชับและเป็นมิตร สำหรับธุรกิจ HVAC:"""
-            
-            # Use timeout for faster response
-            nl_response = await asyncio.wait_for(
-                self.ollama_client.generate_response(
-                    model=self.NL_MODEL,
-                    prompt=nl_prompt,
-                    temperature=0.7  # Higher temperature for natural language
-                ),
-                timeout=self.timeout_nl
-            )
-            
-            return nl_response.strip() if nl_response else self._get_structured_response(question, sql_results)
-            
-        except asyncio.TimeoutError:
-            logger.warning("NL generation timeout, using structured response")
-            return self._get_structured_response(question, sql_results)
-        except Exception as e:
-            logger.error(f"NL response generation failed: {e}")
-            return self._get_fallback_response(question, sql_results)
     
     async def _generate_natural_response(self, question: str, sql_results: List[Dict], sql_query: str, tenant_id: str) -> str:
         """Generate natural language response using NL model with smart optimization"""
@@ -566,14 +545,14 @@ Generate appropriate SQL based on similar patterns above:"""
                 timeout=6  # Very short timeout
             )
             
-            return nl_response.strip() if nl_response else self._get_structured_response(question, sql_results)
+            return nl_response.strip() if nl_response else self._get_universal_structured_response(question, sql_results)
             
         except asyncio.TimeoutError:
-            logger.info("NL generation timeout (6s), using optimized structured response")
-            return self._get_optimized_structured_response(question, sql_results)
+            logger.info("NL generation timeout (6s), using universal structured response")
+            return self._get_universal_structured_response(question, sql_results)
         except Exception as e:
             logger.error(f"NL response generation failed: {e}")
-            return self._get_optimized_structured_response(question, sql_results)
+            return self._get_universal_structured_response(question, sql_results)
     
     def _create_smart_summary(self, results: List[Dict], question: str) -> str:
         """Create smart data summary based on question type"""
@@ -727,26 +706,9 @@ Generate appropriate SQL based on similar patterns above:"""
             
             return response
     
-    def _get_fallback_response(self, question: str, sql_results: List[Dict]) -> str:
-        """Generate fallback response when NL model fails"""
-        if not sql_results:
-            return f"ขออภัยครับ ไม่พบข้อมูลที่เกี่ยวข้องกับคำถาม: {question}"
-        
-        # Simple structured response
-        response = f"ผลลัพธ์สำหรับคำถาม: {question}\n\n"
-        response += f"พบข้อมูล {len(sql_results)} รายการ\n\n"
-        
-        # Show first 3 results
-        for i, result in enumerate(sql_results[:3], 1):
-            response += f"รายการที่ {i}:\n"
-            for key, value in result.items():
-                response += f"  • {key}: {value}\n"
-            response += "\n"
-        
-        if len(sql_results) > 3:
-            response += f"... และอีก {len(sql_results) - 3} รายการ"
-        
-        return response
+    def _get_structured_response(self, question: str, results: List[Dict]) -> str:
+        """Generate structured response when NL model is not used"""
+        return self._get_universal_structured_response(question, results)
     
     async def process_any_question(self, question: str, tenant_id: str) -> Dict[str, Any]:
         """Main entry point for processing questions with optimized dual-model approach"""
@@ -773,8 +735,8 @@ Generate appropriate SQL based on similar patterns above:"""
                 # Use optimized NL generation
                 nl_response = await self._generate_natural_response(question, sql_results, sql_query, tenant_id)
             else:
-                # Use structured response for empty results or when parallel disabled
-                nl_response = self._get_structured_response(question, sql_results)
+                # Use universal structured response that adapts to data structure
+                nl_response = self._get_universal_structured_response(question, sql_results)
             
             # Step 5: Prepare final response
             processing_time = time.time() - start_time
