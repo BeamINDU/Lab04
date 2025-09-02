@@ -15,8 +15,7 @@ services:
     volumes:
       - ./uploads:/app/uploads
     networks:
-      - company-network
-      - chatbot_siamtemp_network
+      - hvac_network
     restart: unless-stopped
 
   # PostgreSQL Database (เก็บไว้สำหรับ auth และ import logs)
@@ -32,8 +31,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./sql:/docker-entrypoint-initdb.d
     networks:
-      - company-network
-      - chatbot_siamtemp_network
+      - hvac_network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -52,16 +50,13 @@ services:
     depends_on:
       - postgres
     networks:
-      - company-network
-      - chatbot_siamtemp_network
+      - hvac_network
     restart: unless-stopped
 
 volumes:
   postgres_data:
 
 networks:
-  company-network:
-    driver: bridge
-  chatbot_siamtemp_network:
+  hvac_network:
     external: true
 

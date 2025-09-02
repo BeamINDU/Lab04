@@ -19,7 +19,7 @@ from collections import deque, defaultdict
 import aiohttp
 import psycopg2
 from psycopg2.extras import RealDictCursor
-
+from agents.smart_query_rewriter import SmartQueryRewriter, integrate_query_rewriter, DatabaseHandlerExtension
 logger = logging.getLogger(__name__)
 
 # =============================================================================
@@ -35,30 +35,26 @@ class PromptManager:
     def __init__(self):
         # System prompt ที่บอกข้อจำกัดของฐานข้อมูลอย่างชัดเจน
         self.SQL_SYSTEM_PROMPT = """You are a PostgreSQL SQL expert for Siamtemp HVAC database.
-You MUST follow these CRITICAL rules to avoid query failures:
 
-⚠️ DATABASE QUIRKS (VERY IMPORTANT):
-1. Revenue fields (overhaul_, replacement, service_contact_, parts_all_, product_all, solution_) are TEXT type
-   - ALWAYS use: CAST(NULLIF(field, '') AS NUMERIC) for calculations
-   - NEVER use: field::numeric or direct arithmetic
+⚠️ CRITICAL DATABASE QUIRKS:
 
-2. work_force.date is VARCHAR not DATE/TIMESTAMP
-   - Format: 'DD/MM/YYYY' or Excel serial numbers like '45789'
-   - NEVER use: date >= '2024-01-01' or DATE functions
-   - CORRECT: date LIKE '%/06/2024' for June 2024
+1. work_force.date formats (VERY IMPORTANT):
+   - Format 1: 'DD-DD/MM/YYYY' like '1-5/04/2025' 
+   - Format 2: 'DD/MM/YYYY' like '13/05/2025'
+   - Format 3: Excel serial like '45751', '45789'
+   - For month search use: date LIKE '%-06/2024' OR date LIKE '%/06/2024'
+   - For Excel dates: date ~ '^[0-9]+$' AND date::INTEGER BETWEEN start AND end
 
-3. Boolean-like fields in work_force are VARCHAR not BOOLEAN
-   - job_description_pm, success, report_kpi_2_days etc.
-   - NEVER use: field = true
-   - CORRECT: field = 'true' OR field IS NOT NULL
+2. Sales revenue fields (NO 'revenue' column!):
+   - Use: overhaul_, replacement, service_contact_, parts_all_, product_all, solution_
+   - All are TEXT type - MUST CAST: CAST(NULLIF(field, '') AS NUMERIC)
+   - For total revenue: SUM all 6 fields
 
-4. spare_part table has TEXT price fields
-   - unit_price and balance are TEXT
-   - ALWAYS cast before calculations
-
-5. Job number patterns
-   - Format: 'SVyy-mm-xxx' or 'JAEyy-mm-xxx'
-   - Example: 'SV24-06-001' = June 2024, job #001"""
+3. Year considerations:
+   - Tables: sales2022, sales2023, sales2024, sales2025
+   - Thai year (25xx) needs -543 conversion
+   - Check job_no pattern: SVyy-mm-xxx or JAEyy-mm-xxx
+"""
 
         # Schema information สำหรับแต่ละ table
         self.SCHEMA_INFO = {
@@ -369,18 +365,18 @@ class SQLValidator:
 
 class ImprovedIntentDetector:
     """
-    ระบบตรวจจับ intent ที่แม่นยำขึ้น
-    แก้ปัญหาการ detect ผิดจากระบบเดิม
+    ระบบตรวจจับ intent ที่แม่นยำขึ้น - Enhanced Version
     """
     
     def __init__(self):
-        # Keywords สำหรับแต่ละ intent (เรียงตามความสำคัญ)
+        # Extended keyword mappings - เพิ่มเติมจากเดิม
         self.intent_keywords = {
+            # === EXISTING INTENTS (คงไว้) ===
             'work_force': {
                 'strong': ['งาน', 'ทีม', 'ช่าง', 'ทำงาน', 'สรุปงาน', 'PM', 'service_group'],
                 'medium': ['project', 'โครงการ', 'success', 'สำเร็จ', 'KPI'],
                 'weak': ['เดือน', 'วันที่'],
-                'negative': ['ราคา', 'อะไหล่', 'รายได้', 'ยอดขาย']  # ถ้าเจอพวกนี้ อาจไม่ใช่ work_force
+                'negative': ['ราคา', 'อะไหล่', 'รายได้', 'ยอดขาย']
             },
             'spare_parts': {
                 'strong': ['อะไหล่', 'spare', 'part', 'ราคา', 'price', 'สินค้า', 'product'],
@@ -393,10 +389,42 @@ class ImprovedIntentDetector:
                 'medium': ['overhaul', 'replacement', 'service_contact', 'บาท'],
                 'weak': ['รวม', 'ทั้งหมด', 'total'],
                 'negative': ['อะไหล่', 'งาน', 'ทีม']
+            },
+            
+            # === NEW INTENTS (เพิ่มใหม่) ===
+            'customer_history': {
+                'strong': ['ประวัติ', 'ย้อนหลัง', 'history', 'ลูกค้า', 'บริษัท'],
+                'medium': ['ซื้อขาย', 'มูลค่า', 'การซ่อม'],
+                'patterns': [r'บริษัท\s*\S+\s*มี', r'ย้อนหลัง\s*\d+\s*ปี'],
+                'negative': []
+            },
+            'work_plan': {
+                'strong': ['แผนงาน', 'วางแผน', 'plan', 'schedule'],
+                'medium': ['วันที่', 'เดือน', 'งานอะไรบ้าง'],
+                'patterns': [r'วันที่\s*\d+', r'เดือน\s*\S+'],
+                'negative': []
+            },
+            'parts_price': {
+                'strong': ['ราคาอะไหล่', 'อยากทราบราคา', 'price', 'spare part'],
+                'medium': ['model', 'รุ่น', 'เครื่อง', 'chiller', 'HITACHI', 'EKAC'],
+                'patterns': [r'model\s*\S+', r'EK[A-Z]*\d+', r'RCUG\d+'],
+                'negative': []
+            },
+            'sales_analysis': {
+                'strong': ['วิเคราะห์', 'สรุป', 'รายงาน', 'ยอดขาย', 'analysis'],
+                'medium': ['การขาย', 'รายได้', 'revenue', 'standard'],
+                'patterns': [r'ปี\s*\d{4}', r'25\d{2}'],
+                'negative': []
+            },
+            'overhaul_report': {
+                'strong': ['overhaul', 'compressor', 'โอเวอร์ฮอล'],
+                'medium': ['ยอดขาย', 'รายงาน'],
+                'patterns': [r'overhaul.*compressor'],
+                'negative': []
             }
         }
         
-        # Month names mapping
+        # Month names mapping (คงไว้)
         self.month_map = {
             'มกราคม': 1, 'กุมภาพันธ์': 2, 'มีนาคม': 3,
             'เมษายน': 4, 'พฤษภาคม': 5, 'มิถุนายน': 6,
@@ -404,7 +432,7 @@ class ImprovedIntentDetector:
             'ตุลาคม': 10, 'พฤศจิกายน': 11, 'ธันวาคม': 12
         }
         
-        # Year conversion (Buddhist Era to Common Era)
+        # Year conversion (เพิ่มเติม)
         self.year_map = {
             '2565': 2022, '2566': 2023, '2567': 2024, '2568': 2025,
             '2022': 2022, '2023': 2023, '2024': 2024, '2025': 2025,
@@ -414,8 +442,7 @@ class ImprovedIntentDetector:
     def detect_intent_and_entities(self, question: str, 
                                   previous_intent: Optional[str] = None) -> Dict:
         """
-        ตรวจจับ intent และ extract entities จากคำถาม
-        พิจารณา context จาก previous_intent ด้วย แต่ไม่ให้น้ำหนักมากเกินไป
+        ตรวจจับ intent และ extract entities - Enhanced version
         """
         question_lower = question.lower()
         
@@ -440,67 +467,85 @@ class ImprovedIntentDetector:
                 if keyword.lower() in question_lower:
                     score += 2
                     
+            # Check patterns (weight = 8) - NEW
+            for pattern in keywords.get('patterns', []):
+                if re.search(pattern, question, re.IGNORECASE):
+                    score += 8
+                    
             # Subtract for negative indicators
             for keyword in keywords.get('negative', []):
                 if keyword.lower() in question_lower:
                     score -= 3
             
-            # Small bonus if matches previous intent (but not too much)
+            # Small bonus if matches previous intent
             if previous_intent == intent:
                 score += 2
             
-            intent_scores[intent] = max(0, score)  # ไม่ให้ติดลบ
+            intent_scores[intent] = max(0, score)
         
         # Get best intent
         best_intent = max(intent_scores, key=intent_scores.get)
-        confidence = min(intent_scores[best_intent] / 30, 1.0)  # Normalize to 0-1
+        confidence = min(intent_scores[best_intent] / 30, 1.0)
         
         # ถ้า score ต่ำมาก ให้ดูจาก pattern
         if intent_scores[best_intent] < 5:
             best_intent = self._detect_by_pattern(question)
             confidence = 0.6
         
-        # Extract entities
-        entities = self._extract_entities(question)
+        # Extract entities (enhanced)
+        entities = self._extract_entities_enhanced(question)
         
         return {
             'intent': best_intent,
             'confidence': confidence,
             'entities': entities,
-            'scores': intent_scores  # เก็บไว้ debug
+            'scores': intent_scores
         }
     
-    def _detect_by_pattern(self, question: str) -> str:
-        """Fallback detection using patterns"""
-        question_lower = question.lower()
-        
-        # Specific patterns
-        if re.search(r'(งาน|ทำ|ทีม|ช่าง).*(เดือน|วัน)', question_lower):
-            return 'work_force'
-        
-        if re.search(r'(ราคา|price|อะไหล่|spare|part|EK\w+)', question_lower, re.IGNORECASE):
-            return 'spare_parts'
-        
-        if re.search(r'(รายได้|ยอด|income|revenue|บาท)', question_lower):
-            return 'sales'
-        
-        return 'sales'  # Default
-    
-    def _extract_entities(self, question: str) -> Dict:
-        """Extract entities from question"""
+    def _extract_entities_enhanced(self, question: str) -> Dict:
+        """
+        Enhanced entity extraction - รองรับ patterns มากขึ้น
+        """
         entities = {
             'years': [],
             'months': [],
+            'dates': [],
             'products': [],
             'customers': [],
-            'amounts': []
+            'amounts': [],
+            'job_types': []
         }
         
-        # Extract years
+        # Extract company names - NEW
+        company_pattern = r'บริษัท\s*([^\s]+(?:\s+[^\s]+)*?)(?:\s+จำกัด|\s+มี|\s+มีการ|\s|$)'
+        companies = re.findall(company_pattern, question)
+        entities['customers'].extend(companies)
+        
+        # Known companies
+        known_companies = ['CLARION', 'AGC', 'HITACHI', 'STANLEY', 'IRPC', 'Seiko']
+        for company in known_companies:
+            if company.lower() in question.lower():
+                entities['customers'].append(company)
+        
+        # Extract years (รองรับ พ.ศ.)
         for text_year, num_year in self.year_map.items():
             if text_year in question:
                 if num_year not in entities['years']:
                     entities['years'].append(num_year)
+        
+        # Pattern-based year extraction
+        year_patterns = [r'ปี\s*(\d{4})', r'25(\d{2})', r'20(\d{2})']
+        for pattern in year_patterns:
+            years = re.findall(pattern, question)
+            for year in years:
+                if len(year) == 2:
+                    year = '20' + year if int(year) < 50 else '25' + year
+                if int(year) > 2500:
+                    year = int(year) - 543
+                else:
+                    year = int(year)
+                if year not in entities['years']:
+                    entities['years'].append(year)
         
         # Extract months
         for month_name, month_num in self.month_map.items():
@@ -508,26 +553,74 @@ class ImprovedIntentDetector:
                 if month_num not in entities['months']:
                     entities['months'].append(month_num)
         
-        # Extract month numbers
-        month_pattern = r'เดือน\s*(\d{1,2})'
-        month_matches = re.findall(month_pattern, question)
-        for month in month_matches:
-            month_num = int(month)
-            if 1 <= month_num <= 12 and month_num not in entities['months']:
-                entities['months'].append(month_num)
+        # Extract dates - NEW
+        date_pattern = r'(\d{1,2})/(\d{1,2})/(\d{4})'
+        dates = re.findall(date_pattern, question)
+        for date in dates:
+            entities['dates'].append(f"{date[0]}/{date[1]}/{date[2]}")
         
-        # Extract product codes
-        product_pattern = r'EK[A-Z]*[\d]+|EKAC[\d]+'
-        products = re.findall(product_pattern, question, re.IGNORECASE)
-        entities['products'].extend(products)
+        # Extract product codes (enhanced)
+        product_patterns = [
+            r'EK[A-Z]*[\d]+',
+            r'EKAC[\d]+',
+            r'RCUG[\d]+[A-Z]*',
+            r'model\s+(\S+)',
+            r'รุ่น\s*(\S+)'
+        ]
+        for pattern in product_patterns:
+            products = re.findall(pattern, question, re.IGNORECASE)
+            entities['products'].extend(products)
         
-        # Extract amounts (numbers with possible commas)
+        # Extract job types - NEW
+        if 'overhaul' in question.lower() or 'โอเวอร์ฮอล' in question:
+            entities['job_types'].append('overhaul')
+        if 'replacement' in question.lower() or 'เปลี่ยน' in question:
+            entities['job_types'].append('replacement')
+        if 'pm' in question.lower() or 'บำรุงรักษา' in question:
+            entities['job_types'].append('PM')
+        
+        # Extract amounts
         amount_pattern = r'[\d,]+(?:\.\d+)?'
         amounts = re.findall(amount_pattern, question)
         entities['amounts'] = [a.replace(',', '') for a in amounts]
         
+        # Clean duplicates
+        for key in entities:
+            if isinstance(entities[key], list):
+                entities[key] = list(set(entities[key]))
+        
         return entities
-
+    
+    def _detect_by_pattern(self, question: str) -> str:
+        """Fallback detection using patterns"""
+        question_lower = question.lower()
+        
+        # Specific patterns
+        if 'ประวัติ' in question_lower and 'บริษัท' in question_lower:
+            return 'customer_history'
+        
+        if 'แผนงาน' in question_lower or 'วางแผน' in question_lower:
+            return 'work_plan'
+        
+        if 'ราคาอะไหล่' in question_lower or ('ราคา' in question_lower and 'model' in question_lower):
+            return 'parts_price'
+        
+        if 'วิเคราะห์' in question_lower or 'สรุปเสนอราคา' in question_lower:
+            return 'sales_analysis'
+        
+        if 'overhaul' in question_lower and 'compressor' in question_lower:
+            return 'overhaul_report'
+        
+        if re.search(r'งาน.*เดือน', question_lower):
+            return 'work_force'
+        
+        if re.search(r'ราคา|price|อะไหล่|spare|part|EK\w+', question_lower, re.IGNORECASE):
+            return 'spare_parts'
+        
+        if re.search(r'รายได้|ยอด|income|revenue|บาท', question_lower):
+            return 'sales'
+        
+        return 'sales'  # Default
 # =============================================================================
 # MAIN DUAL MODEL DYNAMIC AI SYSTEM (IMPROVED)
 # =============================================================================
@@ -584,8 +677,18 @@ class ImprovedDualModelDynamicAISystem:
         self.dynamic_examples = []
         self.max_dynamic_examples = 100
         
+        # Add DDL support to db_handler
+        DatabaseHandlerExtension.add_ddl_support(self.db_handler)
+        
+        # Integrate query rewriter
+        integrate_query_rewriter(self)
+
         logger.info("🚀 Improved Dual-Model Dynamic AI System initialized")
-    
+
+    async def startup(self):
+        # Call this once at startup
+        await self.ensure_database_ready()
+
     async def ensure_ollama_connection(self):
         """ทดสอบการเชื่อมต่อกับ Ollama (เรียกแยกต่างหาก)"""
         if not self.ollama_tested:
@@ -596,114 +699,568 @@ class ImprovedDualModelDynamicAISystem:
             return connected
         return True
     
+    """
+    Updated _load_sql_examples() method for dual_model_dynamic_ai.py
+    ================================================================
+    แทนที่ method เดิมด้วย version นี้ที่แก้ไข NULLIF issue และเพิ่มตัวอย่างที่ดีกว่า
+    """
+
     def _load_sql_examples(self) -> List[Dict]:
         """
         โหลดตัวอย่าง SQL สำหรับ few-shot learning
-        ตัวอย่างเหล่านี้จะช่วยให้ AI เรียนรู้รูปแบบการสร้าง SQL ที่ถูกต้อง
+        VERSION 3.0 - ครอบคลุมทุกประเภทคำถาม พร้อม SQL ที่ทำงานได้จริง
         """
         examples = [
-            # Sales/Revenue Examples
+            # ========== 1. CUSTOMER HISTORY & ANALYSIS ==========
             {
-                'category': 'sales',
-                'intent': 'sales',
-                'question': 'รายได้รวมเดือนมิถุนายน 2024',
-                'sql': """SELECT 
-                    COUNT(*) as total_jobs,
-                    COALESCE(SUM(CAST(NULLIF(overhaul_, '') AS NUMERIC)), 0) as overhaul_revenue,
-                    COALESCE(SUM(CAST(NULLIF(replacement, '') AS NUMERIC)), 0) as replacement_revenue,
-                    COALESCE(SUM(CAST(NULLIF(service_contact_, '') AS NUMERIC)), 0) as service_revenue
-                FROM sales2024 
-                WHERE job_no LIKE '%24-06-%';""",
-                'entities': {'years': [2024], 'months': [6]}
-            },
-            {
-                'category': 'sales',
-                'intent': 'sales',
-                'question': 'ยอดขายทั้งหมดปี 2023',
-                'sql': """SELECT 
-                    COALESCE(SUM(
-                        COALESCE(CAST(NULLIF(overhaul_, '') AS NUMERIC), 0) +
-                        COALESCE(CAST(NULLIF(replacement, '') AS NUMERIC), 0) +
-                        COALESCE(CAST(NULLIF(service_contact_, '') AS NUMERIC), 0)
-                    ), 0) as total_revenue
-                FROM sales2023;""",
-                'entities': {'years': [2023]}
+                'category': 'customer_analysis',
+                'intent': 'customer_history',
+                'question': 'จำนวนลูกค้าทั้งหมดบริษัท CLARION มีการซื้อขายย้อนหลัง 3 ปี มีอะไรบ้าง มูลค่าเท่าไหร่',
+                'sql': """
+                WITH customer_data AS (
+                    SELECT 
+                        'sales2022' as year_table,
+                        customer_name,
+                        job_no,
+                        description,
+                        CASE WHEN overhaul_ IS NULL OR overhaul_ = '' THEN 0 
+                            ELSE CAST(overhaul_ AS NUMERIC) END as overhaul_amt,
+                        CASE WHEN replacement IS NULL OR replacement = '' THEN 0 
+                            ELSE CAST(replacement AS NUMERIC) END as replacement_amt,
+                        CASE WHEN service_contact_ IS NULL OR service_contact_ = '' THEN 0 
+                            ELSE CAST(service_contact_ AS NUMERIC) END as service_amt,
+                        CASE WHEN parts_all_ IS NULL OR parts_all_ = '' THEN 0 
+                            ELSE CAST(parts_all_ AS NUMERIC) END as parts_amt
+                    FROM sales2022
+                    WHERE customer_name ILIKE '%CLARION%'
+                    
+                    UNION ALL
+                    
+                    SELECT 
+                        'sales2023' as year_table,
+                        customer_name,
+                        job_no,
+                        description,
+                        CASE WHEN overhaul_ IS NULL OR overhaul_ = '' THEN 0 
+                            ELSE CAST(overhaul_ AS NUMERIC) END,
+                        CASE WHEN replacement IS NULL OR replacement = '' THEN 0 
+                            ELSE CAST(replacement AS NUMERIC) END,
+                        CASE WHEN service_contact_ IS NULL OR service_contact_ = '' THEN 0 
+                            ELSE CAST(service_contact_ AS NUMERIC) END,
+                        CASE WHEN parts_all_ IS NULL OR parts_all_ = '' THEN 0 
+                            ELSE CAST(parts_all_ AS NUMERIC) END
+                    FROM sales2023
+                    WHERE customer_name ILIKE '%CLARION%'
+                    
+                    UNION ALL
+                    
+                    SELECT 
+                        'sales2024' as year_table,
+                        customer_name,
+                        job_no,
+                        description,
+                        CASE WHEN overhaul_ IS NULL OR overhaul_ = '' THEN 0 
+                            ELSE CAST(overhaul_ AS NUMERIC) END,
+                        CASE WHEN replacement IS NULL OR replacement = '' THEN 0 
+                            ELSE CAST(replacement AS NUMERIC) END,
+                        CASE WHEN service_contact_ IS NULL OR service_contact_ = '' THEN 0 
+                            ELSE CAST(service_contact_ AS NUMERIC) END,
+                        CASE WHEN parts_all_ IS NULL OR parts_all_ = '' THEN 0 
+                            ELSE CAST(parts_all_ AS NUMERIC) END
+                    FROM sales2024
+                    WHERE customer_name ILIKE '%CLARION%'
+                )
+                SELECT 
+                    year_table as ปี,
+                    COUNT(DISTINCT job_no) as จำนวนงาน,
+                    SUM(overhaul_amt) as overhaul,
+                    SUM(replacement_amt) as replacement,
+                    SUM(service_amt) as service_contract,
+                    SUM(parts_amt) as parts,
+                    SUM(overhaul_amt + replacement_amt + service_amt + parts_amt) as รวมทั้งหมด
+                FROM customer_data
+                GROUP BY year_table
+                ORDER BY year_table;
+                """,
+                'entities': {'customers': ['CLARION'], 'years': [2022, 2023, 2024]}
             },
             
-            # Spare Parts Examples
             {
-                'category': 'spare_parts',
-                'intent': 'spare_parts',
-                'question': 'ราคาอะไหล่ EKAC460',
-                'sql': """SELECT 
-                    product_code,
-                    product_name,
-                    CAST(NULLIF(unit_price, '') AS NUMERIC) as price,
-                    CAST(NULLIF(balance, '') AS NUMERIC) as stock
-                FROM spare_part 
-                WHERE product_code ILIKE '%EKAC460%' 
-                   OR product_name ILIKE '%EKAC460%'
-                ORDER BY price DESC 
-                LIMIT 20;""",
-                'entities': {'products': ['EKAC460']}
-            },
-            {
-                'category': 'spare_parts',
-                'intent': 'spare_parts',
-                'question': 'อะไหล่ที่มีในคลังกลาง',
-                'sql': """SELECT 
-                    product_code,
-                    product_name,
-                    CAST(NULLIF(balance, '') AS NUMERIC) as stock
-                FROM spare_part 
-                WHERE wh = 'คลังกลาง' 
-                  AND CAST(NULLIF(balance, '') AS NUMERIC) > 0
-                ORDER BY stock DESC 
-                LIMIT 50;""",
-                'entities': {}
+                'category': 'customer_analysis',
+                'intent': 'repair_history',
+                'question': 'บริษัท AGC มีประวัติการซ่อมอะไรบ้าง เมื่อไหร่',
+                'sql': """
+                SELECT 
+                    job_no,
+                    customer_name,
+                    description,
+                    CASE 
+                        WHEN job_no LIKE 'SV66%' THEN '2023'
+                        WHEN job_no LIKE 'SV67%' THEN '2024'
+                        WHEN job_no LIKE 'SV68%' THEN '2025'
+                        WHEN job_no LIKE 'JAE23%' THEN '2023'
+                        WHEN job_no LIKE 'JAE24%' THEN '2024'
+                        WHEN job_no LIKE 'JAE25%' THEN '2025'
+                        ELSE 'Unknown'
+                    END as ปี,
+                    CASE 
+                        WHEN replacement IS NOT NULL AND replacement != '' AND replacement != '0' THEN 'Replacement'
+                        WHEN overhaul_ IS NOT NULL AND overhaul_ != '' AND overhaul_ != '0' THEN 'Overhaul'
+                        WHEN job_no LIKE '%-RE' OR job_no LIKE '%-RE-%' THEN 'Repair'
+                        WHEN job_no LIKE '%-OH' OR job_no LIKE '%-OH-%' THEN 'Overhaul'
+                        ELSE 'Service'
+                    END as ประเภทงาน,
+                    CASE WHEN replacement IS NULL OR replacement = '' THEN 0 
+                        ELSE CAST(replacement AS NUMERIC) END +
+                    CASE WHEN overhaul_ IS NULL OR overhaul_ = '' THEN 0 
+                        ELSE CAST(overhaul_ AS NUMERIC) END as มูลค่า
+                FROM sales2024
+                WHERE customer_name ILIKE '%AGC%'
+                AND (replacement IS NOT NULL OR overhaul_ IS NOT NULL 
+                        OR job_no LIKE '%-RE%' OR job_no LIKE '%-OH%')
+                ORDER BY job_no DESC
+                LIMIT 50;
+                """,
+                'entities': {'customers': ['AGC']}
             },
             
-            # Work Force Examples
+            # ========== 2. WORK PLANNING & SCHEDULE ==========
             {
                 'category': 'work_force',
-                'intent': 'work_force',
-                'question': 'งานที่ทำเดือนมิถุนายน 2565',
-                'sql': """SELECT 
+                'intent': 'work_plan',
+                'question': 'แผนงานวันที่ 15/08/2025 มีงานอะไรบ้าง',
+                'sql': """
+                SELECT 
                     date,
                     customer,
                     project,
                     service_group,
-                    detail
-                FROM work_force 
-                WHERE date LIKE '%/06/2022' 
-                   OR date LIKE '%/06/2565'
-                ORDER BY id DESC 
-                LIMIT 50;""",
-                'entities': {'years': [2022], 'months': [6]}
+                    detail,
+                    CASE 
+                        WHEN job_description_pm IS NOT NULL THEN 'PM'
+                        WHEN job_description_replacement IS NOT NULL THEN 'Replacement'
+                        WHEN job_description_overhaul IS NOT NULL THEN 'Overhaul'
+                        ELSE 'Other'
+                    END as job_type
+                FROM work_force
+                WHERE date LIKE '%15/08/2025%'
+                OR date LIKE '15/08/2025%'
+                OR date = '15/08/2025'
+                ORDER BY id DESC
+                LIMIT 20;
+                """,
+                'entities': {'dates': ['15/08/2025']}
             },
+            
             {
                 'category': 'work_force',
-                'intent': 'work_force',
-                'question': 'งาน PM ที่สำเร็จ',
-                'sql': """SELECT 
+                'intent': 'monthly_plan',
+                'question': 'งานที่วางแผนของเดือนสิงหาคม-กันยายน 2568 มีกี่งานอะไรบ้าง',
+                'sql': """
+                SELECT 
                     date,
                     customer,
+                    project,
+                    detail,
                     service_group,
-                    detail
-                FROM work_force 
-                WHERE job_description_pm = 'true' 
-                  AND (success = '1' OR success = 'true')
-                ORDER BY id DESC 
-                LIMIT 30;""",
+                    CASE 
+                        WHEN job_description_pm IS NOT NULL THEN 'PM'
+                        WHEN job_description_replacement IS NOT NULL THEN 'Replacement'
+                        WHEN job_description_overhaul IS NOT NULL THEN 'Overhaul'
+                        ELSE 'Other'
+                    END as job_type
+                FROM work_force
+                WHERE (date LIKE '%/08/2025' OR date LIKE '%-08/2025' OR date LIKE '%08/2025%'
+                    OR date LIKE '%/09/2025' OR date LIKE '%-09/2025' OR date LIKE '%09/2025%')
+                ORDER BY 
+                    CASE 
+                        WHEN date LIKE '%/08/%' THEN 1
+                        WHEN date LIKE '%/09/%' THEN 2
+                        ELSE 3
+                    END,
+                    date
+                LIMIT 100;
+                """,
+                'entities': {'years': [2025], 'months': [8, 9]}
+            },
+            
+            # ========== 3. SPARE PARTS PRICING ==========
+            {
+                'category': 'spare_parts',
+                'intent': 'parts_price',
+                'question': 'อยากทราบราคาอะไหล่เครื่องทำน้ำเย็น Hitachi air cooled chiller model RCUG120 AHYZ1',
+                'sql': """
+                SELECT 
+                    product_code,
+                    product_name,
+                    wh as warehouse,
+                    unit,
+                    CASE 
+                        WHEN unit_price IS NULL OR unit_price = '' THEN 0
+                        ELSE CAST(unit_price AS NUMERIC)
+                    END as ราคาต่อหน่วย,
+                    CASE 
+                        WHEN balance IS NULL OR balance = '' THEN 0
+                        ELSE CAST(balance AS NUMERIC)
+                    END as คงเหลือ,
+                    description
+                FROM spare_part
+                WHERE (product_name ILIKE '%HITACHI%' 
+                    AND (product_name ILIKE '%RCUG120%' OR product_name ILIKE '%AHYZ1%'))
+                OR (product_name ILIKE '%CHILLER%' AND product_name ILIKE '%120%')
+                OR product_code ILIKE '%RCUG120%'
+                OR description ILIKE '%RCUG120%'
+                ORDER BY ราคาต่อหน่วย DESC
+                LIMIT 30;
+                """,
+                'entities': {'products': ['HITACHI', 'RCUG120', 'AHYZ1']}
+            },
+            
+            {
+                'category': 'spare_parts',
+                'intent': 'parts_price',
+                'question': 'อยากทราบราคาอะไหล่เครื่อง EK model EKAC460',
+                'sql': """
+                SELECT 
+                    product_code,
+                    product_name,
+                    wh as warehouse,
+                    CASE 
+                        WHEN unit_price IS NULL OR unit_price = '' THEN 0
+                        ELSE CAST(unit_price AS NUMERIC)
+                    END as ราคา,
+                    CASE 
+                        WHEN balance IS NULL OR balance = '' THEN 0
+                        ELSE CAST(balance AS NUMERIC)
+                    END as stock,
+                    unit as หน่วย
+                FROM spare_part
+                WHERE product_code ILIKE '%EKAC460%'
+                OR product_name ILIKE '%EKAC460%'
+                OR (product_code ILIKE '%EK%' AND product_code ILIKE '%460%')
+                ORDER BY ราคา DESC
+                LIMIT 20;
+                """,
+                'entities': {'products': ['EKAC460']}
+            },
+            
+            # ========== 4. SALES ANALYSIS & REPORTS ==========
+            {
+                'category': 'sales',
+                'intent': 'sales_summary',
+                'question': 'สรุปเสนอราคางาน Standard ทั้งหมด',
+                'sql': """
+                SELECT 
+                    customer_name,
+                    COUNT(*) as จำนวนงาน,
+                    SUM(
+                        CASE WHEN service_contact_ IS NULL OR service_contact_ = '' THEN 0 
+                            ELSE CAST(service_contact_ AS NUMERIC) END
+                    ) as service_contract,
+                    SUM(
+                        CASE WHEN overhaul_ IS NULL OR overhaul_ = '' THEN 0 
+                            ELSE CAST(overhaul_ AS NUMERIC) END +
+                        CASE WHEN replacement IS NULL OR replacement = '' THEN 0 
+                            ELSE CAST(replacement AS NUMERIC) END +
+                        CASE WHEN service_contact_ IS NULL OR service_contact_ = '' THEN 0 
+                            ELSE CAST(service_contact_ AS NUMERIC) END +
+                        CASE WHEN parts_all_ IS NULL OR parts_all_ = '' THEN 0 
+                            ELSE CAST(parts_all_ AS NUMERIC) END
+                    ) as มูลค่ารวม
+                FROM sales2024
+                WHERE job_no LIKE '%-S-%' 
+                OR job_no LIKE 'SV%S%'
+                OR description ILIKE '%standard%'
+                OR description ILIKE '%รายปี%'
+                GROUP BY customer_name
+                ORDER BY มูลค่ารวม DESC
+                LIMIT 50;
+                """,
+                'entities': {}
+            },
+            
+            {
+                'category': 'sales',
+                'intent': 'sales_analysis',
+                'question': 'วิเคราะห์การขายของปี 2567-2568',
+                'sql': """
+                WITH yearly_sales AS (
+                    SELECT 
+                        '2024 (2567)' as ปี,
+                        COUNT(*) as จำนวนงาน,
+                        SUM(CASE WHEN overhaul_ IS NULL OR overhaul_ = '' THEN 0 
+                                ELSE CAST(overhaul_ AS NUMERIC) END) as overhaul,
+                        SUM(CASE WHEN replacement IS NULL OR replacement = '' THEN 0 
+                                ELSE CAST(replacement AS NUMERIC) END) as replacement,
+                        SUM(CASE WHEN service_contact_ IS NULL OR service_contact_ = '' THEN 0 
+                                ELSE CAST(service_contact_ AS NUMERIC) END) as service,
+                        SUM(CASE WHEN parts_all_ IS NULL OR parts_all_ = '' THEN 0 
+                                ELSE CAST(parts_all_ AS NUMERIC) END) as parts
+                    FROM sales2024
+                    
+                    UNION ALL
+                    
+                    SELECT 
+                        '2025 (2568)' as ปี,
+                        COUNT(*) as จำนวนงาน,
+                        SUM(CASE WHEN overhaul_ IS NULL OR overhaul_ = '' THEN 0 
+                                ELSE CAST(overhaul_ AS NUMERIC) END),
+                        SUM(CASE WHEN replacement IS NULL OR replacement = '' THEN 0 
+                                ELSE CAST(replacement AS NUMERIC) END),
+                        SUM(CASE WHEN service_contact_ IS NULL OR service_contact_ = '' THEN 0 
+                                ELSE CAST(service_contact_ AS NUMERIC) END),
+                        SUM(CASE WHEN parts_all_ IS NULL OR parts_all_ = '' THEN 0 
+                                ELSE CAST(parts_all_ AS NUMERIC) END)
+                    FROM sales2025
+                )
+                SELECT 
+                    ปี,
+                    จำนวนงาน,
+                    overhaul,
+                    replacement,
+                    service,
+                    parts,
+                    (overhaul + replacement + service + parts) as รายได้รวม
+                FROM yearly_sales
+                ORDER BY ปี;
+                """,
+                'entities': {'years': [2024, 2025]}
+            },
+            
+            {
+                'category': 'sales',
+                'intent': 'overhaul_report',
+                'question': 'รายงานยอดขาย overhaul compressor ปี 2567-2568',
+                'sql': """
+                WITH overhaul_data AS (
+                    SELECT 
+                        '2024' as year,
+                        job_no,
+                        customer_name,
+                        description,
+                        CASE WHEN overhaul_ IS NULL OR overhaul_ = '' THEN 0 
+                            ELSE CAST(overhaul_ AS NUMERIC) END as amount
+                    FROM sales2024
+                    WHERE (overhaul_ IS NOT NULL AND overhaul_ != '' AND overhaul_ != '0')
+                    OR job_no LIKE '%-OH%'
+                    OR description ILIKE '%overhaul%'
+                    OR description ILIKE '%compressor%'
+                    
+                    UNION ALL
+                    
+                    SELECT 
+                        '2025' as year,
+                        job_no,
+                        customer_name,
+                        description,
+                        CASE WHEN overhaul_ IS NULL OR overhaul_ = '' THEN 0 
+                            ELSE CAST(overhaul_ AS NUMERIC) END
+                    FROM sales2025
+                    WHERE (overhaul_ IS NOT NULL AND overhaul_ != '' AND overhaul_ != '0')
+                    OR job_no LIKE '%-OH%'
+                    OR description ILIKE '%overhaul%'
+                    OR description ILIKE '%compressor%'
+                )
+                SELECT 
+                    year as ปี,
+                    COUNT(*) as จำนวนงาน,
+                    SUM(amount) as ยอดขายรวม,
+                    AVG(amount) as ค่าเฉลี่ยต่องาน
+                FROM overhaul_data
+                WHERE amount > 0
+                GROUP BY year
+                ORDER BY year;
+                """,
+                'entities': {'years': [2024, 2025]}
+            },
+            
+            # ========== 5. MONTHLY WORK SUMMARY ==========
+            {
+                'category': 'work_force',
+                'intent': 'monthly_summary',
+                'question': 'สรุปงานที่ทำของเดือนมิถุนายน 2568',
+                'sql': """
+                SELECT 
+                    date,
+                    customer,
+                    project,
+                    service_group,
+                    detail,
+                    CASE 
+                        WHEN job_description_pm IS NOT NULL THEN 'PM'
+                        WHEN job_description_replacement IS NOT NULL THEN 'Replacement'
+                        WHEN job_description_overhaul IS NOT NULL THEN 'Overhaul'
+                        WHEN job_description_start_up IS NOT NULL THEN 'Start Up'
+                        ELSE 'Other'
+                    END as ประเภทงาน,
+                    CASE 
+                        WHEN success = '1' OR success = 'true' THEN 'สำเร็จ'
+                        WHEN unsuccessful = '1' OR unsuccessful = 'true' THEN 'ไม่สำเร็จ'
+                        ELSE 'รอดำเนินการ'
+                    END as สถานะ
+                FROM work_force
+                WHERE date LIKE '%/06/2025'
+                OR date LIKE '%-06/2025'
+                OR date LIKE '%06/2025%'
+                OR date LIKE '%/06/2568'
+                OR date LIKE '%-06/2568'
+                ORDER BY date DESC
+                LIMIT 100;
+                """,
+                'entities': {'years': [2025], 'months': [6]}
+            },
+            
+            # ========== 6. COMPLEX QUERIES ==========
+            {
+                'category': 'analysis',
+                'intent': 'top_customers',
+                'question': 'ลูกค้า 10 อันดับแรกที่มียอดซื้อสูงสุด',
+                'sql': """
+                SELECT 
+                    customer_name,
+                    COUNT(*) as จำนวนงานทั้งหมด,
+                    SUM(
+                        CASE WHEN overhaul_ IS NULL OR overhaul_ = '' THEN 0 
+                            ELSE CAST(overhaul_ AS NUMERIC) END +
+                        CASE WHEN replacement IS NULL OR replacement = '' THEN 0 
+                            ELSE CAST(replacement AS NUMERIC) END +
+                        CASE WHEN service_contact_ IS NULL OR service_contact_ = '' THEN 0 
+                            ELSE CAST(service_contact_ AS NUMERIC) END +
+                        CASE WHEN parts_all_ IS NULL OR parts_all_ = '' THEN 0 
+                            ELSE CAST(parts_all_ AS NUMERIC) END +
+                        CASE WHEN product_all IS NULL OR product_all = '' THEN 0 
+                            ELSE CAST(product_all AS NUMERIC) END +
+                        CASE WHEN solution_ IS NULL OR solution_ = '' THEN 0 
+                            ELSE CAST(solution_ AS NUMERIC) END
+                    ) as ยอดซื้อรวม
+                FROM sales2024
+                GROUP BY customer_name
+                ORDER BY ยอดซื้อรวม DESC
+                LIMIT 10;
+                """,
+                'entities': {}
+            },
+            
+            {
+                'category': 'inventory',
+                'intent': 'stock_value',
+                'question': 'มูลค่าสินค้าคงคลังทั้งหมด',
+                'sql': """
+                SELECT 
+                    wh as คลัง,
+                    COUNT(*) as จำนวนรายการ,
+                    SUM(
+                        CASE 
+                            WHEN balance IS NULL OR balance = '' THEN 0
+                            ELSE CAST(balance AS NUMERIC)
+                        END
+                    ) as จำนวนคงเหลือรวม,
+                    SUM(
+                        CASE 
+                            WHEN balance IS NULL OR balance = '' OR unit_price IS NULL OR unit_price = '' THEN 0
+                            ELSE CAST(balance AS NUMERIC) * CAST(unit_price AS NUMERIC)
+                        END
+                    ) as มูลค่ารวม
+                FROM spare_part
+                WHERE balance IS NOT NULL AND balance != '' AND balance != '0'
+                GROUP BY wh
+                ORDER BY มูลค่ารวม DESC;
+                """,
                 'entities': {}
             }
         ]
         
-        logger.info(f"📚 Loaded {len(examples)} SQL examples for few-shot learning")
+        logger.info(f"📚 Loaded {len(examples)} comprehensive SQL examples for few-shot learning")
         return examples
+
+
+    # ========================================================================
+    # เพิ่ม method สำหรับ dynamic learning จาก successful queries
+    # ========================================================================
+
+    def add_successful_example(self, question: str, sql: str, intent: str, 
+                            entities: Dict, results_count: int):
+        """
+        เพิ่มตัวอย่างที่สำเร็จเข้าไปใน dynamic examples
+        """
+        if results_count > 0:  # เฉพาะ query ที่มีผลลัพธ์
+            example = {
+                'category': intent,
+                'intent': intent,
+                'question': question,
+                'sql': sql,
+                'entities': entities,
+                'timestamp': datetime.now().isoformat(),
+                'results_count': results_count
+            }
+            
+            self.dynamic_examples.append(example)
+            
+            # Keep only recent examples
+            if len(self.dynamic_examples) > self.max_dynamic_examples:
+                self.dynamic_examples = self.dynamic_examples[-self.max_dynamic_examples:]
+            
+            logger.info(f"✅ Added successful example to dynamic learning (total: {len(self.dynamic_examples)})")
+
+
+    # ========================================================================
+    # แก้ไข prompt generation method
+    # ========================================================================
+
+    def generate_sql_prompt(self, question: str, intent: str, entities: Dict, 
+                            context: Dict = None) -> str:
+        """
+        สร้าง prompt สำหรับ SQL generation พร้อม few-shot examples
+        """
+        # Get relevant examples (ทั้ง static และ dynamic)
+        examples = self._get_relevant_examples(intent, entities)
+        
+        prompt = """You are a PostgreSQL SQL expert for Siamtemp HVAC database.
+
+    ⚠️ CRITICAL RULES TO AVOID ERRORS:
+
+    1. NEVER use CAST(NULLIF(field, '') AS NUMERIC) - this causes "invalid input syntax" errors!
+    Instead use: CASE WHEN field IS NULL OR field = '' THEN 0 ELSE CAST(field AS NUMERIC) END
+
+    2. Revenue fields (TEXT type that need casting):
+    - overhaul_, replacement, service_contact_, parts_all_, product_all, solution_
+    - Always use CASE WHEN for safe casting
+
+    3. work_force.date is VARCHAR with multiple formats:
+    - Format: 'DD/MM/YYYY', 'DD-DD/MM/YYYY', or Excel serial numbers
+    - Use: date LIKE '%/MM/YYYY' OR date LIKE '%-MM/YYYY' for month search
     
+    4. Boolean fields in work_force are VARCHAR:
+    - Use: field = 'true' OR field = '1' (not field = true)
+    
+    5. spare_part price fields are TEXT:
+    - Check with regex before casting: field ~ '^[0-9]+\.?[0-9]*$'
+
+    WORKING EXAMPLES TO FOLLOW:
+    """
+        
+        # Add relevant examples
+        for i, example in enumerate(examples[:3], 1):
+            prompt += f"""
+    Example {i}:
+    Question: {example.get('question')}
+    SQL: {example.get('sql')}
+    ---"""
+        
+        prompt += f"""
+
+    NOW GENERATE SQL FOR THIS QUESTION:
+    Question: {question}
+    Intent: {intent}
+    Entities: {json.dumps(entities, ensure_ascii=False)}
+
+    IMPORTANT: Use CASE WHEN for all numeric casting, NOT NULLIF!
+    Return ONLY the SQL query, no explanations:
+    """
+        
+        return prompt 
     async def process_any_question(self, question: str, tenant_id: str = 'company-a',
-                                  user_id: str = 'default') -> Dict[str, Any]:
+                                user_id: str = 'default') -> Dict[str, Any]:
         """
         Main entry point - รับคำถามและประมวลผลด้วยระบบที่ปรับปรุงแล้ว
         """
@@ -718,7 +1275,7 @@ class ImprovedDualModelDynamicAISystem:
             logger.info(f"🎯 Processing: {question}")
             logger.info(f"👤 User: {user_id} | 🏢 Tenant: {tenant_id}")
             
-            # 1. Get conversation context (ถ้าเปิดใช้งาน)
+            # 1. Get conversation context
             context = {}
             previous_intent = None
             
@@ -728,7 +1285,7 @@ class ImprovedDualModelDynamicAISystem:
                     previous_intent = context['recent_intents'][-1] if context['recent_intents'] else None
                 logger.info(f"💭 Context: {context.get('conversation_count', 0)} previous conversations")
             
-            # 2. Detect intent and extract entities (ใช้ระบบใหม่)
+            # 2. Detect intent and extract entities
             detection_result = self.intent_detector.detect_intent_and_entities(
                 question, previous_intent
             )
@@ -759,7 +1316,6 @@ class ImprovedDualModelDynamicAISystem:
                 
                 if not is_valid:
                     logger.warning(f"⚠️ SQL validation failed, attempting retry...")
-                    # ลองสร้างใหม่ด้วย prompt ที่เข้มงวดขึ้น
                     sql_query = await self._generate_sql_with_strict_prompt(
                         question, intent, entities, issues
                     )
@@ -769,17 +1325,30 @@ class ImprovedDualModelDynamicAISystem:
             # 5. Execute query
             results = await self.execute_query(sql_query)
             
-            # 6. Clean results (ถ้าเปิดใช้งาน)
+            # 6. Clean results
             if self.enable_data_cleaning and results:
                 results, cleaning_stats = self.data_cleaner.clean_results(results)
                 logger.info(f"🧹 Data cleaned: {cleaning_stats}")
             
-            # 7. Generate natural language response
+            # ==========================================
+            # 7. เพิ่ม successful example สำหรับ learning!
+            # ==========================================
+            if results and len(results) > 0 and self.enable_few_shot_learning:
+                self.add_successful_example(
+                    question=question,
+                    sql=sql_query,
+                    intent=intent,
+                    entities=entities,
+                    results_count=len(results)
+                )
+                logger.info(f"📚 Added to dynamic learning (total: {len(self.dynamic_examples)} examples)")
+            
+            # 8. Generate natural language response
             answer = await self._generate_response(
                 question, results, sql_query, intent
             )
             
-            # 8. Prepare final response
+            # 9. Prepare final response
             processing_time = time.time() - start_time
             response = {
                 'answer': answer,
@@ -793,16 +1362,18 @@ class ImprovedDualModelDynamicAISystem:
                 'intent': intent,
                 'entities': entities,
                 'confidence': confidence,
+                'dynamic_examples_count': len(self.dynamic_examples),  # เพิ่มสถิติ
                 'features_used': {
                     'conversation_memory': self.enable_conversation_memory,
                     'parallel_processing': self.enable_parallel_processing,
                     'data_cleaning': self.enable_data_cleaning,
                     'sql_validation': self.enable_sql_validation,
+                    'few_shot_learning': self.enable_few_shot_learning,
                     'validation_fixes': len(issues) if self.enable_sql_validation else 0
                 }
             }
             
-            # 9. Update memory and stats
+            # 10. Update memory and stats
             if self.enable_conversation_memory:
                 self.conversation_memory.add_conversation(user_id, question, response)
             
@@ -824,7 +1395,7 @@ class ImprovedDualModelDynamicAISystem:
                 'processing_time': time.time() - start_time,
                 'ai_system_used': 'improved_dual_model'
             }
-    
+  
     async def _generate_improved_sql(self, question: str, intent: str,
                                     entities: Dict, context: Dict) -> str:
         """
@@ -840,13 +1411,8 @@ class ImprovedDualModelDynamicAISystem:
             logger.info("📋 Using cached SQL")
             return self.sql_cache[cache_key]
         
-        # Get relevant examples
-        examples = self._get_relevant_examples(intent, entities)
-        
-        # Build prompt using PromptManager
-        prompt = self.prompt_manager.get_sql_generation_prompt(
-            question, intent, entities, examples
-        )
+        # ใช้ generate_sql_prompt ที่สร้างไว้แล้ว!
+        prompt = self.generate_sql_prompt(question, intent, entities, context)
         
         # Generate SQL using Ollama
         sql = await self.ollama_client.generate(prompt, self.SQL_MODEL)
@@ -963,16 +1529,31 @@ Generate ONLY the SQL query:"""
         """Get relevant SQL examples for few-shot learning"""
         relevant = []
         
+        # Get static examples first
         for example in self.sql_examples:
             if example.get('category') == intent or example.get('intent') == intent:
                 relevant.append(example)
         
-        # Add dynamic examples if available
-        for example in self.dynamic_examples[-10:]:  # Last 10 dynamic examples
+        # Prioritize recent dynamic examples (เพิ่มจาก 10 เป็น 20)
+        for example in self.dynamic_examples[-20:]:
             if example.get('intent') == intent:
-                relevant.append(example)
+                # ให้น้ำหนักกับ dynamic examples มากขึ้น
+                relevant.insert(0, example)  # ใส่ไว้หน้าสุด
+        
+        # Sort by relevance and recency
+        if len(relevant) > 3:
+            # เอา dynamic examples ล่าสุดก่อน
+            dynamic = [ex for ex in relevant if 'timestamp' in ex]
+            static = [ex for ex in relevant if 'timestamp' not in ex]
+            
+            # เรียงตาม timestamp สำหรับ dynamic
+            dynamic.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+            
+            # รวมกัน: dynamic 2 + static 1
+            relevant = dynamic[:2] + static[:1]
         
         return relevant[:3]  # Return top 3 examples
+
     
     async def execute_query(self, sql: str) -> List[Dict]:
         """Execute SQL query with error handling"""
@@ -1164,10 +1745,7 @@ class SimplifiedDatabaseHandler:
             self.connection = None
     
     async def execute_query(self, sql: str) -> List[Dict]:
-        """Execute SQL query และคืนผลลัพธ์"""
-        if not self.connection:
-            self._connect()
-        
+        """Execute SQL query with auto-recovery"""
         try:
             with self.connection.cursor() as cursor:
                 cursor.execute(sql)
@@ -1175,11 +1753,29 @@ class SimplifiedDatabaseHandler:
                 return [dict(row) for row in results]
         except Exception as e:
             logger.error(f"Query execution error: {e}")
-            logger.error(f"SQL: {sql}")
             
-            # ถ้า connection ขาด ลอง reconnect
-            if 'connection' in str(e).lower():
+            # Auto rollback on any error
+            if self.connection:
+                try:
+                    self.connection.rollback()
+                    logger.info("🔄 Transaction rolled back")
+                except:
+                    pass
+            
+            # Reconnect if transaction aborted
+            if 'current transaction is aborted' in str(e) or 'connection' in str(e).lower():
+                logger.info("🔄 Reconnecting to database...")
                 self._connect()
+                
+                # Try one more time with new connection
+                try:
+                    with self.connection.cursor() as cursor:
+                        cursor.execute(sql)
+                        results = cursor.fetchall()
+                        return [dict(row) for row in results]
+                except Exception as retry_error:
+                    logger.error(f"Retry failed: {retry_error}")
+                    raise retry_error
             
             raise e
     

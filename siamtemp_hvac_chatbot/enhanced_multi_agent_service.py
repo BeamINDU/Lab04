@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 import uvicorn
 import logging
 from prometheus_client import Counter, Histogram, Gauge, generate_latest
-
+from agents.smart_query_rewriter import SmartQueryRewriter
 # Import the ultimate AI system
 from agents.dual_model_dynamic_ai import (
     DualModelDynamicAISystem,
