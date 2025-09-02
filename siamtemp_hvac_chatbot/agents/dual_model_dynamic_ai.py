@@ -1,114 +1,570 @@
+"""
+dual_model_dynamic_ai.py - Ultimate Version
+============================================
+Complete AI System with all professional features integrated
+"""
+
 import os
 import re
 import json
 import asyncio
 import time
 import logging
-from typing import Dict, List, Any, Optional, Tuple
+import hashlib
+from typing import Dict, List, Any, Optional, Tuple, Union
 from datetime import datetime, date
 from decimal import Decimal
+from collections import deque, defaultdict
+import aiohttp
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 logger = logging.getLogger(__name__)
 
+# =============================================================================
+# CONVERSATION MEMORY SYSTEM
+# =============================================================================
+
+class ConversationMemory:
+    """Advanced conversation memory with context tracking"""
+    
+    def __init__(self, max_history: int = 20):
+        self.conversations = defaultdict(lambda: deque(maxlen=max_history))
+        self.user_preferences = defaultdict(dict)
+        self.successful_patterns = defaultdict(list)
+        self.context_cache = {}
+        
+    def add_conversation(self, user_id: str, query: str, response: Dict[str, Any]):
+        """Store conversation with rich metadata"""
+        entry = {
+            'timestamp': datetime.now().isoformat(),
+            'query': query,
+            'intent': response.get('intent', 'unknown'),
+            'entities': response.get('entities', {}),
+            'success': response.get('success', False),
+            'sql_query': response.get('sql_query'),
+            'results_count': response.get('results_count', 0),
+            'processing_time': response.get('processing_time', 0)
+        }
+        
+        self.conversations[user_id].append(entry)
+        
+        # Track successful patterns
+        if entry['success'] and entry['sql_query']:
+            pattern_key = f"{entry['intent']}_{json.dumps(entry['entities'], sort_keys=True)}"
+            self.successful_patterns[pattern_key].append(entry['sql_query'])
+            
+        logger.debug(f"📝 Stored conversation for user {user_id}")
+    
+    def get_context(self, user_id: str, current_query: str) -> Dict[str, Any]:
+        """Get relevant context from conversation history"""
+        recent = list(self.conversations[user_id])[-5:]
+        
+        context = {
+            'conversation_count': len(self.conversations[user_id]),
+            'recent_queries': [c['query'] for c in recent],
+            'recent_intents': [c['intent'] for c in recent],
+            'recent_entities': self._merge_recent_entities(recent),
+            'has_history': len(recent) > 0,
+            'continuation_signals': self._detect_continuation(current_query, recent)
+        }
+        
+        # Check for patterns
+        if recent:
+            context['dominant_intent'] = max(set([c['intent'] for c in recent]), 
+                                            key=[c['intent'] for c in recent].count)
+        
+        return context
+    
+    def _merge_recent_entities(self, conversations: List[Dict]) -> Dict:
+        """Merge entities from recent conversations"""
+        merged = defaultdict(set)
+        for conv in conversations:
+            for key, value in conv.get('entities', {}).items():
+                if isinstance(value, list):
+                    merged[key].update(value)
+                else:
+                    merged[key].add(value)
+        return {k: list(v) for k, v in merged.items()}
+    
+    def _detect_continuation(self, current_query: str, recent: List[Dict]) -> List[str]:
+        """Detect if current query continues previous conversation"""
+        signals = []
+        
+        # Check for pronouns referring to previous context
+        pronouns = ['นั้น', 'นี้', 'เดิม', 'เมื่อกี้', 'ต่อ', 'เพิ่ม', 'อีก']
+        for pronoun in pronouns:
+            if pronoun in current_query:
+                signals.append(f"pronoun:{pronoun}")
+        
+        # Check for incomplete questions
+        if not any(q in current_query for q in ['อะไร', 'เท่าไหร่', 'กี่', 'ใคร', 'ที่ไหน']):
+            if len(current_query.split()) < 3:
+                signals.append("incomplete_question")
+        
+        return signals
+
+# =============================================================================
+# PARALLEL PROCESSING ENGINE
+# =============================================================================
+
+class ParallelProcessingEngine:
+    """Execute multiple analysis tasks in parallel"""
+    
+    def __init__(self):
+        self.performance_stats = defaultdict(list)
+        
+    async def parallel_analyze(self, question: str, context: Dict) -> Dict[str, Any]:
+        """Run multiple analysis tasks concurrently"""
+        start_time = time.time()
+        
+        # Define tasks
+        tasks = {
+            'intent': self._analyze_intent(question, context),
+            'entities': self._extract_entities(question),
+            'thai_conversion': self._convert_thai_text(question),
+            'query_complexity': self._analyze_complexity(question),
+            'business_context': self._extract_business_context(question)
+        }
+        
+        # Execute all tasks in parallel
+        try:
+            results = await asyncio.gather(
+                *tasks.values(),
+                return_exceptions=True
+            )
+            
+            # Map results back to task names
+            task_names = list(tasks.keys())
+            processed_results = {}
+            
+            for name, result in zip(task_names, results):
+                if isinstance(result, Exception):
+                    logger.warning(f"Task {name} failed: {result}")
+                    processed_results[name] = self._get_task_fallback(name)
+                else:
+                    processed_results[name] = result
+            
+            # Calculate performance
+            processing_time = time.time() - start_time
+            self.performance_stats['parallel_times'].append(processing_time)
+            
+            processed_results['parallel_efficiency'] = {
+                'tasks_completed': len([r for r in results if not isinstance(r, Exception)]),
+                'total_tasks': len(tasks),
+                'processing_time': processing_time
+            }
+            
+            return processed_results
+            
+        except Exception as e:
+            logger.error(f"Parallel processing failed: {e}")
+            return self._get_fallback_analysis(question)
+    
+    async def _analyze_intent(self, question: str, context: Dict) -> Dict[str, Any]:
+        """Analyze query intent with context awareness"""
+        await asyncio.sleep(0.01)  # Simulate async work
+        
+        question_lower = question.lower()
+        
+        # Define intent patterns
+        intent_patterns = {
+            'revenue_analysis': ['ยอดขาย', 'รายได้', 'revenue', 'sales', 'ยอดรวม'],
+            'overhaul_analysis': ['overhaul', 'โอเวอร์ฮอล', 'oh'],
+            'customer_ranking': ['ลูกค้า', 'อันดับ', 'top', 'สูงสุด', 'customer'],
+            'spare_parts': ['อะไหล่', 'spare', 'part', 'คลัง', 'stock'],
+            'team_analysis': ['ทีม', 'team', 'งาน', 'กลุ่ม', 'service_group'],
+            'comparison': ['เปรียบเทียบ', 'compare', 'ระหว่าง', 'กับ'],
+            'counting': ['จำนวน', 'count', 'กี่', 'นับ'],
+            'listing': ['แสดง', 'list', 'รายการ', 'ดู']
+        }
+        
+        detected_intents = []
+        for intent, keywords in intent_patterns.items():
+            if any(keyword in question_lower for keyword in keywords):
+                detected_intents.append(intent)
+        
+        # Use context to refine intent
+        if context.get('continuation_signals'):
+            if context.get('dominant_intent'):
+                detected_intents.append(context['dominant_intent'])
+        
+        primary_intent = detected_intents[0] if detected_intents else 'general_query'
+        
+        return {
+            'primary': primary_intent,
+            'secondary': detected_intents[1:] if len(detected_intents) > 1 else [],
+            'confidence': 0.9 if detected_intents else 0.5
+        }
+    
+    async def _extract_entities(self, question: str) -> Dict[str, List]:
+        """Extract entities from question"""
+        await asyncio.sleep(0.01)
+        
+        entities = defaultdict(list)
+        
+        # Extract years
+        year_patterns = [
+            (r'ปี\s*(\d{4})', 'gregorian'),
+            (r'(256[5-9]|257[0-9])', 'buddhist'),
+            (r'(202[2-9]|203[0-9])', 'gregorian')
+        ]
+        
+        for pattern, year_type in year_patterns:
+            matches = re.findall(pattern, question)
+            for match in matches:
+                if year_type == 'buddhist':
+                    entities['years'].append(str(int(match) - 543))
+                else:
+                    entities['years'].append(match)
+        
+        # Extract months
+        thai_months = {
+            'มกราคม': '01', 'กุมภาพันธ์': '02', 'มีนาคม': '03', 
+            'เมษายน': '04', 'พฤษภาคม': '05', 'มิถุนายน': '06',
+            'กรกฎาคม': '07', 'สิงหาคม': '08', 'กันยายน': '09',
+            'ตุลาคม': '10', 'พฤศจิกายน': '11', 'ธันวาคม': '12'
+        }
+        
+        for thai_month, month_num in thai_months.items():
+            if thai_month in question:
+                entities['months'].append(month_num)
+        
+        # Extract numbers
+        numbers = re.findall(r'\d+', question)
+        if numbers:
+            entities['numbers'] = numbers
+        
+        # Extract company names (simple pattern)
+        if 'บริษัท' in question or 'company' in question.lower():
+            # This would need a more sophisticated NER system
+            entities['companies'] = []
+        
+        return dict(entities)
+    
+    async def _convert_thai_text(self, question: str) -> str:
+        """Convert Thai years and normalize text"""
+        await asyncio.sleep(0.01)
+        
+        converted = question
+        
+        # Convert Thai years to Gregorian
+        thai_year_pattern = r'(256[5-9]|257[0-9])'
+        matches = re.findall(thai_year_pattern, converted)
+        for match in matches:
+            gregorian = str(int(match) - 543)
+            converted = converted.replace(match, gregorian)
+        
+        # Normalize common variations
+        replacements = {
+            'โอเวอร์ฮอล': 'overhaul',
+            'พีเอ็ม': 'PM',
+            'เซอร์วิส': 'service'
+        }
+        
+        for thai, eng in replacements.items():
+            converted = converted.replace(thai, eng)
+        
+        return converted
+    
+    async def _analyze_complexity(self, question: str) -> str:
+        """Determine query complexity"""
+        await asyncio.sleep(0.01)
+        
+        # Simple heuristics
+        word_count = len(question.split())
+        has_comparison = any(word in question for word in ['เปรียบเทียบ', 'compare', 'ระหว่าง'])
+        has_aggregation = any(word in question for word in ['รวม', 'sum', 'total', 'นับ'])
+        has_grouping = any(word in question for word in ['แต่ละ', 'กลุ่ม', 'group', 'by'])
+        
+        if has_comparison or (has_aggregation and has_grouping):
+            return 'complex'
+        elif has_aggregation or has_grouping or word_count > 10:
+            return 'moderate'
+        else:
+            return 'simple'
+    
+    async def _extract_business_context(self, question: str) -> Dict:
+        """Extract HVAC business-specific context"""
+        await asyncio.sleep(0.01)
+        
+        context = {
+            'service_types': [],
+            'equipment_brands': [],
+            'time_urgency': None
+        }
+        
+        # Service types
+        service_keywords = {
+            'PM': ['pm', 'preventive', 'maintenance', 'บำรุงรักษา'],
+            'Overhaul': ['overhaul', 'โอเวอร์ฮอล', 'oh'],
+            'Replacement': ['replacement', 'เปลี่ยน', 'replace'],
+            'Emergency': ['emergency', 'ฉุกเฉิน', 'urgent']
+        }
+        
+        for service_type, keywords in service_keywords.items():
+            if any(kw in question.lower() for kw in keywords):
+                context['service_types'].append(service_type)
+        
+        # Equipment brands
+        brands = ['hitachi', 'daikin', 'carrier', 'trane', 'york', 'mitsubishi']
+        for brand in brands:
+            if brand in question.lower():
+                context['equipment_brands'].append(brand)
+        
+        # Time urgency
+        if any(word in question for word in ['ด่วน', 'urgent', 'เร่ง', 'ทันที']):
+            context['time_urgency'] = 'high'
+        
+        return context
+    
+    def _get_task_fallback(self, task_name: str) -> Any:
+        """Get fallback value for failed task"""
+        fallbacks = {
+            'intent': {'primary': 'general_query', 'secondary': [], 'confidence': 0.3},
+            'entities': {},
+            'thai_conversion': '',
+            'query_complexity': 'simple',
+            'business_context': {}
+        }
+        return fallbacks.get(task_name, {})
+    
+    def _get_fallback_analysis(self, question: str) -> Dict:
+        """Complete fallback when parallel processing fails"""
+        return {
+            'intent': {'primary': 'general_query', 'secondary': [], 'confidence': 0.3},
+            'entities': {},
+            'thai_conversion': question,
+            'query_complexity': 'simple',
+            'business_context': {},
+            'parallel_efficiency': {'error': 'parallel_processing_failed'}
+        }
+
+# =============================================================================
+# DATA CLEANING ENGINE
+# =============================================================================
+
+class DataCleaningEngine:
+    """Real-time data cleaning and validation"""
+    
+    def __init__(self):
+        self.numeric_fields = {
+            'overhaul_', 'replacement', 'service_contact_',
+            'parts_all_', 'product_all', 'solution_',
+            'unit_price', 'balance'
+        }
+        self.boolean_fields = {
+            'job_description_pm', 'job_description_replacement',
+            'job_description_overhaul', 'job_description_start_up'
+        }
+        self.cleaning_stats = defaultdict(int)
+    
+    def clean_query_results(self, results: List[Dict], sql_query: str = None) -> List[Dict]:
+        """Clean and validate query results"""
+        if not results:
+            return results
+        
+        cleaned = []
+        for row in results:
+            cleaned_row = self._clean_row(row)
+            cleaned.append(cleaned_row)
+        
+        # Log statistics
+        logger.debug(f"🧹 Cleaned {len(cleaned)} rows, stats: {dict(self.cleaning_stats)}")
+        
+        return cleaned
+    
+    def _clean_row(self, row: Dict) -> Dict:
+        """Clean individual row"""
+        cleaned = {}
+        
+        for key, value in row.items():
+            if key in self.numeric_fields:
+                cleaned[key] = self._clean_numeric(value, key)
+            elif key in self.boolean_fields:
+                cleaned[key] = self._clean_boolean(value, key)
+            else:
+                cleaned[key] = self._clean_text(value, key)
+        
+        return cleaned
+    
+    def _clean_numeric(self, value: Any, field_name: str) -> float:
+        """Convert to numeric, handle NULL"""
+        if value is None or value == 'NULL' or value == '':
+            self.cleaning_stats['nulls_converted'] += 1
+            return 0.0
+        
+        if isinstance(value, (int, float, Decimal)):
+            return float(value)
+        
+        if isinstance(value, str):
+            # Remove formatting
+            cleaned = value.replace(',', '').replace(' ', '').strip()
+            cleaned = cleaned.replace('฿', '').replace('$', '')
+            
+            if not cleaned or cleaned.lower() == 'null':
+                self.cleaning_stats['nulls_converted'] += 1
+                return 0.0
+            
+            try:
+                result = float(cleaned)
+                self.cleaning_stats['numeric_converted'] += 1
+                return result
+            except ValueError:
+                logger.debug(f"Could not convert '{value}' to numeric in field {field_name}")
+                self.cleaning_stats['conversion_errors'] += 1
+                return 0.0
+        
+        return 0.0
+    
+    def _clean_boolean(self, value: Any, field_name: str) -> bool:
+        """Convert to boolean"""
+        if value is None or value == 'NULL':
+            return False
+        
+        if isinstance(value, bool):
+            return value
+        
+        if isinstance(value, str):
+            return value.lower() in ['true', 't', 'yes', 'y', '1']
+        
+        if isinstance(value, (int, float)):
+            return bool(value)
+        
+        return False
+    
+    def _clean_text(self, value: Any, field_name: str) -> str:
+        """Clean text fields, fix encoding"""
+        if value is None or value == 'NULL':
+            return ''
+        
+        if not isinstance(value, str):
+            return str(value)
+        
+        # Fix Thai encoding issues
+        cleaned = self._fix_thai_encoding(value)
+        
+        # Remove excessive whitespace
+        cleaned = ' '.join(cleaned.split())
+        
+        return cleaned
+    
+    def _fix_thai_encoding(self, text: str) -> str:
+        """Fix common Thai encoding issues"""
+        if not text:
+            return text
+        
+        # Check for mojibake
+        if 'à¸' in text or 'à¹' in text:
+            try:
+                fixed = text.encode('latin-1').decode('utf-8', errors='ignore')
+                self.cleaning_stats['encoding_fixed'] += 1
+                return fixed
+            except:
+                pass
+        
+        return text
+    
+    def get_cleaning_stats(self) -> Dict[str, int]:
+        """Get cleaning statistics"""
+        return dict(self.cleaning_stats)
+    
+    def reset_stats(self):
+        """Reset cleaning statistics"""
+        self.cleaning_stats.clear()
+
+# =============================================================================
+# DATABASE HANDLER
+# =============================================================================
+
 class SimplifiedDatabaseHandler:
-    """Simplified database handler for HVAC data"""
+    """Database connection and query execution"""
     
     def __init__(self):
         self.connection_cache = {}
-    
-    def get_database_connection(self, tenant_id: str):
-        """Get database connection for tenant"""
-        try:
-            import psycopg2
-            
-            # Database configuration mapping
-            db_configs = {
-                'company-a': {
-                    'host': os.getenv('POSTGRES_HOST_COMPANY_A', 'postgres-company-a'),
-                    'port': int(os.getenv('POSTGRES_PORT_COMPANY_A', '5432')),
-                    'database': os.getenv('POSTGRES_DB_COMPANY_A', 'siamtemp_company_a'),
-                    'user': os.getenv('POSTGRES_USER_COMPANY_A', 'postgres'),
-                    'password': os.getenv('POSTGRES_PASSWORD_COMPANY_A', 'password123')
-                },
-                'company-b': {
-                    'host': os.getenv('POSTGRES_HOST_COMPANY_B', 'postgres-company-b'),
-                    'port': int(os.getenv('POSTGRES_PORT_COMPANY_B', '5432')),
-                    'database': os.getenv('POSTGRES_DB_COMPANY_B', 'siamtemp_company_b'),
-                    'user': os.getenv('POSTGRES_USER_COMPANY_B', 'postgres'),
-                    'password': os.getenv('POSTGRES_PASSWORD_COMPANY_B', 'password123')
-                },
-                'company-c': {
-                    'host': os.getenv('POSTGRES_HOST_COMPANY_C', 'postgres-company-c'),
-                    'port': int(os.getenv('POSTGRES_PORT_COMPANY_C', '5432')),
-                    'database': os.getenv('POSTGRES_DB_COMPANY_C', 'siamtemp_company_c'),
-                    'user': os.getenv('POSTGRES_USER_COMPANY_C', 'postgres'),
-                    'password': os.getenv('POSTGRES_PASSWORD_COMPANY_C', 'password123')
-                }
+        self.connection_configs = {
+            'company-a': {
+                'host': os.getenv('POSTGRES_HOST_COMPANY_A', 'postgres-company-a'),
+                'port': int(os.getenv('POSTGRES_PORT_COMPANY_A', '5432')),
+                'database': os.getenv('POSTGRES_DB_COMPANY_A', 'siamtemp_company_a'),
+                'user': os.getenv('POSTGRES_USER_COMPANY_A', 'postgres'),
+                'password': os.getenv('POSTGRES_PASSWORD_COMPANY_A', 'password123')
             }
-            
-            config = db_configs.get(tenant_id, db_configs['company-a'])
-            
-            connection = psycopg2.connect(**config)
-            return connection
-            
-        except Exception as e:
-            logger.error(f"Database connection failed for {tenant_id}: {e}")
-            return None
+        }
     
-    async def execute_query(self, sql: str, tenant_id: str) -> List[Dict[str, Any]]:
-        """Execute SQL query and return results"""
+    def get_connection(self, tenant_id: str = 'company-a'):
+        """Get database connection with caching"""
+        if tenant_id not in self.connection_cache:
+            config = self.connection_configs.get(tenant_id, self.connection_configs['company-a'])
+            try:
+                conn = psycopg2.connect(**config, cursor_factory=RealDictCursor)
+                self.connection_cache[tenant_id] = conn
+                logger.info(f"✅ Database connected for tenant {tenant_id}")
+            except Exception as e:
+                logger.error(f"Database connection failed: {e}")
+                raise
+        
+        return self.connection_cache[tenant_id]
+    
+    async def execute_query(self, sql: str, tenant_id: str = 'company-a') -> List[Dict]:
+        """Execute SQL query asynchronously"""
         try:
-            conn = self.get_database_connection(tenant_id)
-            if not conn:
-                return []
-            
-            with conn.cursor() as cursor:
-                cursor.execute(sql)
-                columns = [desc[0] for desc in cursor.description]
-                rows = cursor.fetchall()
-                
-                results = []
-                for row in rows:
-                    result = {}
-                    for i, value in enumerate(row):
-                        # Handle different data types
-                        if isinstance(value, Decimal):
-                            result[columns[i]] = float(value)
-                        elif isinstance(value, (date, datetime)):
-                            result[columns[i]] = str(value)
-                        else:
-                            result[columns[i]] = value
-                    results.append(result)
-                
-                conn.close()
-                return results
-                
+            # Run in thread pool to avoid blocking
+            loop = asyncio.get_event_loop()
+            results = await loop.run_in_executor(None, self._execute_sync, sql, tenant_id)
+            return results
         except Exception as e:
             logger.error(f"Query execution failed: {e}")
             return []
+    
+    def _execute_sync(self, sql: str, tenant_id: str) -> List[Dict]:
+        """Synchronous query execution"""
+        conn = self.get_connection(tenant_id)
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(sql)
+                columns = [desc[0] for desc in cursor.description] if cursor.description else []
+                
+                if columns:
+                    return cursor.fetchall()
+                else:
+                    conn.commit()
+                    return []
+        except Exception as e:
+            conn.rollback()
+            raise e
+    
+    def close_connections(self):
+        """Close all database connections"""
+        for conn in self.connection_cache.values():
+            if conn and not conn.closed:
+                conn.close()
+        self.connection_cache.clear()
+
+# =============================================================================
+# OLLAMA CLIENT
+# =============================================================================
 
 class SimplifiedOllamaClient:
-    """Simplified Ollama client for AI requests"""
+    """Ollama API client for LLM interactions"""
     
     def __init__(self):
         self.base_url = os.getenv('OLLAMA_BASE_URL', 'http://52.74.36.160:12434')
-        self.timeout = int(os.getenv('OLLAMA_TIMEOUT', '60'))
+        self.timeout = int(os.getenv('OLLAMA_TIMEOUT', '30'))
     
     async def generate_response(self, model: str, prompt: str, temperature: float = 0.7) -> str:
         """Generate response from Ollama model"""
-        try:
-            import aiohttp
-            
-            payload = {
-                "model": model,
-                "prompt": prompt,
-                "stream": False,
-                "options": {
-                    "temperature": temperature,
-                    "num_predict": 2000
-                }
+        payload = {
+            "model": model,
+            "prompt": prompt,
+            "stream": False,
+            "options": {
+                "temperature": temperature,
+                "num_predict": 2000
             }
-            
+        }
+        
+        try:
             async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout)) as session:
                 async with session.post(f"{self.base_url}/api/generate", json=payload) as response:
                     if response.status == 200:
@@ -117,775 +573,688 @@ class SimplifiedOllamaClient:
                     else:
                         logger.error(f"Ollama API error: {response.status}")
                         return ""
-                        
+        except asyncio.TimeoutError:
+            logger.error(f"Ollama request timed out after {self.timeout}s")
+            return ""
         except Exception as e:
             logger.error(f"Ollama request failed: {e}")
             return ""
 
+# =============================================================================
+# MAIN DUAL MODEL DYNAMIC AI SYSTEM
+# =============================================================================
+
 class DualModelDynamicAISystem:
-    """Core Dual-Model AI System for HVAC chatbot with Performance Optimization"""
+    """Ultimate Dual-Model AI System with all features integrated"""
     
     def __init__(self):
-        # Initialize components
+        # Initialize all components
         self.db_handler = SimplifiedDatabaseHandler()
         self.ollama_client = SimplifiedOllamaClient()
+        self.conversation_memory = ConversationMemory()
+        self.parallel_processor = ParallelProcessingEngine()
+        self.data_cleaner = DataCleaningEngine()
         
         # Model configuration
         self.SQL_MODEL = "mannix/defog-llama3-sqlcoder-8b:latest"
         self.NL_MODEL = "llama3.1:8b"
         
-        # Performance optimization settings
-        self.sql_cache = {}  # Cache SQL patterns ที่ใช้บ่อย
-        self.schema_cache = {}  # Cache database schema
-        self.enable_parallel = True
-        self.timeout_sql = 20  # เพิ่ม timeout SQL generation เป็น 20 วินาที
-        self.timeout_nl = 10   # เพิ่ม timeout NL generation เป็น 10 วินาที
+        # Feature flags
+        self.enable_conversation_memory = True
+        self.enable_parallel_processing = True
+        self.enable_data_cleaning = True
+        self.enable_sql_validation = True
         
-        # HVAC Business Knowledge
-        self.hvac_context = {
-            'tables': {
-                'sales2024': 'ข้อมูลงานบริการและการขายปี 2024',
-                'sales2023': 'ข้อมูลงานบริการและการขายปี 2023',
-                'sales2022': 'ข้อมูลงานบริการและการขายปี 2022',
-                'sales2025': 'ข้อมูลงานบริการและการขายปี 2025',
-                'spare_part': 'คลังอะไหล่หลัก',
-                'spare_part2': 'คลังอะไหล่สำรอง',
-                'work_force': 'การจัดทีมงานและแผนการทำงาน'
-            },
-            'keywords': {
-                'job_quotation': ['เสนอราคา', 'งาน', 'standard', 'มาตรฐาน', 'quotation', 'job_no'],
-                'spare_parts': ['อะไหล่', 'spare', 'parts', 'motor', 'chiller', 'compressor', 'product_name'],
-                'sales_analysis': ['การขาย', 'ยอดขาย', 'รายได้', 'วิเคราะห์', 'service_contact_'],
-                'work_summary': ['งาน', 'work', 'สรุป', 'summary', 'ทีม', 'team'],
-                'brands': ['hitachi', 'daikin', 'mitsubishi', 'carrier', 'trane', 'york', 'lg']
-            },
-            'year_mapping': {
-                '2565': '2022', '2566': '2023', '2567': '2024', '2568': '2025',
-                'ปี2565': '2022', 'ปี2566': '2023', 'ปี2567': '2024', 'ปี2568': '2025'
-            }
-        }
+        # Caches
+        self.sql_cache = {}
+        self.schema_cache = {}
         
-        # Performance tracking
+        # Statistics
         self.stats = {
             'total_queries': 0,
             'successful_queries': 0,
-            'sql_generated': 0,
-            'nl_responses': 0,
             'cache_hits': 0,
-            'avg_response_time': 0.0
+            'avg_response_time': 0
         }
         
-        logger.info("Dual-Model Dynamic AI System with Performance Optimization initialized successfully")
+        # Load SQL examples
+        self.sql_examples = self._load_sql_examples()
+        
+        logger.info("🚀 Ultimate Dual-Model Dynamic AI System initialized")
     
-    def _classify_question_intent(self, question: str) -> str:
-        """Enhanced question intent classification with priority-based matching"""
-        question_lower = question.lower()
-        
-        # HIGH PRIORITY: Overhaul analysis (must be checked first before spare_parts)
-        overhaul_keywords = ['overhaul', 'ยกเครื่อง', 'ซ่อมใหญ่', 'รายงานยอดขาย overhaul', 
-                            'ยอดขาย overhaul', 'วิเคราะห์ overhaul']
-        if any(keyword in question_lower for keyword in overhaul_keywords):
-            logger.info(f"🔧 Classified as OVERHAUL_ANALYSIS: found '{[k for k in overhaul_keywords if k in question_lower]}'")
-            return 'overhaul_analysis'
-        
-        # HIGH PRIORITY: Sales analysis with year patterns
-        sales_keywords = ['รายงานยอดขาย', 'วิเคราะห์การขาย', 'ยอดขาย', 'รายงาน', 'analysis', 
-                         'เปรียบเทียบยอดขาย', 'สรุปยอดขาย']
-        if any(keyword in question_lower for keyword in sales_keywords):
-            logger.info(f"📊 Classified as SALES_ANALYSIS: found '{[k for k in sales_keywords if k in question_lower]}'")
-            return 'sales_analysis'
-        
-        # Customer-specific queries
-        customer_keywords = ['บริษัท', 'ลูกค้า', 'customer', 'จำนวนลูกค้า', 'ประวัติลูกค้า', 'ซื้อขาย']
-        if any(keyword in question_lower for keyword in customer_keywords):
-            return 'customer_analysis'
-        
-        # Work schedule and planning queries  
-        schedule_keywords = ['แผนงาน', 'วางแผน', 'schedule', 'วันที่', 'เดือน', 'work_force', 
-                            'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
-                            'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม']
-        if any(keyword in question_lower for keyword in schedule_keywords):
-            return 'work_schedule'
-            
-        # Specific model/part number queries (exclude compressor from here)
-        model_keywords = ['model', 'rcug', 'ekac', 'ek258', 'ราคาอะไหล่', 'air cooled', 'water cooled']
-        if any(keyword in question_lower for keyword in model_keywords):
-            return 'specific_parts'
-        
-        # Standard job quotations  
-        job_keywords = ['เสนอราคา', 'งาน', 'quotation', 'standard', 'สรุปงาน']
-        if any(keyword in question_lower for keyword in job_keywords):
-            return 'job_quotation'
-        
-        # LOWER PRIORITY: Spare parts detection (moved to end to avoid conflicts)
-        spare_parts_keywords = ['อะไหล่', 'spare', 'parts', 'motor', 'chiller', 
-                               'hitachi', 'daikin', 'mitsubishi', 'carrier', 'trane', 'york', 
-                               'fan', 'circuit', 'board', 'transformer', 'valve']
-        if any(keyword in question_lower for keyword in spare_parts_keywords):
-            # Additional check to avoid overhaul conflicts
-            if 'overhaul' not in question_lower and 'ยอดขาย' not in question_lower:
-                return 'spare_parts'
-            
-        return 'general'
-    
-    def _convert_thai_years_and_months(self, question: str) -> Tuple[str, Dict[str, Any]]:
-        """Convert Thai years to international years and extract month info"""
-        converted = question
-        month_info = {}
-        
-        # Year mappings
-        year_mappings = {
-            '2565': '2022', '2566': '2023', '2567': '2024', '2568': '2025',
-            'ปี2565': '2022', 'ปี2566': '2023', 'ปี2567': '2024', 'ปี2568': '2025',
-            'ปี 2565': '2022', 'ปี 2566': '2023', 'ปี 2567': '2024', 'ปี 2568': '2025'
-        }
-        
-        # Month mappings for job_no pattern matching
-        month_mappings = {
-            'มกราคม': '01', 'กุมภาพันธ์': '02', 'มีนาคม': '03',
-            'เมษายน': '04', 'พฤษภาคม': '05', 'มิถุนายน': '06',
-            'กรกฎาคม': '07', 'สิงหาคม': '08', 'กันยายน': '09', 
-            'ตุลาคม': '10', 'พฤศจิกายน': '11', 'ธันวาคม': '12'
-        }
-        
-        # Apply year conversions
-        for thai_year, intl_year in year_mappings.items():
-            if thai_year in question:
-                converted = converted.replace(thai_year, intl_year)
-                # Extract the last 2 digits for job_no pattern
-                month_info['year_short'] = intl_year[-2:]  # '2022' -> '22'
-                month_info['year_full'] = intl_year
-        
-        # Extract month information
-        for thai_month, month_code in month_mappings.items():
-            if thai_month in question:
-                month_info['month'] = month_code
-                month_info['month_thai'] = thai_month
-        
-        # Log conversion if any changes were made
-        if converted != question or month_info:
-            logger.info(f"Thai conversion: '{question}' → '{converted}', month_info: {month_info}")
-        
-        return converted, month_info
-    
-    async def _generate_sql_query(self, question: str, intent: str, tenant_id: str) -> str:
-        """Generate SQL query using specialized SQL model with enhanced Thai support"""
-        try:
-            self.stats['sql_generated'] += 1
-            
-            # Check cache first
-            cache_key = f"{intent}_{hash(question.lower().strip())}"
-            if cache_key in self.sql_cache:
-                logger.info("Using cached SQL pattern")
-                self.stats['cache_hits'] += 1
-                return self.sql_cache[cache_key]
-            
-            # Convert Thai years and extract month info
-            converted_question, month_info = self._convert_thai_years_and_months(question)
-            
-            # Build enhanced context for job_no pattern matching
-            job_pattern_help = ""
-            if month_info:
-                if 'year_short' in month_info and 'month' in month_info:
-                    job_pattern_help = f"\nSPECIAL: For {month_info.get('month_thai', 'unknown month')} {month_info.get('year_full', 'unknown year')}, search job_no pattern like '%{month_info['year_short']}-{month_info['month']}-%'"
-            
-            # Enhanced prompt with comprehensive HVAC business examples
-            sql_prompt = f"""Generate PostgreSQL query for HVAC business data analysis.
-
-DATABASE SCHEMA:
-- sales2022,2023,2024,2025: id, job_no, customer_name, description, overhaul_, replacement, service_contact_
-- spare_part, spare_part2: id, wh, product_code, product_name, unit, balance, unit_price, description
-- work_force: id, date, customer, project, detail, service_group
-
-IMPORTANT DATA TYPES: 
-- overhaul_, replacement, service_contact_, unit_price are TEXT fields - ALWAYS use CAST(field AS NUMERIC)
-- For revenue analysis, use COALESCE to handle NULL values
-
-JOB_NO PATTERN: JAE[year]-[month]-[sequence]-[type]
-BUSINESS CONTEXT: HVAC service company with overhaul, maintenance, and spare parts sales{job_pattern_help}
-
-BUSINESS QUERY PATTERNS:
-
-1. OVERHAUL REVENUE ANALYSIS (Most Important):
-"รายงานยอดขาย overhaul compressor ปี 2567-2568"
-```sql
-SELECT year, jobs, overhaul_revenue, service_revenue, total_revenue FROM (
-    SELECT '2024' as year, COUNT(*) as jobs, 
-           SUM(CAST(overhaul_ AS NUMERIC)) as overhaul_revenue,
-           SUM(CAST(service_contact_ AS NUMERIC)) as service_revenue,
-           SUM(COALESCE(CAST(overhaul_ AS NUMERIC), 0) + COALESCE(CAST(service_contact_ AS NUMERIC), 0)) as total_revenue
-    FROM sales2024 WHERE LOWER(description) LIKE '%overhaul%' AND LOWER(description) LIKE '%compressor%'
-    UNION ALL
-    SELECT '2025' as year, COUNT(*) as jobs,
-           SUM(CAST(overhaul_ AS NUMERIC)) as overhaul_revenue,
-           SUM(CAST(service_contact_ AS NUMERIC)) as service_revenue, 
-           SUM(COALESCE(CAST(overhaul_ AS NUMERIC), 0) + COALESCE(CAST(service_contact_ AS NUMERIC), 0)) as total_revenue
-    FROM sales2025 WHERE LOWER(description) LIKE '%overhaul%' AND LOWER(description) LIKE '%compressor%'
-) sub ORDER BY year;
-```
-
-2. YEARLY REVENUE COMPARISON:
-"เปรียบเทียบยอดขายปี 2567 กับ 2568"
-```sql
-SELECT year, total_jobs, total_revenue FROM (
-    SELECT '2024' as year, COUNT(*) as total_jobs, 
-           SUM(COALESCE(CAST(overhaul_ AS NUMERIC), 0) + COALESCE(CAST(service_contact_ AS NUMERIC), 0) + COALESCE(CAST(replacement AS NUMERIC), 0)) as total_revenue
-    FROM sales2024 WHERE (overhaul_ IS NOT NULL OR service_contact_ IS NOT NULL OR replacement IS NOT NULL)
-    UNION ALL
-    SELECT '2025' as year, COUNT(*) as total_jobs,
-           SUM(COALESCE(CAST(overhaul_ AS NUMERIC), 0) + COALESCE(CAST(service_contact_ AS NUMERIC), 0) + COALESCE(CAST(replacement AS NUMERIC), 0)) as total_revenue
-    FROM sales2025 WHERE (overhaul_ IS NOT NULL OR service_contact_ IS NOT NULL OR replacement IS NOT NULL)
-) sub ORDER BY year;
-```
-
-3. CUSTOMER ANALYSIS:
-"บริษัท ABC มีการซื้อขายย้อนหลัง มูลค่าเท่าไหร่"
-```sql
-SELECT job_no, description, CAST(service_contact_ AS NUMERIC) as value, CAST(overhaul_ AS NUMERIC) as overhaul FROM sales2024 WHERE customer_name ILIKE '%ABC%'
-UNION ALL
-SELECT job_no, description, CAST(service_contact_ AS NUMERIC) as value, CAST(overhaul_ AS NUMERIC) as overhaul FROM sales2025 WHERE customer_name ILIKE '%ABC%'
-ORDER BY job_no;
-```
-
-4. SPARE PARTS SEARCH:
-"ราคาอะไหล่ Hitachi motor"
-```sql
-SELECT product_code, product_name, CAST(unit_price AS NUMERIC) as price, balance, description FROM spare_part
-WHERE LOWER(product_name) LIKE '%hitachi%' AND LOWER(product_name) LIKE '%motor%'
-UNION ALL
-SELECT product_code, product_name, CAST(unit_price AS NUMERIC) as price, balance, description FROM spare_part2
-WHERE LOWER(product_name) LIKE '%hitachi%' AND LOWER(product_name) LIKE '%motor%'
-ORDER BY price DESC NULLS LAST;
-```
-
-Question: {converted_question}
-Original Question: {question}  
-Intent Category: {intent}
-
-CRITICAL RULES:
-- For overhaul/revenue analysis: ALWAYS use UNION ALL to combine multiple years
-- ALWAYS use CAST(field AS NUMERIC) for price calculations
-- Use COALESCE for NULL handling in revenue calculations
-- Use ILIKE for case-insensitive text search
-- Include ORDER BY for consistent results
-
-Generate the most appropriate SQL query:"""
-            
-            # Use timeout for faster response
-            sql_response = await asyncio.wait_for(
-                self.ollama_client.generate_response(
-                    model=self.SQL_MODEL,
-                    prompt=sql_prompt,
-                    temperature=0.1  # Low temperature for precise SQL
-                ),
-                timeout=self.timeout_sql
-            )
-            
-            # Clean up the SQL response
-            sql_query = self._clean_sql_response(sql_response)
-            
-            # Basic SQL validation
-            if not sql_query.upper().startswith(('SELECT', 'WITH')):
-                logger.warning(f"Generated SQL doesn't start with SELECT: {sql_query}")
-                return self._get_fallback_sql_with_context(intent, month_info)
-            
-            # Cache for future use
-            self.sql_cache[cache_key] = sql_query
-            
-            return sql_query
-            
-        except asyncio.TimeoutError:
-            logger.warning("SQL generation timeout, using contextual fallback")
-            return self._get_fallback_sql_with_context(intent, {})
-        except Exception as e:
-            logger.error(f"SQL generation failed: {e}")
-            return self._get_fallback_sql(intent)
-    
-    def _clean_sql_response(self, sql_response: str) -> str:
-        """Clean up SQL response from AI model"""
-        sql_query = sql_response.strip()
-        
-        # Remove markdown code blocks
-        if sql_query.startswith('```sql'):
-            sql_query = sql_query[6:]
-        if sql_query.startswith('```'):
-            sql_query = sql_query[3:]
-        if sql_query.endswith('```'):
-            sql_query = sql_query[:-3]
-        
-        return sql_query.strip()
-    
-    def _get_fallback_sql(self, intent: str) -> str:
-        """Get fallback SQL queries based on real schema structure"""
-        fallback_queries = {
-            'job_quotation': """SELECT job_no, customer_name, description, 
-                               CAST(service_contact_ AS NUMERIC) as service_price,
-                               CAST(overhaul_ AS NUMERIC) as overhaul,
-                               CAST(replacement AS NUMERIC) as replacement
-                               FROM sales2024 
-                               WHERE description IS NOT NULL 
-                               ORDER BY CAST(service_contact_ AS NUMERIC) DESC NULLS LAST 
-                               LIMIT 10""",
-            
-            'spare_parts': """SELECT product_code, product_name, wh,
-                             CAST(unit_price AS NUMERIC) as price, balance, description
-                             FROM spare_part 
-                             WHERE product_name IS NOT NULL 
-                             UNION ALL
-                             SELECT product_code, product_name, wh,
-                             CAST(unit_price AS NUMERIC) as price, balance, description  
-                             FROM spare_part2
-                             WHERE product_name IS NOT NULL
-                             ORDER BY price DESC NULLS LAST
-                             LIMIT 15""",
-            
-            'sales_analysis': """SELECT '2024' as year, COUNT(*) as jobs, 
-                                SUM(CAST(overhaul_ AS NUMERIC)) as overhaul_revenue,
-                                SUM(CAST(service_contact_ AS NUMERIC)) as service_revenue,
-                                SUM(COALESCE(CAST(overhaul_ AS NUMERIC), 0) + COALESCE(CAST(service_contact_ AS NUMERIC), 0)) as total_revenue
-                                FROM sales2024 WHERE service_contact_ IS NOT NULL OR overhaul_ IS NOT NULL
-                                UNION ALL
-                                SELECT '2025' as year, COUNT(*) as jobs,
-                                SUM(CAST(overhaul_ AS NUMERIC)) as overhaul_revenue,
-                                SUM(CAST(service_contact_ AS NUMERIC)) as service_revenue,
-                                SUM(COALESCE(CAST(overhaul_ AS NUMERIC), 0) + COALESCE(CAST(service_contact_ AS NUMERIC), 0)) as total_revenue  
-                                FROM sales2025 WHERE service_contact_ IS NOT NULL OR overhaul_ IS NOT NULL
-                                ORDER BY year""",
-            
-            'overhaul_analysis': """SELECT '2024' as year, COUNT(*) as jobs, 
-                                   SUM(CAST(overhaul_ AS NUMERIC)) as overhaul_revenue,
-                                   SUM(CAST(service_contact_ AS NUMERIC)) as service_revenue,
-                                   SUM(COALESCE(CAST(overhaul_ AS NUMERIC), 0) + COALESCE(CAST(service_contact_ AS NUMERIC), 0)) as total_revenue
-                                   FROM sales2024 WHERE LOWER(description) LIKE '%overhaul%' AND LOWER(description) LIKE '%compressor%'
-                                   UNION ALL
-                                   SELECT '2025' as year, COUNT(*) as jobs,
-                                   SUM(CAST(overhaul_ AS NUMERIC)) as overhaul_revenue,
-                                   SUM(CAST(service_contact_ AS NUMERIC)) as service_revenue,
-                                   SUM(COALESCE(CAST(overhaul_ AS NUMERIC), 0) + COALESCE(CAST(service_contact_ AS NUMERIC), 0)) as total_revenue
-                                   FROM sales2025 WHERE LOWER(description) LIKE '%overhaul%' AND LOWER(description) LIKE '%compressor%'
-                                   ORDER BY year""",
-            
-            'work_summary': """SELECT date, customer, detail, service_group
-                              FROM work_force 
-                              WHERE detail IS NOT NULL 
-                              ORDER BY date DESC NULLS LAST 
-                              LIMIT 10""",
-            
-            'general': "SELECT COUNT(*) as total_records FROM sales2024"
-        }
-        
-        return fallback_queries.get(intent, fallback_queries['general'])
-    
-    def _get_fallback_sql_with_context(self, intent: str, month_info: Dict[str, Any]) -> str:
-        """Get contextual fallback SQL queries with improved overhaul detection"""
-        
-        # Special handling for overhaul analysis
-        if intent == 'overhaul_analysis' or intent == 'sales_analysis':
-            return """SELECT '2024' as year, COUNT(*) as jobs, 
-                     SUM(CAST(overhaul_ AS NUMERIC)) as overhaul_revenue,
-                     SUM(CAST(service_contact_ AS NUMERIC)) as service_revenue,
-                     SUM(COALESCE(CAST(overhaul_ AS NUMERIC), 0) + COALESCE(CAST(service_contact_ AS NUMERIC), 0)) as total_revenue
-                     FROM sales2024 WHERE LOWER(description) LIKE '%overhaul%' AND LOWER(description) LIKE '%compressor%'
-                     UNION ALL
-                     SELECT '2025' as year, COUNT(*) as jobs,
-                     SUM(CAST(overhaul_ AS NUMERIC)) as overhaul_revenue,
-                     SUM(CAST(service_contact_ AS NUMERIC)) as service_revenue, 
-                     SUM(COALESCE(CAST(overhaul_ AS NUMERIC), 0) + COALESCE(CAST(service_contact_ AS NUMERIC), 0)) as total_revenue
-                     FROM sales2025 WHERE LOWER(description) LIKE '%overhaul%' AND LOWER(description) LIKE '%compressor%'
-                     ORDER BY year"""
-        
-        # If we have month and year info, use job_no pattern matching
-        if month_info.get('year_short') and month_info.get('month'):
-            year_short = month_info['year_short']
-            month = month_info['month']
-            table = f"sales20{year_short}"
-            
-            return f"""SELECT job_no, customer_name, description, 
-                      CAST(service_contact_ AS NUMERIC) as revenue,
-                      CAST(overhaul_ AS NUMERIC) as overhaul,
-                      CAST(replacement AS NUMERIC) as replacement
-                      FROM {table}
-                      WHERE job_no LIKE '%{year_short}-{month}-%'
-                      AND (service_contact_ IS NOT NULL OR overhaul_ IS NOT NULL OR replacement IS NOT NULL)
-                      ORDER BY job_no"""
-        
-        # Otherwise use standard fallback
-        return self._get_fallback_sql(intent)
-    
-    async def _generate_natural_response(self, question: str, sql_results: List[Dict], sql_query: str, tenant_id: str) -> str:
-        """Generate natural language response using NL model with smart optimization"""
-        try:
-            self.stats['nl_responses'] += 1
-            
-            if not sql_results:
-                return f"ไม่พบข้อมูลสำหรับคำถาม: {question}"
-            
-            # Smart response strategy based on data size
-            if len(sql_results) > 20:
-                # For large datasets, use structured response immediately to save time
-                logger.info("Large dataset detected, using structured response for speed")
-                return self._get_structured_response(question, sql_results)
-            
-            # Create concise data summary for faster processing
-            data_summary = self._create_smart_summary(sql_results, question)
-            
-            # Use ultra-short prompt for speed
-            nl_prompt = f"""คำถาม: {question}
-ข้อมูล: {data_summary}
-
-ตอบสั้นๆ ในภาษาไทย:"""
-            
-            # Use shorter timeout for faster response
-            nl_response = await asyncio.wait_for(
-                self.ollama_client.generate_response(
-                    model=self.NL_MODEL,
-                    prompt=nl_prompt,
-                    temperature=0.5  # Lower temperature for faster, more focused response
-                ),
-                timeout=6  # Very short timeout
-            )
-            
-            return nl_response.strip() if nl_response else self._get_universal_structured_response(question, sql_results)
-            
-        except asyncio.TimeoutError:
-            logger.info("NL generation timeout (6s), using universal structured response")
-            return self._get_universal_structured_response(question, sql_results)
-        except Exception as e:
-            logger.error(f"NL response generation failed: {e}")
-            return self._get_universal_structured_response(question, sql_results)
-    
-    def _create_smart_summary(self, results: List[Dict], question: str) -> str:
-        """Create smart data summary based on question type"""
-        if not results:
-            return "ไม่พบข้อมูล"
-        
-        # For sales analysis - focus on numbers
-        if any(word in question.lower() for word in ['ยอดขาย', 'เปรียบเทียบ', 'วิเคราะห์']):
-            if len(results) <= 5:
-                return f"Sales data: {results}"
-            else:
-                return f"Sales summary: {len(results)} records, sample: {results[:2]}"
-        
-        # For spare parts - focus on product info  
-        elif any(word in question.lower() for word in ['อะไหล่', 'spare', 'parts']):
-            if len(results) <= 10:
-                return f"Parts found: {results[:5]}"
-            else:
-                return f"Found {len(results)} parts, top items: {results[:3]}"
-        
-        # Generic summary
-        else:
-            return f"{len(results)} records: {results[:2] if len(results) > 2 else results}"
-    
-    def _get_optimized_structured_response(self, question: str, results: List[Dict]) -> str:
-        """Enhanced structured response with complete business data"""
-        if not results:
-            return f"ไม่พบข้อมูลสำหรับคำถาม: {question}"
-        
-        # Overhaul analysis response
-        if any(word in question.lower() for word in ['overhaul', 'ยกเครื่อง', 'compressor']):
-            response = f"รายละเอียดงาน Overhaul: {question}\n\nพบ {len(results)} รายการ\n\n"
-            
-            total_value = 0
-            for i, result in enumerate(results, 1):
-                job_no = result.get('job_no', 'N/A')
-                customer = result.get('customer_name', 'N/A')
-                description = result.get('description', 'N/A')
-                
-                # Try different price fields
-                price = (result.get('total_overhaul') or 
-                        result.get('overhaul_cost') or 
-                        result.get('overhaul_') or 
-                        result.get('service_contact_') or 0)
-                
-                if price:
-                    total_value += float(price)
-                    response += f"{i}. {job_no}\n   ลูกค้า: {customer}\n   งาน: {description}\n   มูลค่า: {price:,.0f} บาท\n\n"
-                else:
-                    response += f"{i}. {job_no}\n   ลูกค้า: {customer}\n   งาน: {description}\n   มูลค่า: ไม่ระบุ\n\n"
-            
-            if total_value > 0:
-                response += f"รวมมูลค่าทั้งหมด: {total_value:,.0f} บาท"
-            else:
-                response += "หมายเหตุ: ไม่พบข้อมูลมูลค่างานในระบบ อาจต้องตรวจสอบข้อมูลเพิ่มเติม"
-            
-            return response
-        
-        # Sales analysis response
-        elif any(word in question.lower() for word in ['ยอดขาย', 'เปรียบเทียบ', 'วิเคราะห์']):
-            response = f"การวิเคราะห์ยอดขาย: {question}\n\n"
-            
-            total_jobs = 0
-            total_revenue = 0
-            
-            for result in results:
-                year = result.get('year', 'N/A')
-                jobs = result.get('jobs', 0) 
-                revenue = result.get('revenue') or result.get('total_overhaul') or 0
-                avg_per_job = revenue / jobs if jobs > 0 else 0
-                
-                total_jobs += jobs
-                total_revenue += revenue
-                
-                if revenue > 0:
-                    response += f"ปี {year}: {jobs:,} งาน, รายได้ {revenue:,.0f} บาท (เฉลี่ย {avg_per_job:,.0f} บาท/งาน)\n"
-                else:
-                    response += f"ปี {year}: {jobs:,} งาน, ไม่พบข้อมูลรายได้\n"
-            
-            if total_revenue > 0:
-                response += f"\nสรุปรวม: {total_jobs:,} งาน, รายได้รวม {total_revenue:,.0f} บาท"
-            else:
-                response += f"\nสรุปรวม: {total_jobs:,} งาน, ข้อมูลรายได้ไม่สมบูรณ์"
-            
-            return response
-        
-        # Spare parts response  
-        elif any(word in question.lower() for word in ['อะไหล่', 'spare', 'parts']):
-            response = f"ผลการค้นหาอะไหล่: {question}\n\nพบ {len(results)} รายการ\n\n"
-            
-            for i, result in enumerate(results[:5], 1):
-                name = result.get('product_name', 'N/A')
-                code = result.get('product_code', 'N/A')
-                price = result.get('price') or result.get('unit_price', 0)
-                balance = result.get('balance', 0)
-                description = result.get('description', '')
-                
-                response += f"{i}. {name} ({code})\n"
-                if price:
-                    response += f"   ราคา: {price:,.0f} บาท"
-                if balance:
-                    response += f" | คงเหลือ: {balance} ชิ้น"
-                if description:
-                    response += f"\n   รายละเอียด: {description}"
-                response += "\n\n"
-            
-            if len(results) > 5:
-                response += f"... และอีก {len(results) - 5} รายการ"
-            
-            return response
-        
-        # Customer analysis response
-        elif any(word in question.lower() for word in ['ลูกค้า', 'customer', 'บริษัท']):
-            if len(results) == 1 and 'total_customers' in results[0]:
-                # Customer count query
-                count = results[0]['total_customers']
-                return f"จำนวนลูกค้าทั้งหมด: {count:,} ราย"
-            else:
-                # Customer details
-                response = f"ข้อมูลลูกค้า: {question}\n\nพบ {len(results)} รายการ\n\n"
-                
-                total_value = 0
-                for i, result in enumerate(results[:10], 1):
-                    job_no = result.get('job_no', 'N/A')
-                    customer = result.get('customer_name', 'N/A')
-                    description = result.get('description', 'N/A')
-                    value = result.get('value') or result.get('service_contact_') or 0
-                    
-                    response += f"{i}. {job_no} | {customer}\n   งาน: {description}"
-                    if value:
-                        total_value += float(value)
-                        response += f"\n   มูลค่า: {value:,.0f} บาท"
-                    response += "\n\n"
-                
-                if total_value > 0:
-                    response += f"รวมมูลค่าทั้งหมด: {total_value:,.0f} บาท"
-                
-                return response
-        
-        # Generic response
-        else:
-            response = f"ผลการค้นหา: {question}\n\nพบ {len(results)} รายการ\n\n"
-            for i, result in enumerate(results[:5], 1):
-                response += f"{i}. "
-                key_values = list(result.items())[:4]  # Show first 4 fields
-                response += ", ".join(f"{k}: {v}" for k, v in key_values)
-                response += "\n"
-            
-            if len(results) > 5:
-                response += f"\n... และอีก {len(results) - 5} รายการ"
-            
-            return response
-    
-    def _get_structured_response(self, question: str, results: List[Dict]) -> str:
-        """Generate structured response when NL model is not used"""
-        return self._get_universal_structured_response(question, results)
-    
-    async def process_any_question(self, question: str, tenant_id: str) -> Dict[str, Any]:
-        """Main entry point for processing questions with optimized dual-model approach"""
+    async def process_any_question(self, question: str, tenant_id: str = 'company-a', 
+                                   user_id: str = 'default') -> Dict[str, Any]:
+        """Main entry point for processing questions"""
         start_time = time.time()
         self.stats['total_queries'] += 1
         
         try:
-            logger.info(f"Processing question with Optimized Dual-Model AI: {question[:50]}...")
+            logger.info(f"\n{'='*60}")
+            logger.info(f"🎯 Processing: {question}")
+            logger.info(f"👤 User: {user_id} | 🏢 Tenant: {tenant_id}")
             
-            # Step 1: Quick intent classification
-            intent = self._classify_question_intent(question)
-            logger.info(f"Question intent classified as: {intent}")
+            # 1. Get conversation context
+            context = {}
+            if self.enable_conversation_memory:
+                context = self.conversation_memory.get_context(user_id, question)
+                logger.info(f"💭 Context: {context['conversation_count']} previous conversations")
             
-            # Step 2: Generate SQL query using specialized model (with caching)
-            sql_query = await self._generate_sql_query(question, intent, tenant_id)
-            logger.info(f"Generated SQL: {sql_query}")
-            
-            # Step 3: Execute SQL query
-            sql_results = await self.db_handler.execute_query(sql_query, tenant_id)
-            logger.info(f"SQL execution returned {len(sql_results)} results")
-            
-            # Step 4: Generate natural language response (optimized)
-            if self.enable_parallel and len(sql_results) > 0:
-                # Use optimized NL generation
-                nl_response = await self._generate_natural_response(question, sql_results, sql_query, tenant_id)
+            # 2. Parallel analysis of question
+            if self.enable_parallel_processing:
+                analysis = await self.parallel_processor.parallel_analyze(question, context)
             else:
-                # Use universal structured response that adapts to data structure
-                nl_response = self._get_universal_structured_response(question, sql_results)
+                analysis = await self._sequential_analysis(question, context)
             
-            # Step 5: Prepare final response
+            intent = analysis.get('intent', {}).get('primary', 'general')
+            entities = analysis.get('entities', {})
+            thai_converted = analysis.get('thai_conversion', question)
+            complexity = analysis.get('query_complexity', 'simple')
+            
+            logger.info(f"📊 Analysis: intent={intent}, complexity={complexity}")
+            logger.info(f"🔍 Entities: {entities}")
+            
+            # 3. Generate and validate SQL
+            sql_query = await self._generate_enhanced_sql(
+                thai_converted or question,
+                intent,
+                entities,
+                context,
+                complexity
+            )
+            
+            if not sql_query:
+                raise ValueError("Failed to generate valid SQL query")
+            
+            logger.info(f"📝 SQL Generated: {sql_query[:100]}...")
+            
+            # 4. Execute query with optional cleaning
+            raw_results = await self.db_handler.execute_query(sql_query, tenant_id)
+            
+            if self.enable_data_cleaning:
+                results = self.data_cleaner.clean_query_results(raw_results, sql_query)
+                cleaning_stats = self.data_cleaner.get_cleaning_stats()
+                self.data_cleaner.reset_stats()
+            else:
+                results = raw_results
+                cleaning_stats = {}
+            
+            logger.info(f"📊 Results: {len(results)} rows")
+            if cleaning_stats:
+                logger.info(f"🧹 Cleaning: {cleaning_stats}")
+            
+            # 5. Generate natural language response
+            answer = await self._generate_natural_response(
+                question,
+                results,
+                sql_query,
+                intent,
+                cleaning_stats
+            )
+            
+            # 6. Prepare response
             processing_time = time.time() - start_time
-            success = len(sql_results) > 0
-            
-            if success:
-                self.stats['successful_queries'] += 1
-            
-            # Update average response time
-            total_time = self.stats['avg_response_time'] * (self.stats['total_queries'] - 1) + processing_time
-            self.stats['avg_response_time'] = total_time / self.stats['total_queries']
-            
-            return {
-                'answer': nl_response,
-                'success': success,
+            response = {
+                'answer': answer,
+                'success': True,
                 'sql_query': sql_query,
-                'results_count': len(sql_results),
+                'results_count': len(results),
+                'tenant_id': tenant_id,
+                'user_id': user_id,
+                'intent': intent,
+                'entities': entities,
                 'processing_time': processing_time,
-                'ai_system_used': 'dual_model_optimized',
-                'question_analysis': {
-                    'intent': intent,
-                    'tenant_id': tenant_id,
-                    'optimization': 'enabled',
-                    'cache_used': self.stats['cache_hits'] > 0,
-                    'models_used': {
-                        'sql_generation': self.SQL_MODEL,
-                        'nl_generation': self.NL_MODEL
-                    }
-                },
-                'models_used': {
-                    'sql_model': self.SQL_MODEL,
-                    'nl_model': self.NL_MODEL
-                },
-                'performance_stats': {
-                    'avg_response_time': self.stats['avg_response_time'],
-                    'cache_hit_rate': self.stats['cache_hits'] / max(self.stats['sql_generated'], 1) * 100,
-                    'success_rate': self.stats['successful_queries'] / max(self.stats['total_queries'], 1) * 100
+                'ai_system': 'dual_model_dynamic',
+                'features_used': {
+                    'conversation_memory': self.enable_conversation_memory,
+                    'parallel_processing': self.enable_parallel_processing,
+                    'data_cleaning': self.enable_data_cleaning,
+                    'sql_validation': self.enable_sql_validation
                 }
             }
             
+            if cleaning_stats:
+                response['data_quality'] = cleaning_stats
+            
+            # 7. Update conversation memory
+            if self.enable_conversation_memory:
+                self.conversation_memory.add_conversation(user_id, question, response)
+            
+            # 8. Update statistics
+            self.stats['successful_queries'] += 1
+            self._update_avg_response_time(processing_time)
+            
+            logger.info(f"✅ Completed in {processing_time:.2f}s")
+            logger.info(f"{'='*60}\n")
+            
+            return response
+            
         except Exception as e:
-            logger.error(f"Optimized dual-model processing failed: {e}")
+            logger.error(f"❌ Processing failed: {e}")
             processing_time = time.time() - start_time
             
             return {
-                'answer': f"เกิดข้อผิดพลาดในการประมวลผล: {str(e)}\n\nกรุณาลองใหม่อีกครั้งหรือติดต่อผู้ดูแลระบบ",
+                'answer': f"ขออภัย เกิดข้อผิดพลาดในการประมวลผล: {str(e)}",
                 'success': False,
-                'sql_query': None,
-                'results_count': 0,
+                'error': str(e),
                 'processing_time': processing_time,
-                'ai_system_used': 'dual_model_error',
-                'error': str(e)
+                'ai_system': 'dual_model_dynamic'
             }
+    
+    async def _generate_enhanced_sql(self, question: str, intent: str, entities: Dict,
+                                    context: Dict, complexity: str) -> str:
+        """Generate SQL with validation and optimization"""
+        
+        # Check cache
+        cache_key = hashlib.md5(f"{intent}_{entities}_{question}".encode()).hexdigest()
+        if cache_key in self.sql_cache:
+            self.stats['cache_hits'] += 1
+            logger.info("📋 Using cached SQL")
+            return self.sql_cache[cache_key]
+        
+        # Check for successful patterns in memory
+        if self.enable_conversation_memory:
+            pattern_key = f"{intent}_{json.dumps(entities, sort_keys=True)}"
+            if pattern_key in self.conversation_memory.successful_patterns:
+                patterns = self.conversation_memory.successful_patterns[pattern_key]
+                if patterns:
+                    logger.info("📋 Using successful pattern from memory")
+                    return patterns[-1]  # Use most recent successful pattern
+        
+        # Generate new SQL with retry logic
+        max_attempts = 2
+        for attempt in range(max_attempts):
+            try:
+                # Build comprehensive prompt
+                prompt = self._build_enhanced_sql_prompt(
+                    question, intent, entities, context, complexity, attempt
+                )
+                
+                # Generate SQL
+                sql_response = await self.ollama_client.generate_response(
+                    self.SQL_MODEL,
+                    prompt,
+                    temperature=0.1  # Low temperature for consistency
+                )
+                
+                sql_query = self._clean_sql_response(sql_response)
+                
+                # Validate if enabled
+                if self.enable_sql_validation:
+                    is_valid, error_msg = self._validate_sql_query(sql_query)
+                    if is_valid:
+                        # Cache successful SQL
+                        self.sql_cache[cache_key] = sql_query
+                        return sql_query
+                    else:
+                        logger.warning(f"SQL validation failed (attempt {attempt + 1}): {error_msg}")
+                        if attempt < max_attempts - 1:
+                            continue
+                else:
+                    return sql_query
+                    
+            except Exception as e:
+                logger.error(f"SQL generation attempt {attempt + 1} failed: {e}")
+        
+        # Fallback to safe SQL
+        logger.warning("Using fallback SQL")
+        return self._get_fallback_sql(intent, entities)
+    
+    def _build_enhanced_sql_prompt(self, question: str, intent: str, entities: Dict,
+                                  context: Dict, complexity: str, attempt: int) -> str:
+        """Build comprehensive prompt for SQL generation"""
+        
+        # Find relevant examples
+        examples = self._find_relevant_examples(intent, question)
+        
+        prompt = f"""You are an expert PostgreSQL developer for an HVAC business database.
 
-class EnhancedUnifiedPostgresOllamaAgent:
-    """Main agent class that provides the interface for the chatbot system"""
+=== DATABASE SCHEMA ===
+Tables available:
+- sales2022, sales2023, sales2024, sales2025: Sales and service records
+  Columns: id, job_no (pattern: SVyy-mm-xxx), customer_name, description,
+           overhaul_ (TEXT - needs CAST), replacement (TEXT - needs CAST),
+           service_contact_ (TEXT - needs CAST)
+           
+- spare_part, spare_part2: Spare parts inventory
+  Columns: id, product_code, product_name, unit, balance (TEXT - needs CAST),
+           unit_price (TEXT - needs CAST)
+           
+- work_force: Work team management
+  Columns: id, date, customer, service_group, 
+           job_description_pm (BOOLEAN), job_description_overhaul (BOOLEAN)
+
+=== CRITICAL RULES ===
+1. Revenue fields (overhaul_, replacement, service_contact_) are TEXT type
+   MUST use: COALESCE(CAST(field AS NUMERIC), 0) for all calculations
+   
+2. For boolean fields: Use field = true/false for conditions
+   For counting: SUM(CASE WHEN field = true THEN 1 ELSE 0 END)
+   
+3. Text search: Use ILIKE for case-insensitive matching
+4. Always include meaningful column aliases
+
+=== EXAMPLES ==="""
+        
+        # Add relevant examples
+        for i, example in enumerate(examples[:3], 1):
+            prompt += f"\n\nExample {i}:"
+            prompt += f"\nQuestion: {example['question']}"
+            prompt += f"\nSQL: {example['sql']}"
+        
+        # Add context if available
+        if context.get('recent_queries'):
+            prompt += f"\n\n=== CONVERSATION CONTEXT ==="
+            prompt += f"\nRecent queries: {context['recent_queries'][-2:]}"
+        
+        prompt += f"""
+
+=== YOUR TASK ===
+Question: {question}
+Intent: {intent}
+Entities: {json.dumps(entities, ensure_ascii=False)}
+Complexity: {complexity}
+
+Generate PostgreSQL query that correctly answers the question.
+Return ONLY the SQL query, no explanations."""
+        
+        if attempt > 0:
+            prompt += "\n\nPrevious attempt had validation errors. Be more careful with:"
+            prompt += "\n- CAST for TEXT numeric fields"
+            prompt += "\n- Proper NULL handling with COALESCE"
+            prompt += "\n- Boolean field syntax"
+        
+        return prompt
     
-    def __init__(self):
-        try:
-            # Initialize the dual-model system
-            self.dual_model_ai = DualModelDynamicAISystem()
-            
-            # Initialize basic stats
-            self.stats = {
-                'total_queries': 0,
-                'successful_queries': 0,
-                'failed_queries': 0,
-                'avg_response_time': 0.0
-            }
-            
-            logger.info("Enhanced Unified PostgreSQL Ollama Agent initialized successfully")
-            logger.info("✅ Dual-Model Dynamic AI System ready")
-            
-        except Exception as e:
-            logger.error(f"Failed to initialize Enhanced Agent: {e}")
-            raise
+    def _validate_sql_query(self, sql: str) -> Tuple[bool, Optional[str]]:
+        """Validate generated SQL query"""
+        if not sql:
+            return False, "Empty SQL query"
+        
+        sql_upper = sql.upper()
+        
+        # Check basic structure
+        if 'SELECT' not in sql_upper:
+            return False, "Missing SELECT statement"
+        if 'FROM' not in sql_upper:
+            return False, "Missing FROM clause"
+        
+        # Check for proper CAST usage with numeric TEXT fields
+        numeric_fields = ['overhaul_', 'replacement', 'service_contact_', 'balance', 'unit_price']
+        for field in numeric_fields:
+            if field in sql.lower():
+                # Check if used in aggregation without CAST
+                patterns = [f'SUM({field})', f'AVG({field})', f'MAX({field})', f'MIN({field})']
+                for pattern in patterns:
+                    if pattern.upper() in sql_upper:
+                        if f'CAST({field}' not in sql:
+                            return False, f"Field {field} needs CAST for aggregation"
+        
+        # Check for SQL injection attempts
+        dangerous_keywords = ['DROP', 'DELETE', 'INSERT', 'UPDATE', 'ALTER', 'CREATE']
+        for keyword in dangerous_keywords:
+            if keyword in sql_upper:
+                return False, f"Dangerous keyword detected: {keyword}"
+        
+        # Check parentheses balance
+        if sql.count('(') != sql.count(')'):
+            return False, "Unbalanced parentheses"
+        
+        return True, None
     
-    async def process_any_question(self, question: str, tenant_id: str) -> Dict[str, Any]:
-        """Main entry point for question processing"""
-        try:
-            # Update stats
-            self.stats['total_queries'] += 1
+    def _clean_sql_response(self, response: str) -> str:
+        """Clean SQL response from LLM"""
+        if not response:
+            return ""
+        
+        sql = response.strip()
+        
+        # Remove markdown code blocks
+        sql = re.sub(r'```sql\s*', '', sql, flags=re.IGNORECASE)
+        sql = re.sub(r'```\s*', '', sql)
+        
+        # Find the SQL query
+        lines = sql.split('\n')
+        sql_lines = []
+        in_sql = False
+        
+        for line in lines:
+            line_stripped = line.strip()
+            if line_stripped.upper().startswith('SELECT'):
+                in_sql = True
             
-            # Process using dual-model system
-            result = await self.dual_model_ai.process_any_question(question, tenant_id)
-            
-            # Update stats based on result
-            if result.get('success'):
-                self.stats['successful_queries'] += 1
-            else:
-                self.stats['failed_queries'] += 1
-            
-            # Update average response time
-            if 'processing_time' in result:
-                total_time = self.stats['avg_response_time'] * (self.stats['total_queries'] - 1) + result['processing_time']
-                self.stats['avg_response_time'] = total_time / self.stats['total_queries']
-            
-            return result
-            
-        except Exception as e:
-            self.stats['failed_queries'] += 1
-            logger.error(f"Question processing failed: {e}")
-            
-            return {
-                'answer': f"เกิดข้อผิดพลาดในการประมวลผลคำถาม: {str(e)}\n\nกรุณาลองใหม่อีกครั้ง",
-                'success': False,
-                'sql_query': None,
-                'results_count': 0,
-                'ai_system_used': 'error_handler',
-                'error': str(e)
-            }
+            if in_sql:
+                sql_lines.append(line)
+                if ';' in line:
+                    break
+        
+        sql = '\n'.join(sql_lines).strip().rstrip(';')
+        
+        # Final cleanup
+        sql = ' '.join(sql.split())
+        
+        return sql
     
-    async def process_enhanced_question(self, question: str, tenant_id: str) -> Dict[str, Any]:
-        """Compatibility method - redirects to process_any_question"""
-        return await self.process_any_question(question, tenant_id)
+    def _get_fallback_sql(self, intent: str, entities: Dict) -> str:
+        """Get safe fallback SQL based on intent"""
+        year = entities.get('years', ['2024'])[0] if entities.get('years') else '2024'
+        table = f"sales{year}"
+        
+        fallback_queries = {
+            'revenue_analysis': f"""
+                SELECT 
+                    COALESCE(SUM(CAST(overhaul_ AS NUMERIC)), 0) as overhaul_total,
+                    COALESCE(SUM(CAST(replacement AS NUMERIC)), 0) as replacement_total,
+                    COALESCE(SUM(CAST(service_contact_ AS NUMERIC)), 0) as service_total
+                FROM {table}
+            """,
+            'customer_ranking': f"""
+                SELECT 
+                    customer_name,
+                    COALESCE(SUM(CAST(service_contact_ AS NUMERIC)), 0) as total_revenue
+                FROM {table}
+                WHERE customer_name IS NOT NULL
+                GROUP BY customer_name
+                ORDER BY total_revenue DESC
+                LIMIT 5
+            """,
+            'spare_parts': """
+                SELECT 
+                    product_code,
+                    product_name,
+                    CAST(balance AS NUMERIC) as stock_balance
+                FROM spare_part
+                WHERE balance IS NOT NULL
+                ORDER BY CAST(balance AS NUMERIC) DESC
+                LIMIT 10
+            """,
+            'team_analysis': """
+                SELECT 
+                    service_group,
+                    COUNT(*) as total_jobs,
+                    SUM(CASE WHEN job_description_pm = true THEN 1 ELSE 0 END) as pm_jobs
+                FROM work_force
+                WHERE service_group IS NOT NULL
+                GROUP BY service_group
+                ORDER BY total_jobs DESC
+                LIMIT 10
+            """
+        }
+        
+        # Return appropriate fallback or generic query
+        return fallback_queries.get(intent, f"SELECT COUNT(*) as total FROM {table}")
     
-    def get_system_stats(self) -> Dict[str, Any]:
-        """Get comprehensive system statistics with performance metrics"""
-        return {
-            'agent_stats': self.stats,
-            'dual_model_stats': self.dual_model_ai.stats,
-            'performance_metrics': {
-                'avg_response_time': self.dual_model_ai.stats.get('avg_response_time', 0),
-                'cache_hit_rate': self.dual_model_ai.stats.get('cache_hits', 0) / max(self.dual_model_ai.stats.get('sql_generated', 1), 1) * 100,
-                'success_rate': self.dual_model_ai.stats.get('successful_queries', 0) / max(self.dual_model_ai.stats.get('total_queries', 1), 1) * 100,
-                'sql_cache_size': len(self.dual_model_ai.sql_cache),
-                'optimization_enabled': self.dual_model_ai.enable_parallel
+    async def _generate_natural_response(self, question: str, results: List[Dict],
+                                        sql_query: str, intent: str,
+                                        cleaning_stats: Dict) -> str:
+        """Generate natural language response from results"""
+        
+        if not results:
+            return "ไม่พบข้อมูลตามที่ต้องการ กรุณาลองเปลี่ยนเงื่อนไขการค้นหา"
+        
+        # For simple queries, use template-based response
+        if len(results) == 1 and len(results[0]) <= 3:
+            return self._generate_simple_response(results[0], question, cleaning_stats)
+        
+        # For complex results, optionally use LLM
+        use_llm_response = os.getenv('USE_LLM_RESPONSE', 'true').lower() == 'true'
+        
+        if use_llm_response:
+            try:
+                prompt = f"""Based on this data, answer the question in Thai:
+                
+Question: {question}
+Data: {json.dumps(results[:10], ensure_ascii=False, default=str)}
+                
+Provide a clear, concise answer in Thai. Include numbers and key insights."""
+                
+                response = await self.ollama_client.generate_response(
+                    self.NL_MODEL,
+                    prompt,
+                    temperature=0.3
+                )
+                
+                if response:
+                    return response
+                    
+            except Exception as e:
+                logger.warning(f"LLM response generation failed: {e}")
+        
+        # Fallback to structured response
+        return self._generate_structured_response(results, intent, question, cleaning_stats)
+    
+    def _generate_simple_response(self, result: Dict, question: str, cleaning_stats: Dict) -> str:
+        """Generate response for simple aggregate queries"""
+        
+        # Extract values
+        values = {}
+        for key, value in result.items():
+            if isinstance(value, (int, float)):
+                values[key] = value
+            elif isinstance(value, str) and value.replace('.', '').replace('-', '').isdigit():
+                values[key] = float(value)
+        
+        # Build response based on column names
+        response_parts = []
+        
+        if 'overhaul_total' in values:
+            response_parts.append(f"💰 ยอด Overhaul: {values['overhaul_total']:,.2f} บาท")
+        
+        if 'replacement_total' in values:
+            response_parts.append(f"🔧 ยอด Replacement: {values['replacement_total']:,.2f} บาท")
+        
+        if 'service_total' in values:
+            response_parts.append(f"🛠️ ยอด Service: {values['service_total']:,.2f} บาท")
+        
+        if 'total_revenue' in values:
+            response_parts.append(f"💵 ยอดรวม: {values['total_revenue']:,.2f} บาท")
+        
+        if 'count' in values or 'total' in values:
+            count = values.get('count', values.get('total', 0))
+            response_parts.append(f"📊 จำนวน: {int(count)} รายการ")
+        
+        if response_parts:
+            response = '\n'.join(response_parts)
+            
+            if cleaning_stats.get('nulls_converted', 0) > 0:
+                response += f"\n\n✅ หมายเหตุ: แปลงค่า NULL เป็น 0 จำนวน {cleaning_stats['nulls_converted']} รายการ"
+            
+            return response
+        
+        # Generic response
+        return f"พบข้อมูล: {json.dumps(result, ensure_ascii=False, default=str)}"
+    
+    def _generate_structured_response(self, results: List[Dict], intent: str,
+                                     question: str, cleaning_stats: Dict) -> str:
+        """Generate structured response for complex results"""
+        
+        response = f"📊 พบข้อมูล {len(results)} รายการ\n\n"
+        
+        # Show top results based on intent
+        if 'ranking' in intent or 'top' in question.lower():
+            for i, row in enumerate(results[:5], 1):
+                # Find the main identifier
+                name = (row.get('customer_name') or row.get('product_name') or 
+                       row.get('service_group') or f"Item {i}")
+                
+                # Find the main value
+                value = (row.get('total_revenue') or row.get('total') or 
+                        row.get('balance') or 0)
+                
+                response += f"{i}. {name}: {value:,.2f}\n"
+        
+        elif 'spare' in intent or 'part' in question.lower():
+            for i, row in enumerate(results[:10], 1):
+                product = row.get('product_name', 'Unknown')
+                balance = row.get('balance', 0)
+                response += f"{i}. {product}: {balance} units\n"
+        
+        else:
+            # Generic table display
+            if results:
+                # Show first 3 rows
+                for i, row in enumerate(results[:3], 1):
+                    response += f"\nรายการ {i}:\n"
+                    for key, value in row.items():
+                        if value is not None and value != '':
+                            response += f"  - {key}: {value}\n"
+        
+        if cleaning_stats:
+            response += f"\n📈 Data Quality: {cleaning_stats}"
+        
+        return response
+    
+    def _find_relevant_examples(self, intent: str, question: str) -> List[Dict]:
+        """Find relevant SQL examples based on intent and question"""
+        relevant = []
+        question_lower = question.lower()
+        
+        for example in self.sql_examples:
+            score = 0
+            
+            # Check intent match
+            if example.get('intent') == intent:
+                score += 3
+            
+            # Check keyword overlap
+            example_keywords = example.get('keywords', [])
+            for keyword in example_keywords:
+                if keyword in question_lower:
+                    score += 1
+            
+            if score > 0:
+                relevant.append((score, example))
+        
+        # Sort by relevance and return top examples
+        relevant.sort(key=lambda x: x[0], reverse=True)
+        return [ex[1] for ex in relevant[:3]]
+    
+    def _load_sql_examples(self) -> List[Dict]:
+        """Load proven SQL examples"""
+        return [
+            {
+                'intent': 'revenue_analysis',
+                'keywords': ['ยอด', 'รวม', 'total', 'sum'],
+                'question': 'ยอดรวม overhaul ปี 2024',
+                'sql': """SELECT 
+                    COALESCE(SUM(CAST(overhaul_ AS NUMERIC)), 0) as overhaul_total,
+                    COUNT(CASE WHEN overhaul_ IS NOT NULL THEN 1 END) as job_count
+                FROM sales2024"""
             },
-            'system_info': {
-                'sql_model': self.dual_model_ai.SQL_MODEL,
-                'nl_model': self.dual_model_ai.NL_MODEL,
-                'ollama_url': self.dual_model_ai.ollama_client.base_url,
-                'timeout_settings': {
-                    'sql_timeout': self.dual_model_ai.timeout_sql,
-                    'nl_timeout': self.dual_model_ai.timeout_nl
-                }
+            {
+                'intent': 'customer_ranking',
+                'keywords': ['ลูกค้า', 'อันดับ', 'top', 'สูงสุด'],
+                'question': 'ลูกค้า 5 อันดับแรก',
+                'sql': """SELECT 
+                    customer_name,
+                    COALESCE(SUM(CAST(service_contact_ AS NUMERIC)), 0) as total_revenue
+                FROM sales2024
+                WHERE customer_name IS NOT NULL
+                GROUP BY customer_name
+                ORDER BY total_revenue DESC
+                LIMIT 5"""
+            },
+            {
+                'intent': 'spare_parts',
+                'keywords': ['อะไหล่', 'spare', 'part', 'คลัง'],
+                'question': 'อะไหล่คงเหลือ',
+                'sql': """SELECT 
+                    product_code,
+                    product_name,
+                    CAST(balance AS NUMERIC) as stock_balance,
+                    CAST(unit_price AS NUMERIC) as price
+                FROM spare_part
+                ORDER BY CAST(balance AS NUMERIC) DESC
+                LIMIT 10"""
+            },
+            {
+                'intent': 'team_analysis',
+                'keywords': ['ทีม', 'team', 'งาน', 'pm'],
+                'question': 'ทีมที่ทำงาน PM มากที่สุด',
+                'sql': """SELECT 
+                    service_group,
+                    COUNT(*) as total_jobs,
+                    SUM(CASE WHEN job_description_pm = true THEN 1 ELSE 0 END) as pm_jobs
+                FROM work_force
+                WHERE service_group IS NOT NULL
+                GROUP BY service_group
+                ORDER BY pm_jobs DESC"""
+            },
+            {
+                'intent': 'comparison',
+                'keywords': ['เปรียบเทียบ', 'compare', 'ระหว่าง'],
+                'question': 'เปรียบเทียบปี 2024 กับ 2025',
+                'sql': """SELECT 
+                    '2024' as year,
+                    COALESCE(SUM(CAST(overhaul_ AS NUMERIC)), 0) as total
+                FROM sales2024
+                UNION ALL
+                SELECT 
+                    '2025' as year,
+                    COALESCE(SUM(CAST(overhaul_ AS NUMERIC)), 0) as total
+                FROM sales2025"""
             }
+        ]
+    
+    async def _sequential_analysis(self, question: str, context: Dict) -> Dict:
+        """Fallback sequential analysis when parallel processing is disabled"""
+        return {
+            'intent': await self.parallel_processor._analyze_intent(question, context),
+            'entities': await self.parallel_processor._extract_entities(question),
+            'thai_conversion': await self.parallel_processor._convert_thai_text(question),
+            'query_complexity': await self.parallel_processor._analyze_complexity(question),
+            'business_context': await self.parallel_processor._extract_business_context(question)
         }
     
-    def clear_cache(self):
-        """Clear SQL and schema cache for fresh start"""
-        self.dual_model_ai.sql_cache.clear()
-        self.dual_model_ai.schema_cache.clear()
-        logger.info("Dual-Model caches cleared")
+    def _update_avg_response_time(self, new_time: float):
+        """Update average response time"""
+        total = self.stats['avg_response_time'] * (self.stats['successful_queries'] - 1)
+        self.stats['avg_response_time'] = (total + new_time) / self.stats['successful_queries']
+    
+    def get_system_stats(self) -> Dict[str, Any]:
+        """Get comprehensive system statistics"""
+        cache_hit_rate = 0
+        if self.stats['total_queries'] > 0:
+            cache_hit_rate = (self.stats['cache_hits'] / self.stats['total_queries']) * 100
+        
+        return {
+            'performance': {
+                'total_queries': self.stats['total_queries'],
+                'successful_queries': self.stats['successful_queries'],
+                'success_rate': (self.stats['successful_queries'] / max(self.stats['total_queries'], 1)) * 100,
+                'cache_hit_rate': cache_hit_rate,
+                'avg_response_time': self.stats['avg_response_time']
+            },
+            'features': {
+                'conversation_memory': self.enable_conversation_memory,
+                'parallel_processing': self.enable_parallel_processing,
+                'data_cleaning': self.enable_data_cleaning,
+                'sql_validation': self.enable_sql_validation
+            },
+            'models': {
+                'sql_generation': self.SQL_MODEL,
+                'response_generation': self.NL_MODEL
+            }
+        }
 
 # =============================================================================
-# EXPORT FOR BACKWARDS COMPATIBILITY
+# UNIFIED AGENT CLASS (for compatibility)
 # =============================================================================
 
-# These aliases ensure compatibility with different import patterns
-UnifiedEnhancedPostgresOllamaAgent = EnhancedUnifiedPostgresOllamaAgent
-DualModelDynamicAgent = EnhancedUnifiedPostgresOllamaAgent
+class UnifiedEnhancedPostgresOllamaAgent:
+    """Unified agent class for backward compatibility"""
+    
+    def __init__(self):
+        self.dual_model_ai = DualModelDynamicAISystem()
+        logger.info("✅ Unified Enhanced PostgreSQL Ollama Agent initialized")
+    
+    async def process_any_question(self, question: str, tenant_id: str = 'company-a',
+                                   user_id: str = 'default') -> Dict[str, Any]:
+        """Process question using dual model system"""
+        return await self.dual_model_ai.process_any_question(question, tenant_id, user_id)
+    
+    def get_system_stats(self) -> Dict[str, Any]:
+        """Get system statistics"""
+        return self.dual_model_ai.get_system_stats()
+
+# Aliases for compatibility
+EnhancedUnifiedPostgresOllamaAgent = UnifiedEnhancedPostgresOllamaAgent
