@@ -1,109 +1,250 @@
 """
-Real-time Data Cleaning Module for Siamtemp HVAC Chatbot
-=========================================================
-This module integrates with the chatbot to clean data in real-time
-before processing queries, without modifying the original database.
+Enhanced Real-time Data Cleaning Module for Siamtemp HVAC Chatbot
+==================================================================
+Version: 2.0
+Enhanced with better Thai encoding fix, comprehensive field mapping,
+and intelligent data type detection based on actual database structure.
 """
 
 import re
 import logging
-from typing import Dict, List, Any, Optional, Union
-from datetime import datetime
+from typing import Dict, List, Any, Optional, Union, Tuple
+from datetime import datetime, date
 from decimal import Decimal
+import unicodedata
+from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
-class RealTimeDataCleaner:
-    """Clean data in real-time during query processing"""
+class EnhancedRealTimeDataCleaner:
+    """Enhanced data cleaner with comprehensive field handling"""
     
     def __init__(self):
-        # Thai encoding fix mappings
-        self.encoding_fixes = {
-            'à¸': 'Thai_',  # Common mojibake pattern
-            'à¹': 'Thai_',
-            'Ã': '',
-            'â': '',
-        }
-        
-        # Revenue fields that should be numeric
-        self.numeric_fields = {
+        # === SALES TABLES FIELDS ===
+        self.sales_numeric_fields = {
             'overhaul_', 'replacement', 'service_contact_',
-            'parts_all_', 'product_all', 'solution_',
-            'unit_price', 'balance'
+            'parts_all_', 'product_all', 'solution_'
         }
         
-        # Boolean fields
-        self.boolean_fields = {
+        # === SPARE PART TABLES FIELDS ===
+        self.spare_part_numeric_fields = {
+            'unit', 'balance', 'unit_price', 'total', 'received'
+        }
+        
+        # === WORK FORCE TABLE FIELDS ===
+        self.work_force_boolean_fields = {
             'job_description_pm', 'job_description_replacement',
             'job_description_overhaul', 'job_description_start_up',
             'job_description_support_all', 'job_description_cpa',
-            'success', 'unsuccessful', 'report_kpi_2_days',
-            'report_over_kpi_2_days'
+            'success', 'unsuccessful', 
+            'report_kpi_2_days', 'report_over_kpi_2_days'
         }
         
-        # Cache for cleaned data
-        self.cache = {}
+        # Combined numeric fields
+        self.all_numeric_fields = self.sales_numeric_fields | self.spare_part_numeric_fields
+        
+        # Thai encoding patterns (expanded)
+        self.thai_mojibake_patterns = {
+            'à¸': 'ก',  # Start of Thai character range
+            'à¹': 'ก',
+            'Ã': '',
+            'â': '',
+            '€': '',
+            '™': '',
+            'à¸„à¸¥à¸±à¸‡à¸à¸¥à¸²à¸‡': 'คลังกลาง',
+            'à¸šà¸£à¸´à¸©à¸±à¸—': 'บริษัท',
+            'à¸‡à¸²à¸™': 'งาน',
+            'à¹€à¸„à¸£à¸·à¹ˆà¸­à¸‡': 'เครื่อง',
+            'à¸£à¸²à¸¢à¸›à¸µ': 'รายปี'
+        }
+        
+        # Date patterns (including Excel serial numbers)
+        self.date_patterns = [
+            r'^\d{1,2}[-/]\d{1,2}[-/]\d{2,4}$',  # DD/MM/YYYY or DD-MM-YYYY
+            r'^\d{1,2}[-/]\d{1,2}$',              # DD/MM
+            r'^\d{5}$',                            # Excel serial (e.g., 45751)
+            r'^\d{1,2}-\d{1,2}/\d{1,2}/\d{4}$'    # Range: 1-5/04/2025
+        ]
+        
+        # Job number patterns
+        self.job_patterns = {
+            'standard': r'^(SV|JAE)\d{2}-\d{2}-\d{3}[A-Z]*(-[A-Z]+)?$',
+            'legacy': r'^SV\.\d{2}-\d{2}-\d{2}\s*[A-Z]*'
+        }
+        
+        # Cache for performance
+        self.encoding_cache = {}
         self.cache_size = 1000
         
-        logger.info("🧹 Real-time Data Cleaner initialized")
+        # Statistics tracking
+        self.stats = defaultdict(int)
+        
+        logger.info("🚀 Enhanced Real-time Data Cleaner v2.0 initialized")
     
-    def clean_query_results(self, results: List[Dict], query: str = None) -> List[Dict]:
-        """Main entry point - clean query results before sending to AI"""
+    # =========================================================================
+    # MAIN ENTRY POINTS
+    # =========================================================================
+    
+    def clean_query_results(self, results: List[Dict], query: str = None, 
+                           table_hint: str = None) -> List[Dict]:
+        """
+        Main entry point - intelligently clean query results
+        
+        Args:
+            results: Raw query results
+            query: Optional SQL query for context
+            table_hint: Optional table name hint for better cleaning
+        """
         if not results:
             return results
         
-        cleaned_results = []
+        # Detect table type from query or data structure
+        table_type = self._detect_table_type(results, query, table_hint)
         
+        cleaned_results = []
         for row in results:
-            cleaned_row = self.clean_row(row)
+            cleaned_row = self._clean_row_by_type(row, table_type)
             cleaned_results.append(cleaned_row)
         
-        # Log cleaning statistics
-        self._log_cleaning_stats(results, cleaned_results)
-        
+        self._log_statistics()
         return cleaned_results
     
-    def clean_row(self, row: Dict) -> Dict:
-        """Clean a single row of data"""
+    def _detect_table_type(self, results: List[Dict], query: str = None, 
+                          table_hint: str = None) -> str:
+        """Detect which table type we're dealing with"""
+        if table_hint:
+            if 'spare' in table_hint.lower():
+                return 'spare_part'
+            elif 'work' in table_hint.lower():
+                return 'work_force'
+            elif 'sales' in table_hint.lower():
+                return 'sales'
+        
+        if query:
+            query_lower = query.lower()
+            if 'spare_part' in query_lower:
+                return 'spare_part'
+            elif 'work_force' in query_lower:
+                return 'work_force'
+            elif 'sales' in query_lower:
+                return 'sales'
+        
+        # Detect from column names
+        if results and len(results) > 0:
+            columns = set(results[0].keys())
+            if 'product_code' in columns or 'unit_price' in columns:
+                return 'spare_part'
+            elif 'service_group' in columns or 'job_description_pm' in columns:
+                return 'work_force'
+            elif 'overhaul_' in columns or 'service_contact_' in columns:
+                return 'sales'
+        
+        return 'generic'
+    
+    def _clean_row_by_type(self, row: Dict, table_type: str) -> Dict:
+        """Clean row based on detected table type"""
         cleaned = {}
         
         for key, value in row.items():
-            # Clean based on field type
-            if key in self.numeric_fields:
-                cleaned[key] = self.clean_numeric(value)
-            elif key in self.boolean_fields:
-                cleaned[key] = self.clean_boolean(value)
+            if table_type == 'sales':
+                cleaned[key] = self._clean_sales_field(key, value)
+            elif table_type == 'spare_part':
+                cleaned[key] = self._clean_spare_part_field(key, value)
+            elif table_type == 'work_force':
+                cleaned[key] = self._clean_work_force_field(key, value)
             else:
-                cleaned[key] = self.clean_text(value)
+                cleaned[key] = self._clean_generic_field(key, value)
         
         return cleaned
     
-    def clean_numeric(self, value: Any) -> float:
-        """Convert to numeric, handling NULL and various formats"""
+    # =========================================================================
+    # TABLE-SPECIFIC CLEANING
+    # =========================================================================
+    
+    def _clean_sales_field(self, field_name: str, value: Any) -> Any:
+        """Clean sales table fields"""
+        if field_name in self.sales_numeric_fields:
+            return self._clean_numeric_value(value, field_name)
+        elif field_name == 'job_no':
+            return self._clean_job_number(value)
+        elif field_name == 'customer_name':
+            return self._fix_thai_encoding_advanced(value)
+        elif field_name == 'description':
+            return self._fix_thai_encoding_advanced(value)
+        else:
+            return self._clean_generic_field(field_name, value)
+    
+    def _clean_spare_part_field(self, field_name: str, value: Any) -> Any:
+        """Clean spare part table fields"""
+        if field_name in self.spare_part_numeric_fields:
+            return self._clean_numeric_value(value, field_name)
+        elif field_name == 'wh':
+            # Warehouse field with Thai text
+            return self._fix_thai_encoding_advanced(value)
+        elif field_name in ['product_code', 'product_name', 'description']:
+            return self._fix_thai_encoding_advanced(value)
+        else:
+            return self._clean_generic_field(field_name, value)
+    
+    def _clean_work_force_field(self, field_name: str, value: Any) -> Any:
+        """Clean work force table fields"""
+        if field_name in self.work_force_boolean_fields:
+            return self._clean_boolean_value(value, field_name)
+        elif field_name == 'date':
+            return self._clean_date_field(value)
+        elif field_name in ['customer', 'project', 'detail', 'service_group', 'failure_reason']:
+            return self._fix_thai_encoding_advanced(value)
+        else:
+            return self._clean_generic_field(field_name, value)
+    
+    def _clean_generic_field(self, field_name: str, value: Any) -> Any:
+        """Generic field cleaning"""
+        if value is None or value == 'NULL':
+            return self._get_default_value(field_name)
+        
+        if isinstance(value, str):
+            return self._fix_thai_encoding_advanced(value)
+        
+        return value
+    
+    # =========================================================================
+    # DATA TYPE CLEANERS
+    # =========================================================================
+    
+    def _clean_numeric_value(self, value: Any, field_name: str) -> float:
+        """Enhanced numeric cleaning with better error handling"""
+        self.stats['numeric_processed'] += 1
+        
         if value is None or value == 'NULL' or value == '':
+            self.stats['nulls_converted'] += 1
             return 0.0
         
         if isinstance(value, (int, float, Decimal)):
             return float(value)
         
         if isinstance(value, str):
-            # Remove common formatting
-            cleaned = value.replace(',', '').replace(' ', '').strip()
-            cleaned = cleaned.replace('฿', '').replace('$', '')  # Remove currency symbols
+            # Remove all formatting
+            cleaned = re.sub(r'[^\d.-]', '', value)
             
-            if not cleaned or cleaned.lower() == 'null':
+            if not cleaned or cleaned == '-':
+                self.stats['nulls_converted'] += 1
                 return 0.0
             
             try:
-                return float(cleaned)
+                result = float(cleaned)
+                self.stats['numeric_converted'] += 1
+                return result
             except ValueError:
-                logger.debug(f"Could not convert '{value}' to numeric, using 0")
+                logger.debug(f"Failed to convert '{value}' to numeric in {field_name}")
+                self.stats['conversion_errors'] += 1
                 return 0.0
         
         return 0.0
     
-    def clean_boolean(self, value: Any) -> bool:
-        """Convert to boolean"""
+    def _clean_boolean_value(self, value: Any, field_name: str) -> bool:
+        """Enhanced boolean cleaning"""
+        self.stats['boolean_processed'] += 1
+        
         if value is None or value == 'NULL':
             return False
         
@@ -111,273 +252,361 @@ class RealTimeDataCleaner:
             return value
         
         if isinstance(value, str):
-            return value.lower() in ['true', 't', 'yes', 'y', '1', 'checked']
+            value_lower = value.lower().strip()
+            return value_lower in ['true', 't', 'yes', 'y', '1', 'checked', 'x']
         
         if isinstance(value, (int, float)):
             return bool(value)
         
         return False
     
-    def clean_text(self, value: Any) -> str:
-        """Clean text fields, fix encoding issues"""
+    def _clean_date_field(self, value: Any) -> str:
+        """Clean and standardize date fields"""
         if value is None or value == 'NULL':
             return ''
         
-        if not isinstance(value, str):
-            return str(value)
+        value_str = str(value).strip()
         
-        # Fix Thai encoding issues
-        cleaned = self.fix_thai_encoding(value)
+        # Check for Excel serial number (5 digits)
+        if re.match(r'^\d{5}$', value_str):
+            try:
+                # Excel serial number to date (Excel epoch: 1900-01-01)
+                excel_date = datetime(1900, 1, 1) + timedelta(days=int(value_str) - 2)
+                return excel_date.strftime('%Y-%m-%d')
+            except:
+                self.stats['date_conversion_errors'] += 1
+                return value_str
         
-        # Remove extra whitespace
-        cleaned = ' '.join(cleaned.split())
+        # Check for date range (e.g., "1-5/04/2025")
+        if '-' in value_str and '/' in value_str:
+            # Extract end date from range
+            parts = value_str.split('/')
+            if len(parts) >= 2:
+                try:
+                    # Take the end date
+                    day_range = parts[0].split('-')[-1]
+                    month = parts[1] if len(parts) == 3 else parts[0].split('-')[0]
+                    year = parts[2] if len(parts) == 3 else parts[1]
+                    return f"{year}-{month.zfill(2)}-{day_range.zfill(2)}"
+                except:
+                    pass
         
+        # Standard date formats
+        for pattern in [r'(\d{1,2})[/-](\d{1,2})[/-](\d{4})', r'(\d{1,2})[/-](\d{1,2})']:
+            match = re.match(pattern, value_str)
+            if match:
+                try:
+                    if len(match.groups()) == 3:
+                        day, month, year = match.groups()
+                        return f"{year}-{month.zfill(2)}-{day.zfill(2)}"
+                    elif len(match.groups()) == 2:
+                        day, month = match.groups()
+                        year = datetime.now().year
+                        return f"{year}-{month.zfill(2)}-{day.zfill(2)}"
+                except:
+                    pass
+        
+        return value_str
+    
+    def _clean_job_number(self, value: Any) -> str:
+        """Clean and standardize job numbers"""
+        if value is None or value == 'NULL':
+            return ''
+        
+        job_str = str(value).strip().upper()
+        
+        # Fix common patterns
+        job_str = job_str.replace('SV.', 'SV')
+        job_str = re.sub(r'\s+', '', job_str)  # Remove spaces
+        
+        return job_str
+    
+    # =========================================================================
+    # THAI ENCODING FIX
+    # =========================================================================
+    
+    def _fix_thai_encoding_advanced(self, text: Any) -> str:
+        """Advanced Thai encoding fix with caching"""
+        if text is None or text == 'NULL':
+            return ''
+        
+        if not isinstance(text, str):
+            return str(text)
+        
+        # Check cache
+        if text in self.encoding_cache:
+            self.stats['cache_hits'] += 1
+            return self.encoding_cache[text]
+        
+        # Clean whitespace first
+        cleaned = ' '.join(text.split())
+        
+        # Check for known mojibake patterns
+        if self._has_mojibake(cleaned):
+            fixed = self._fix_mojibake(cleaned)
+            if fixed != cleaned:
+                self.stats['encoding_fixed'] += 1
+                self._update_cache(text, fixed)
+                return fixed
+        
+        # Cache even if no fix needed
+        self._update_cache(text, cleaned)
         return cleaned
     
-    def fix_thai_encoding(self, text: str) -> str:
-        """Fix common Thai encoding issues (mojibake)"""
-        if not text:
-            return text
+    def _has_mojibake(self, text: str) -> bool:
+        """Check if text has mojibake patterns"""
+        return any(pattern in text for pattern in self.thai_mojibake_patterns.keys())
+    
+    def _fix_mojibake(self, text: str) -> str:
+        """Fix mojibake with multiple strategies"""
+        # Strategy 1: Try direct pattern replacement for known phrases
+        for pattern, replacement in self.thai_mojibake_patterns.items():
+            if pattern in text:
+                text = text.replace(pattern, replacement)
         
-        # Check for mojibake patterns
-        has_mojibake = any(pattern in text for pattern in self.encoding_fixes.keys())
-        
-        if has_mojibake:
+        # Strategy 2: Try encoding/decoding if still has issues
+        if 'à' in text or 'Ã' in text:
             try:
-                # Try to decode and re-encode
+                # Most common: UTF-8 interpreted as Latin-1
                 fixed = text.encode('latin-1').decode('utf-8', errors='ignore')
-                
-                # Verify it's actually Thai
-                if self._is_thai(fixed):
+                if self._is_valid_thai(fixed):
                     return fixed
             except:
                 pass
             
-            # Fallback: remove problematic characters
-            for pattern, replacement in self.encoding_fixes.items():
-                text = text.replace(pattern, replacement)
+            try:
+                # Alternative: Windows-1252 to UTF-8
+                fixed = text.encode('windows-1252').decode('utf-8', errors='ignore')
+                if self._is_valid_thai(fixed):
+                    return fixed
+            except:
+                pass
         
         return text
     
-    def _is_thai(self, text: str) -> bool:
-        """Check if text contains Thai characters"""
-        thai_pattern = re.compile(r'[\u0E00-\u0E7F]+')
-        return bool(thai_pattern.search(text))
+    def _is_valid_thai(self, text: str) -> bool:
+        """Check if text contains valid Thai characters"""
+        thai_chars = 0
+        total_chars = 0
+        
+        for char in text:
+            if char.strip():
+                total_chars += 1
+                if '\u0E00' <= char <= '\u0E7F':
+                    thai_chars += 1
+        
+        # If more than 30% Thai characters, consider it Thai text
+        return thai_chars > 0 and (thai_chars / max(total_chars, 1)) > 0.3
     
-    def generate_safe_sql(self, base_query: str) -> str:
-        """Wrap SQL query with cleaning functions"""
-        # Add COALESCE and CAST for numeric fields
-        safe_query = base_query
+    def _update_cache(self, key: str, value: str):
+        """Update cache with size limit"""
+        if len(self.encoding_cache) >= self.cache_size:
+            # Remove oldest entries (simple FIFO)
+            remove_count = self.cache_size // 4
+            for _ in range(remove_count):
+                self.encoding_cache.pop(next(iter(self.encoding_cache)))
         
-        # Replace numeric field references with safe versions
-        for field in self.numeric_fields:
-            # Pattern to find field references
-            patterns = [
-                (f"SUM({field})", f"SUM(COALESCE(CAST({field} AS NUMERIC), 0))"),
-                (f"AVG({field})", f"AVG(COALESCE(CAST({field} AS NUMERIC), 0))"),
-                (f"MAX({field})", f"MAX(COALESCE(CAST({field} AS NUMERIC), 0))"),
-                (f"MIN({field})", f"MIN(COALESCE(CAST({field} AS NUMERIC), 0))"),
-                (f"COUNT({field})", f"COUNT(CASE WHEN {field} IS NOT NULL THEN 1 END)"),
-                (f"{field} >", f"COALESCE(CAST({field} AS NUMERIC), 0) >"),
-                (f"{field} <", f"COALESCE(CAST({field} AS NUMERIC), 0) <"),
-                (f"{field} =", f"COALESCE(CAST({field} AS NUMERIC), 0) ="),
-                (f"{field} +", f"COALESCE(CAST({field} AS NUMERIC), 0) +"),
-                (f"{field} -", f"COALESCE(CAST({field} AS NUMERIC), 0) -"),
-            ]
-            
-            for pattern, replacement in patterns:
-                safe_query = safe_query.replace(pattern, replacement)
-        
-        return safe_query
+        self.encoding_cache[key] = value
     
-    def validate_and_clean_response(self, response: str, sql_results: List[Dict]) -> Dict:
-        """Validate AI response against actual data"""
-        validation = {
-            'original_response': response,
-            'cleaned_response': response,
-            'confidence': 1.0,
-            'warnings': [],
-            'data_citations': []
-        }
-        
-        # Extract numbers from response
-        numbers_in_response = re.findall(r'\d+(?:,\d+)*(?:\.\d+)?', response)
-        
-        # Check if numbers match actual data
-        for num_str in numbers_in_response:
-            num = float(num_str.replace(',', ''))
-            
-            # Check if this number exists in results
-            found = False
-            for row in sql_results:
-                for value in row.values():
-                    if isinstance(value, (int, float)):
-                        if abs(float(value) - num) < 0.01:  # Allow small float differences
-                            found = True
-                            validation['data_citations'].append({
-                                'value': num,
-                                'source': 'verified from query results'
-                            })
-                            break
-            
-            if not found and num > 100:  # Only warn for significant numbers
-                validation['warnings'].append(f"Value {num_str} not found in query results")
-                validation['confidence'] *= 0.9
-        
-        # Add warning if confidence is low
-        if validation['confidence'] < 0.8:
-            validation['cleaned_response'] += "\n\n⚠️ หมายเหตุ: ข้อมูลบางส่วนอาจต้องการการตรวจสอบเพิ่มเติม"
-        
-        return validation
+    def _get_default_value(self, field_name: str) -> Any:
+        """Get appropriate default value for field"""
+        if field_name in self.all_numeric_fields:
+            return 0.0
+        elif field_name in self.work_force_boolean_fields:
+            return False
+        else:
+            return ''
     
-    def _log_cleaning_stats(self, original: List[Dict], cleaned: List[Dict]):
-        """Log statistics about data cleaning"""
-        if not original:
-            return
-        
-        stats = {
-            'total_rows': len(original),
-            'nulls_converted': 0,
-            'encoding_fixed': 0,
-            'numeric_converted': 0
-        }
-        
-        for orig_row, clean_row in zip(original, cleaned):
-            for key in orig_row:
-                orig_val = orig_row[key]
-                clean_val = clean_row[key]
-                
-                # Count NULL conversions
-                if orig_val in [None, 'NULL'] and clean_val == 0:
-                    stats['nulls_converted'] += 1
-                
-                # Count numeric conversions
-                if key in self.numeric_fields:
-                    if isinstance(orig_val, str) and isinstance(clean_val, float):
-                        stats['numeric_converted'] += 1
-        
-        logger.info(f"🧹 Cleaning stats: {stats}")
+    # =========================================================================
+    # SQL GENERATION
+    # =========================================================================
+    
+    def generate_safe_sql(self, intent: str, entities: Dict, 
+                         table_info: Dict = None) -> str:
+        """Generate SQL with automatic cleaning built-in"""
+        generator = EnhancedSQLGenerator(self)
+        return generator.generate(intent, entities, table_info)
+    
+    # =========================================================================
+    # STATISTICS AND LOGGING
+    # =========================================================================
+    
+    def _log_statistics(self):
+        """Log cleaning statistics"""
+        if self.stats:
+            logger.info(f"🧹 Cleaning stats: {dict(self.stats)}")
+    
+    def get_statistics(self) -> Dict[str, int]:
+        """Get current statistics"""
+        return dict(self.stats)
+    
+    def reset_statistics(self):
+        """Reset statistics"""
+        self.stats.clear()
+        logger.info("📊 Statistics reset")
 
 
-class SmartSQLGenerator:
-    """Generate SQL with built-in data cleaning"""
+class EnhancedSQLGenerator:
+    """Generate safe SQL queries with built-in data cleaning"""
     
-    def __init__(self):
-        self.cleaner = RealTimeDataCleaner()
+    def __init__(self, cleaner: EnhancedRealTimeDataCleaner):
+        self.cleaner = cleaner
         
-    def generate_safe_query(self, intent: str, entities: Dict, table_info: Dict) -> str:
-        """Generate SQL query with automatic data cleaning"""
-        
-        # Base query templates with COALESCE and CAST
-        templates = {
+        # Enhanced templates with proper handling for all table types
+        self.templates = {
+            # Sales queries
             'revenue_sum': """
                 SELECT 
-                    COALESCE(SUM(CAST(overhaul_ AS NUMERIC)), 0) as overhaul_total,
-                    COALESCE(SUM(CAST(replacement AS NUMERIC)), 0) as replacement_total,
-                    COALESCE(SUM(CAST(service_contact_ AS NUMERIC)), 0) as service_total,
-                    COALESCE(SUM(CAST(overhaul_ AS NUMERIC)), 0) + 
-                    COALESCE(SUM(CAST(replacement AS NUMERIC)), 0) + 
-                    COALESCE(SUM(CAST(service_contact_ AS NUMERIC)), 0) as grand_total
+                    COALESCE(SUM(CAST(NULLIF(overhaul_, '') AS NUMERIC)), 0) as overhaul_total,
+                    COALESCE(SUM(CAST(NULLIF(replacement, '') AS NUMERIC)), 0) as replacement_total,
+                    COALESCE(SUM(CAST(NULLIF(service_contact_, '') AS NUMERIC)), 0) as service_total,
+                    COALESCE(SUM(CAST(NULLIF(parts_all_, '') AS NUMERIC)), 0) as parts_total,
+                    COALESCE(SUM(CAST(NULLIF(product_all, '') AS NUMERIC)), 0) as product_total,
+                    COALESCE(SUM(
+                        CAST(NULLIF(overhaul_, '') AS NUMERIC) + 
+                        CAST(NULLIF(replacement, '') AS NUMERIC) + 
+                        CAST(NULLIF(service_contact_, '') AS NUMERIC) +
+                        CAST(NULLIF(parts_all_, '') AS NUMERIC) +
+                        CAST(NULLIF(product_all, '') AS NUMERIC)
+                    ), 0) as grand_total
                 FROM {table}
                 WHERE 1=1 {conditions}
             """,
             
-            'customer_analysis': """
+            'customer_revenue': """
                 SELECT 
                     customer_name,
                     COUNT(*) as job_count,
-                    COALESCE(SUM(CAST(service_contact_ AS NUMERIC)), 0) as total_service,
-                    COALESCE(AVG(CAST(service_contact_ AS NUMERIC)), 0) as avg_service
+                    COALESCE(SUM(CAST(NULLIF(service_contact_, '') AS NUMERIC)), 0) as total_service,
+                    COALESCE(SUM(CAST(NULLIF(replacement, '') AS NUMERIC)), 0) as total_replacement,
+                    COALESCE(SUM(CAST(NULLIF(overhaul_, '') AS NUMERIC)), 0) as total_overhaul,
+                    COALESCE(SUM(
+                        CAST(NULLIF(service_contact_, '') AS NUMERIC) +
+                        CAST(NULLIF(replacement, '') AS NUMERIC) +
+                        CAST(NULLIF(overhaul_, '') AS NUMERIC)
+                    ), 0) as total_revenue
                 FROM {table}
-                WHERE customer_name IS NOT NULL {conditions}
+                WHERE customer_name IS NOT NULL 
+                    AND customer_name != '' {conditions}
                 GROUP BY customer_name
-                ORDER BY total_service DESC
+                ORDER BY total_revenue DESC
                 LIMIT 20
             """,
             
-            'spare_parts_inventory': """
+            # Spare parts queries
+            'inventory_value': """
                 SELECT 
-                    product_code,
-                    product_name,
-                    COALESCE(CAST(balance AS NUMERIC), 0) as current_balance,
-                    COALESCE(CAST(unit_price AS NUMERIC), 0) as price,
-                    COALESCE(CAST(balance AS NUMERIC), 0) * 
-                    COALESCE(CAST(unit_price AS NUMERIC), 0) as total_value
+                    wh as warehouse,
+                    COUNT(*) as item_count,
+                    COALESCE(SUM(CAST(NULLIF(balance::text, '') AS NUMERIC)), 0) as total_units,
+                    COALESCE(SUM(
+                        CAST(NULLIF(balance::text, '') AS NUMERIC) * 
+                        CAST(NULLIF(unit_price::text, '') AS NUMERIC)
+                    ), 0) as total_value
                 FROM {table}
-                WHERE COALESCE(CAST(balance AS NUMERIC), 0) > 0
+                WHERE 1=1 {conditions}
+                GROUP BY wh
                 ORDER BY total_value DESC
             """,
             
-            'work_force_analysis': """
+            'spare_parts_list': """
+                SELECT 
+                    product_code,
+                    product_name,
+                    CAST(NULLIF(balance::text, '') AS NUMERIC) as current_balance,
+                    CAST(NULLIF(unit_price::text, '') AS NUMERIC) as price_per_unit,
+                    CAST(NULLIF(balance::text, '') AS NUMERIC) * 
+                    CAST(NULLIF(unit_price::text, '') AS NUMERIC) as total_value
+                FROM {table}
+                WHERE CAST(NULLIF(balance::text, '') AS NUMERIC) > 0 {conditions}
+                ORDER BY total_value DESC
+                LIMIT 50
+            """,
+            
+            # Work force queries
+            'work_summary': """
                 SELECT 
                     service_group,
-                    COUNT(*) as job_count,
+                    COUNT(*) as total_jobs,
                     SUM(CASE WHEN job_description_pm = true THEN 1 ELSE 0 END) as pm_jobs,
+                    SUM(CASE WHEN job_description_replacement = true THEN 1 ELSE 0 END) as replacement_jobs,
                     SUM(CASE WHEN job_description_overhaul = true THEN 1 ELSE 0 END) as overhaul_jobs,
-                    SUM(CASE WHEN job_description_replacement = true THEN 1 ELSE 0 END) as replacement_jobs
+                    SUM(CASE WHEN success = true THEN 1 ELSE 0 END) as successful_jobs,
+                    SUM(CASE WHEN report_kpi_2_days = true THEN 1 ELSE 0 END) as within_kpi
                 FROM {table}
-                WHERE service_group IS NOT NULL
+                WHERE service_group IS NOT NULL {conditions}
                 GROUP BY service_group
+                ORDER BY total_jobs DESC
+            """,
+            
+            'customer_work': """
+                SELECT 
+                    customer,
+                    COUNT(*) as job_count,
+                    COUNT(DISTINCT service_group) as teams_involved,
+                    STRING_AGG(DISTINCT detail, ', ') as work_details
+                FROM {table}
+                WHERE customer IS NOT NULL {conditions}
+                GROUP BY customer
                 ORDER BY job_count DESC
+                LIMIT 20
             """
         }
-        
-        # Select appropriate template
-        if 'revenue' in intent or 'sales' in intent:
-            template = templates['revenue_sum']
-        elif 'customer' in intent:
-            template = templates['customer_analysis']
-        elif 'spare' in intent or 'part' in intent:
-            template = templates['spare_parts_inventory']
-        elif 'work' in intent or 'team' in intent:
-            template = templates['work_force_analysis']
-        else:
-            # Default safe query
-            template = "SELECT * FROM {table} LIMIT 10"
-        
-        # Build conditions
-        conditions = self._build_conditions(entities)
+    
+    def generate(self, intent: str, entities: Dict, table_info: Dict = None) -> str:
+        """Generate appropriate SQL based on intent and entities"""
+        # Determine template
+        template = self._select_template(intent)
         
         # Determine table
         table = self._determine_table(intent, entities)
         
-        # Generate final query
-        query = template.format(
-            table=table,
-            conditions=conditions
-        )
+        # Build conditions
+        conditions = self._build_conditions(entities, table)
         
-        return query
+        # Generate SQL
+        sql = template.format(table=table, conditions=conditions)
+        
+        return sql
     
-    def _build_conditions(self, entities: Dict) -> str:
-        """Build WHERE conditions from entities"""
-        conditions = []
+    def _select_template(self, intent: str) -> str:
+        """Select appropriate SQL template"""
+        intent_lower = intent.lower()
         
-        if entities.get('years'):
-            years = entities['years']
-            if len(years) == 1:
-                conditions.append(f"AND job_no LIKE '%{years[0][-2:]}-%'")
-            else:
-                year_conditions = [f"job_no LIKE '%{y[-2:]}-%'" for y in years]
-                conditions.append(f"AND ({' OR '.join(year_conditions)})")
+        # Sales related
+        if any(word in intent_lower for word in ['revenue', 'sales', 'income']):
+            if 'customer' in intent_lower:
+                return self.templates['customer_revenue']
+            return self.templates['revenue_sum']
         
-        if entities.get('months'):
-            months = entities['months']
-            month_conditions = [f"job_no LIKE '%-{m:02d}-%'" for m in months]
-            conditions.append(f"AND ({' OR '.join(month_conditions)})")
+        # Spare parts related
+        elif any(word in intent_lower for word in ['spare', 'part', 'inventory', 'stock']):
+            if 'value' in intent_lower or 'total' in intent_lower:
+                return self.templates['inventory_value']
+            return self.templates['spare_parts_list']
         
-        if entities.get('companies'):
-            companies = entities['companies']
-            company_conditions = [f"customer_name ILIKE '%{c}%'" for c in companies]
-            conditions.append(f"AND ({' OR '.join(company_conditions)})")
+        # Work force related
+        elif any(word in intent_lower for word in ['work', 'team', 'service', 'technician']):
+            if 'customer' in intent_lower:
+                return self.templates['customer_work']
+            return self.templates['work_summary']
         
-        return ' '.join(conditions)
+        # Default
+        return self.templates['revenue_sum']
     
     def _determine_table(self, intent: str, entities: Dict) -> str:
         """Determine which table to query"""
-        # Check for specific year
+        intent_lower = intent.lower()
+        
+        # Check for explicit table mention
+        if 'spare' in intent_lower or 'part' in intent_lower:
+            return 'spare_part'
+        elif 'work' in intent_lower or 'team' in intent_lower:
+            return 'work_force'
+        
+        # Check for year in entities
         if entities.get('years'):
-            year = entities['years'][0]
+            year = str(entities['years'][0])
             if '2022' in year:
                 return 'sales2022'
             elif '2023' in year:
@@ -387,96 +616,208 @@ class SmartSQLGenerator:
             elif '2025' in year:
                 return 'sales2025'
         
-        # Check for spare parts query
-        if 'spare' in intent or 'part' in intent:
-            return 'spare_part'
-        
-        # Check for work force query
-        if 'work' in intent or 'team' in intent:
-            return 'work_force'
-        
         # Default to current year
         return 'sales2024'
-
-
-# Integration with existing chatbot
-class EnhancedDataProcessor:
-    """Integrate data cleaning with existing chatbot system"""
     
-    def __init__(self):
-        self.cleaner = RealTimeDataCleaner()
-        self.sql_generator = SmartSQLGenerator()
+    def _build_conditions(self, entities: Dict, table: str) -> str:
+        """Build WHERE conditions from entities"""
+        conditions = []
         
-    async def process_with_cleaning(self, question: str, db_handler, ollama_client) -> Dict:
-        """Process question with automatic data cleaning"""
+        # Year conditions (for sales tables)
+        if 'sales' in table and entities.get('years'):
+            years = entities['years']
+            year_conditions = []
+            for year in years:
+                year_short = str(year)[-2:]
+                year_conditions.append(f"job_no LIKE '%{year_short}-%'")
+            if year_conditions:
+                conditions.append(f"AND ({' OR '.join(year_conditions)})")
         
-        try:
-            # Generate safe SQL
-            # This would integrate with your existing intent analysis
-            sql_query = self.sql_generator.generate_safe_query(
-                intent='revenue_analysis',  # From your intent analyzer
-                entities={'years': ['2024']},  # From your entity extractor
-                table_info={}
-            )
-            
-            # Execute query
-            raw_results = await db_handler.execute_query(sql_query)
-            
-            # Clean results
-            cleaned_results = self.cleaner.clean_query_results(raw_results, sql_query)
-            
-            # Generate response (using your existing NL model)
-            response = await ollama_client.generate_response(
-                question=question,
-                data=cleaned_results
-            )
-            
-            # Validate response
-            validation = self.cleaner.validate_and_clean_response(response, cleaned_results)
-            
-            return {
-                'success': True,
-                'answer': validation['cleaned_response'],
-                'sql_query': sql_query,
-                'confidence': validation['confidence'],
-                'warnings': validation['warnings'],
-                'results_count': len(cleaned_results)
-            }
-            
-        except Exception as e:
-            logger.error(f"Processing failed: {e}")
-            return {
-                'success': False,
-                'answer': f"เกิดข้อผิดพลาด: {str(e)}",
-                'error': str(e)
-            }
+        # Month conditions
+        if entities.get('months'):
+            months = entities['months']
+            month_conditions = []
+            for month in months:
+                month_conditions.append(f"job_no LIKE '%-{month:02d}-%'")
+            if month_conditions:
+                conditions.append(f"AND ({' OR '.join(month_conditions)})")
+        
+        # Customer conditions
+        if entities.get('companies'):
+            companies = entities['companies']
+            customer_conditions = []
+            for company in companies:
+                # Handle both 'customer_name' and 'customer' fields
+                if 'sales' in table:
+                    customer_conditions.append(f"customer_name ILIKE '%{company}%'")
+                elif 'work' in table:
+                    customer_conditions.append(f"customer ILIKE '%{company}%'")
+            if customer_conditions:
+                conditions.append(f"AND ({' OR '.join(customer_conditions)})")
+        
+        # Date range conditions (for work_force)
+        if 'work' in table and entities.get('date_range'):
+            date_range = entities['date_range']
+            if 'start' in date_range:
+                conditions.append(f"AND date >= '{date_range['start']}'")
+            if 'end' in date_range:
+                conditions.append(f"AND date <= '{date_range['end']}'")
+        
+        # Product conditions (for spare_part)
+        if 'spare' in table and entities.get('products'):
+            products = entities['products']
+            product_conditions = []
+            for product in products:
+                product_conditions.append(
+                    f"(product_code ILIKE '%{product}%' OR product_name ILIKE '%{product}%')"
+                )
+            if product_conditions:
+                conditions.append(f"AND ({' OR '.join(product_conditions)})")
+        
+        return ' '.join(conditions)
 
 
-# Usage example
+# =========================================================================
+# VALIDATION AND RESPONSE CLEANING
+# =========================================================================
+
+class ResponseValidator:
+    """Validate and clean AI responses"""
+    
+    def __init__(self, cleaner: EnhancedRealTimeDataCleaner):
+        self.cleaner = cleaner
+    
+    def validate_response(self, response: str, sql_results: List[Dict]) -> Dict:
+        """Validate AI response against actual data"""
+        validation = {
+            'is_valid': True,
+            'confidence': 1.0,
+            'warnings': [],
+            'corrections': [],
+            'cleaned_response': response
+        }
+        
+        # Extract numbers from response
+        numbers_in_response = re.findall(r'[\d,]+\.?\d*', response)
+        
+        # Check if numbers match data
+        for num_str in numbers_in_response:
+            num = float(num_str.replace(',', ''))
+            
+            # Check if this number exists in results
+            found = False
+            for row in sql_results:
+                for value in row.values():
+                    if isinstance(value, (int, float)):
+                        if abs(float(value) - num) < 0.01:
+                            found = True
+                            break
+            
+            if not found and num > 100:  # Only check significant numbers
+                validation['warnings'].append(f"Value {num_str} not found in query results")
+                validation['confidence'] *= 0.9
+        
+        # Add warning if confidence is low
+        if validation['confidence'] < 0.8:
+            validation['cleaned_response'] += "\n\n⚠️ หมายเหตุ: ข้อมูลบางส่วนอาจต้องการการตรวจสอบเพิ่มเติม"
+        
+        return validation
+
+
+# =========================================================================
+# USAGE EXAMPLES
+# =========================================================================
+
 if __name__ == "__main__":
-    # Initialize cleaner
-    cleaner = RealTimeDataCleaner()
+    from datetime import timedelta
     
-    # Example: Clean query results
-    sample_results = [
+    # Initialize cleaner
+    cleaner = EnhancedRealTimeDataCleaner()
+    
+    # Example 1: Clean sales data with Thai encoding issues
+    print("=" * 60)
+    print("Example 1: Sales Data Cleaning")
+    print("=" * 60)
+    
+    sales_data = [
         {
             'id': 1,
-            'customer_name': 'à¸šà¸£à¸´à¸©à¸±à¸—',  # Corrupted Thai text
-            'overhaul_': '100000',  # String that should be numeric
-            'replacement': None,  # NULL value
-            'service_contact_': 'NULL',  # String NULL
+            'job_no': 'SV.67-01-03 S - PM',
+            'customer_name': 'à¸à¸²à¸£à¹„à¸Ÿà¸Ÿà¹‰à¸² à¸à¹ˆà¸²à¸¢à¸œà¸¥à¸´à¸•',
+            'description': 'à¸‡à¸²à¸™à¸šà¸³à¸£à¸¸à¸‡à¸£à¸±à¸à¸©à¸² à¸£à¸²à¸¢à¸›à¸µ',
+            'service_contact_': 'NULL',
+            'replacement': '100,000',
+            'overhaul_': None
         }
     ]
     
-    cleaned = cleaner.clean_query_results(sample_results)
-    print("Original:", sample_results)
-    print("Cleaned:", cleaned)
+    cleaned_sales = cleaner.clean_query_results(sales_data, table_hint='sales')
+    print("Original:", sales_data[0])
+    print("Cleaned:", cleaned_sales[0])
+    print()
     
-    # Example: Generate safe SQL
-    generator = SmartSQLGenerator()
-    safe_sql = generator.generate_safe_query(
-        intent='revenue_analysis',
-        entities={'years': ['2024'], 'months': [4]},
-        table_info={}
+    # Example 2: Clean spare parts data
+    print("=" * 60)
+    print("Example 2: Spare Parts Data Cleaning")
+    print("=" * 60)
+    
+    spare_data = [
+        {
+            'id': 1,
+            'wh': '00 à¸„à¸¥à¸±à¸‡à¸à¸¥à¸²à¸‡',
+            'product_code': 'AC03900203',
+            'product_name': 'MOTOR Y132S-40,5.5KW',
+            'balance': '10',
+            'unit_price': '14,900',
+            'total': '149000'
+        }
+    ]
+    
+    cleaned_spare = cleaner.clean_query_results(spare_data, table_hint='spare_part')
+    print("Original:", spare_data[0])
+    print("Cleaned:", cleaned_spare[0])
+    print()
+    
+    # Example 3: Clean work force data
+    print("=" * 60)
+    print("Example 3: Work Force Data Cleaning")
+    print("=" * 60)
+    
+    work_data = [
+        {
+            'id': 1,
+            'date': '45751',  # Excel serial number
+            'customer': 'à¸šà¸£à¸´à¸©à¸±à¸—à¸­à¸£à¸¸à¸"à¸ªà¸§à¸±à¸ªà¸"à¸´à¹Œ',
+            'service_group': 'อนุรัก เปรม ทวิชชัย',
+            'job_description_pm': 'true',
+            'job_description_replacement': None,
+            'success': 'NULL'
+        }
+    ]
+    
+    cleaned_work = cleaner.clean_query_results(work_data, table_hint='work_force')
+    print("Original:", work_data[0])
+    print("Cleaned:", cleaned_work[0])
+    print()
+    
+    # Example 4: Generate safe SQL
+    print("=" * 60)
+    print("Example 4: Safe SQL Generation")
+    print("=" * 60)
+    
+    sql = cleaner.generate_safe_sql(
+        intent='customer_revenue',
+        entities={
+            'years': [2024],
+            'companies': ['AGC', 'Honda']
+        }
     )
-    print("\nSafe SQL:", safe_sql)
+    print("Generated SQL:")
+    print(sql)
+    print()
+    
+    # Show statistics
+    print("=" * 60)
+    print("Cleaning Statistics:")
+    print("=" * 60)
+    print(cleaner.get_statistics())
