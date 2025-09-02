@@ -162,52 +162,69 @@ class ParallelProcessingEngine:
             return self._get_fallback_analysis(question)
     
     async def _analyze_intent(self, question: str, context: Dict) -> Dict[str, Any]:
-        """Analyze query intent with context awareness"""
+        """Enhanced intent analysis with business-specific patterns"""
         await asyncio.sleep(0.01)  # Simulate async work
         
         question_lower = question.lower()
         
-        # Define intent patterns
+        # Enhanced intent patterns for HVAC business
         intent_patterns = {
-            'revenue_analysis': ['ยอดขาย', 'รายได้', 'revenue', 'sales', 'ยอดรวม'],
-            'overhaul_analysis': ['overhaul', 'โอเวอร์ฮอล', 'oh'],
-            'customer_ranking': ['ลูกค้า', 'อันดับ', 'top', 'สูงสุด', 'customer'],
-            'spare_parts': ['อะไหล่', 'spare', 'part', 'คลัง', 'stock'],
+            'revenue_analysis': ['ยอดขาย', 'รายได้', 'revenue', 'sales', 'ยอดรวม', 'มูลค่า'],
+            'overhaul_analysis': ['overhaul', 'โอเวอร์ฮอล', 'oh', 'compressor'],
+            'customer_ranking': ['ลูกค้า', 'อันดับ', 'top', 'สูงสุด', 'customer', 'บริษัท'],
+            'customer_history': ['ประวัติ', 'ย้อนหลัง', 'เคย', 'ซื้อขาย', 'การซ่อม', 'history'],
+            'spare_parts': ['อะไหล่', 'spare', 'part', 'คลัง', 'stock', 'ราคา'],
+            'spare_price': ['ราคาอะไหล่', 'ราคา', 'price', 'model', 'รุ่น'],
             'team_analysis': ['ทีม', 'team', 'งาน', 'กลุ่ม', 'service_group'],
-            'comparison': ['เปรียบเทียบ', 'compare', 'ระหว่าง', 'กับ'],
-            'counting': ['จำนวน', 'count', 'กี่', 'นับ'],
-            'listing': ['แสดง', 'list', 'รายการ', 'ดู']
+            'work_plan': ['แผน', 'วางแผน', 'plan', 'schedule', 'จะทำ'],
+            'work_summary': ['สรุปงาน', 'งานที่ทำ', 'summary', 'report'],
+            'comparison': ['เปรียบเทียบ', 'compare', 'ระหว่าง', 'กับ', 'วิเคราะห์'],
+            'counting': ['จำนวน', 'count', 'กี่', 'นับ', 'ทั้งหมด'],
+            'quotation': ['เสนอราคา', 'quotation', 'standard', 'มาตรฐาน'],
+            'monthly_analysis': ['เดือน', 'month', 'รายเดือน', 'monthly'],
+            'yearly_analysis': ['ปี', 'year', 'รายปี', 'yearly', 'annual'],
+            'listing': ['แสดง', 'list', 'รายการ', 'ดู', 'มีอะไรบ้าง']
         }
         
         detected_intents = []
+        intent_scores = {}
+        
+        # Score each intent based on keyword matches
         for intent, keywords in intent_patterns.items():
-            if any(keyword in question_lower for keyword in keywords):
+            score = sum(2 if keyword in question_lower else 0 for keyword in keywords)
+            if score > 0:
+                intent_scores[intent] = score
                 detected_intents.append(intent)
+        
+        # Sort by score
+        detected_intents.sort(key=lambda x: intent_scores.get(x, 0), reverse=True)
         
         # Use context to refine intent
         if context.get('continuation_signals'):
             if context.get('dominant_intent'):
-                detected_intents.append(context['dominant_intent'])
+                detected_intents.insert(0, context['dominant_intent'])
         
         primary_intent = detected_intents[0] if detected_intents else 'general_query'
         
         return {
             'primary': primary_intent,
-            'secondary': detected_intents[1:] if len(detected_intents) > 1 else [],
-            'confidence': 0.9 if detected_intents else 0.5
+            'secondary': detected_intents[1:3] if len(detected_intents) > 1 else [],
+            'confidence': min(0.9, 0.3 + (intent_scores.get(primary_intent, 0) * 0.1)),
+            'scores': intent_scores
         }
     
     async def _extract_entities(self, question: str) -> Dict[str, List]:
-        """Extract entities from question"""
+        """Enhanced entity extraction with business-specific patterns"""
         await asyncio.sleep(0.01)
         
         entities = defaultdict(list)
         
-        # Extract years
+        # Extract years (Thai and Gregorian)
         year_patterns = [
-            (r'ปี\s*(\d{4})', 'gregorian'),
+            (r'ปี\s*(\d{4})', 'year_marker'),
             (r'(256[5-9]|257[0-9])', 'buddhist'),
-            (r'(202[2-9]|203[0-9])', 'gregorian')
+            (r'(202[2-9]|203[0-9])', 'gregorian'),
+            (r'ย้อนหลัง\s*(\d+)\s*ปี', 'years_back')
         ]
         
         for pattern, year_type in year_patterns:
@@ -215,10 +232,21 @@ class ParallelProcessingEngine:
             for match in matches:
                 if year_type == 'buddhist':
                     entities['years'].append(str(int(match) - 543))
+                elif year_type == 'years_back':
+                    # Calculate years back from current year
+                    current_year = 2024
+                    for i in range(int(match)):
+                        entities['years'].append(str(current_year - i))
+                elif year_type == 'year_marker':
+                    year = int(match)
+                    if year > 2500:  # Thai year
+                        entities['years'].append(str(year - 543))
+                    else:
+                        entities['years'].append(match)
                 else:
                     entities['years'].append(match)
         
-        # Extract months
+        # Extract months (Thai and English)
         thai_months = {
             'มกราคม': '01', 'กุมภาพันธ์': '02', 'มีนาคม': '03', 
             'เมษายน': '04', 'พฤษภาคม': '05', 'มิถุนายน': '06',
@@ -229,16 +257,75 @@ class ParallelProcessingEngine:
         for thai_month, month_num in thai_months.items():
             if thai_month in question:
                 entities['months'].append(month_num)
+                entities['month_names'].append(thai_month)
         
-        # Extract numbers
-        numbers = re.findall(r'\d+', question)
-        if numbers:
-            entities['numbers'] = numbers
+        # Extract model numbers and part codes
+        model_patterns = [
+            r'model\s+([A-Z0-9]+(?:\s+[A-Z0-9]+)*)',
+            r'รุ่น\s+([A-Z0-9]+(?:\s+[A-Z0-9]+)*)',
+            r'(RCUG\d+\s*[A-Z0-9]*)',
+            r'(EKAC\d+)',
+            r'(EK\s+model\s+[A-Z0-9]+)',
+            r'([A-Z]{2,}\d{3,})'  # General pattern for model codes
+        ]
         
-        # Extract company names (simple pattern)
-        if 'บริษัท' in question or 'company' in question.lower():
-            # This would need a more sophisticated NER system
-            entities['companies'] = []
+        for pattern in model_patterns:
+            matches = re.findall(pattern, question, re.IGNORECASE)
+            if matches:
+                entities['models'].extend(matches)
+        
+        # Extract company/customer names
+        company_patterns = [
+            r'บริษัท\s*([^\s]+(?:\s+[^\s]+)*?)(?:\s+จำกัด)?',
+            r'company\s+([^\s]+(?:\s+[^\s]+)*)',
+            r'ลูกค้า\s*([^\s]+(?:\s+[^\s]+)*)',
+        ]
+        
+        for pattern in company_patterns:
+            matches = re.findall(pattern, question, re.IGNORECASE)
+            if matches:
+                entities['companies'].extend(matches)
+        
+        # Extract date ranges
+        date_range_pattern = r'(\w+)\s*-\s*(\w+)'
+        matches = re.findall(date_range_pattern, question)
+        for start, end in matches:
+            # Check if they are months
+            start_month = thai_months.get(start)
+            end_month = thai_months.get(end)
+            if start_month and end_month:
+                entities['date_range'].append({
+                    'start_month': start_month,
+                    'end_month': end_month
+                })
+        
+        # Extract numbers for counting/limits
+        number_patterns = [
+            (r'(\d+)\s*อันดับ', 'ranking'),
+            (r'top\s*(\d+)', 'ranking'),
+            (r'(\d+)\s*รายการ', 'items'),
+            (r'จำนวน\s*(\d+)', 'count')
+        ]
+        
+        for pattern, num_type in number_patterns:
+            matches = re.findall(pattern, question, re.IGNORECASE)
+            for match in matches:
+                entities['numbers'].append({'value': match, 'type': num_type})
+        
+        # Extract job types
+        job_types = ['standard', 'มาตรฐาน', 'pm', 'overhaul', 'replacement', 'emergency']
+        for job_type in job_types:
+            if job_type in question.lower():
+                entities['job_types'].append(job_type)
+        
+        # Clean up duplicates
+        for key in entities:
+            if isinstance(entities[key], list):
+                if key == 'models':
+                    # Keep models as is (might have variations)
+                    entities[key] = list(set(entities[key]))
+                elif key not in ['date_range', 'numbers']:
+                    entities[key] = list(set(entities[key]))
         
         return dict(entities)
     
@@ -801,67 +888,127 @@ class DualModelDynamicAISystem:
     
     def _build_enhanced_sql_prompt(self, question: str, intent: str, entities: Dict,
                                   context: Dict, complexity: str, attempt: int) -> str:
-        """Build comprehensive prompt for SQL generation"""
+        """Build comprehensive prompt for SQL generation with entity replacement"""
         
         # Find relevant examples
         examples = self._find_relevant_examples(intent, question)
+        
+        # Replace placeholders in examples with actual entities
+        processed_examples = []
+        for example in examples[:3]:
+            sql = example['sql']
+            
+            # Replace customer placeholders
+            if entities.get('companies'):
+                sql = sql.replace('%X%', f"%{entities['companies'][0]}%")
+                sql = sql.replace('X%', f"{entities['companies'][0]}%")
+            
+            # Replace model placeholders
+            if entities.get('models'):
+                sql = sql.replace('%RCUG120%', f"%{entities['models'][0]}%")
+                sql = sql.replace('%Hitachi%', f"%{entities['models'][0].split()[0]}%")
+            
+            # Replace date placeholders
+            if entities.get('months') and entities.get('years'):
+                year = entities['years'][0]
+                month = entities['months'][0]
+                year_short = year[-2:] if len(year) == 4 else year
+                sql = sql.replace('%25-06-%', f"%{year_short}-{month}-%")
+                sql = sql.replace('%08/2025%', f"%{month}/{year}%")
+            
+            processed_examples.append({
+                'question': example['question'],
+                'sql': sql
+            })
         
         prompt = f"""You are an expert PostgreSQL developer for an HVAC business database.
 
 === DATABASE SCHEMA ===
 Tables available:
 - sales2022, sales2023, sales2024, sales2025: Sales and service records
-  Columns: id, job_no (pattern: SVyy-mm-xxx), customer_name, description,
+  Columns: id, job_no (pattern: SVyy-mm-xxx where yy=year last 2 digits, mm=month),
+           customer_name, description,
            overhaul_ (TEXT - needs CAST), replacement (TEXT - needs CAST),
-           service_contact_ (TEXT - needs CAST)
+           service_contact_ (TEXT - needs CAST), parts_all_ (TEXT), product_all (TEXT)
            
 - spare_part, spare_part2: Spare parts inventory
-  Columns: id, product_code, product_name, unit, balance (TEXT - needs CAST),
-           unit_price (TEXT - needs CAST)
+  Columns: id, product_code, product_name, unit, 
+           balance (TEXT - needs CAST), unit_price (TEXT - needs CAST), description
            
 - work_force: Work team management
-  Columns: id, date, customer, service_group, 
-           job_description_pm (BOOLEAN), job_description_overhaul (BOOLEAN)
+  Columns: id, date, customer, project, service_group, detail,
+           job_description_pm (BOOLEAN), job_description_overhaul (BOOLEAN),
+           job_description_replacement (BOOLEAN)
 
 === CRITICAL RULES ===
-1. Revenue fields (overhaul_, replacement, service_contact_) are TEXT type
-   MUST use: COALESCE(CAST(field AS NUMERIC), 0) for all calculations
+1. Revenue fields (overhaul_, replacement, service_contact_, parts_all_, product_all) are TEXT
+   ALWAYS use: COALESCE(CAST(field AS NUMERIC), 0) for calculations
    
-2. For boolean fields: Use field = true/false for conditions
-   For counting: SUM(CASE WHEN field = true THEN 1 ELSE 0 END)
+2. For boolean fields: Use field = true/false
+   For counting booleans: SUM(CASE WHEN field = true THEN 1 ELSE 0 END)
    
-3. Text search: Use ILIKE for case-insensitive matching
-4. Always include meaningful column aliases
+3. Job number pattern: 'SVyy-mm-xxx' or 'JAEyy-mm-xxx'
+   Example: SV24-06-001 = June 2024 job #001
+   
+4. Text search: Use ILIKE for case-insensitive matching
+5. Always include meaningful column aliases
+6. Handle NULL values with COALESCE"""
 
-=== EXAMPLES ==="""
+        # Add examples if available
+        if processed_examples:
+            prompt += "\n\n=== SIMILAR QUERY EXAMPLES ==="
+            for i, example in enumerate(processed_examples, 1):
+                prompt += f"\n\nExample {i}:"
+                prompt += f"\nQuestion: {example['question']}"
+                prompt += f"\nSQL:\n{example['sql']}"
         
-        # Add relevant examples
-        for i, example in enumerate(examples[:3], 1):
-            prompt += f"\n\nExample {i}:"
-            prompt += f"\nQuestion: {example['question']}"
-            prompt += f"\nSQL: {example['sql']}"
+        # Add entity information
+        if entities:
+            prompt += "\n\n=== EXTRACTED ENTITIES ==="
+            if entities.get('years'):
+                prompt += f"\nYears: {entities['years']} (tables: sales{entities['years'][0]} etc.)"
+            if entities.get('months'):
+                prompt += f"\nMonths: {entities['months']} (use in job_no pattern)"
+            if entities.get('companies'):
+                prompt += f"\nCompanies: {entities['companies']} (use ILIKE for matching)"
+            if entities.get('models'):
+                prompt += f"\nModels: {entities['models']} (search in product_name/description)"
+            if entities.get('date_range'):
+                prompt += f"\nDate range: {entities['date_range']}"
+            if entities.get('job_types'):
+                prompt += f"\nJob types: {entities['job_types']}"
         
         # Add context if available
         if context.get('recent_queries'):
             prompt += f"\n\n=== CONVERSATION CONTEXT ==="
             prompt += f"\nRecent queries: {context['recent_queries'][-2:]}"
+            prompt += f"\nThis might be a follow-up question."
         
         prompt += f"""
 
 === YOUR TASK ===
 Question: {question}
 Intent: {intent}
-Entities: {json.dumps(entities, ensure_ascii=False)}
 Complexity: {complexity}
 
-Generate PostgreSQL query that correctly answers the question.
-Return ONLY the SQL query, no explanations."""
+Instructions:
+1. Generate PostgreSQL query that correctly answers the question
+2. Use proper CAST and COALESCE for TEXT numeric fields
+3. Include all relevant columns in SELECT
+4. Use appropriate JOINs if needed
+5. Return meaningful column names
+
+Return ONLY the SQL query, no explanations or markdown."""
         
         if attempt > 0:
-            prompt += "\n\nPrevious attempt had validation errors. Be more careful with:"
-            prompt += "\n- CAST for TEXT numeric fields"
-            prompt += "\n- Proper NULL handling with COALESCE"
-            prompt += "\n- Boolean field syntax"
+            prompt += f"""
+
+IMPORTANT: Previous attempt failed validation.
+Common issues to fix:
+- Missing CAST for numeric TEXT fields in calculations
+- Incorrect boolean syntax (use = true/false)
+- Missing COALESCE for NULL handling
+- Unbalanced parentheses"""
         
         return prompt
     
@@ -996,7 +1143,7 @@ Return ONLY the SQL query, no explanations."""
             return self._generate_simple_response(results[0], question, cleaning_stats)
         
         # For complex results, optionally use LLM
-        use_llm_response = os.getenv('USE_LLM_RESPONSE', 'true').lower() == 'true'
+        use_llm_response = os.getenv('USE_LLM_RESPONSE', 'false').lower() == 'true'
         
         if use_llm_response:
             try:
@@ -1129,43 +1276,179 @@ Provide a clear, concise answer in Thai. Include numbers and key insights."""
         return [ex[1] for ex in relevant[:3]]
     
     def _load_sql_examples(self) -> List[Dict]:
-        """Load proven SQL examples"""
+        """Comprehensive SQL examples for HVAC business queries"""
         return [
+            # Basic aggregations
             {
                 'intent': 'revenue_analysis',
-                'keywords': ['ยอด', 'รวม', 'total', 'sum'],
+                'keywords': ['ยอด', 'รวม', 'total', 'sum', 'มูลค่า'],
                 'question': 'ยอดรวม overhaul ปี 2024',
                 'sql': """SELECT 
                     COALESCE(SUM(CAST(overhaul_ AS NUMERIC)), 0) as overhaul_total,
-                    COUNT(CASE WHEN overhaul_ IS NOT NULL THEN 1 END) as job_count
-                FROM sales2024"""
+                    COUNT(CASE WHEN overhaul_ IS NOT NULL AND overhaul_ != '' THEN 1 END) as job_count
+                FROM sales2024
+WHERE overhaul_ IS NOT NULL"""
             },
+            # Customer analysis
             {
                 'intent': 'customer_ranking',
                 'keywords': ['ลูกค้า', 'อันดับ', 'top', 'สูงสุด'],
-                'question': 'ลูกค้า 5 อันดับแรก',
+                'question': 'ลูกค้า 5 อันดับแรกที่มียอดสูงสุด',
                 'sql': """SELECT 
                     customer_name,
-                    COALESCE(SUM(CAST(service_contact_ AS NUMERIC)), 0) as total_revenue
+                    COALESCE(SUM(CAST(service_contact_ AS NUMERIC)), 0) + 
+                    COALESCE(SUM(CAST(overhaul_ AS NUMERIC)), 0) + 
+                    COALESCE(SUM(CAST(replacement AS NUMERIC)), 0) as total_revenue
                 FROM sales2024
                 WHERE customer_name IS NOT NULL
                 GROUP BY customer_name
                 ORDER BY total_revenue DESC
                 LIMIT 5"""
             },
+            # Customer history
             {
-                'intent': 'spare_parts',
-                'keywords': ['อะไหล่', 'spare', 'part', 'คลัง'],
-                'question': 'อะไหล่คงเหลือ',
+                'intent': 'customer_history',
+                'keywords': ['ประวัติ', 'ย้อนหลัง', 'ซื้อขาย', 'การซ่อม'],
+                'question': 'บริษัท X มีประวัติการซ่อมอะไรบ้าง',
+                'sql': """SELECT 
+                    job_no,
+                    customer_name,
+                    description,
+                    COALESCE(CAST(service_contact_ AS NUMERIC), 0) as service_amount,
+                    COALESCE(CAST(overhaul_ AS NUMERIC), 0) as overhaul_amount,
+                    COALESCE(CAST(replacement AS NUMERIC), 0) as replacement_amount
+                FROM sales2024
+                WHERE customer_name ILIKE '%X%'
+                ORDER BY job_no DESC"""
+            },
+            # Multi-year customer history
+            {
+                'intent': 'customer_history',
+                'keywords': ['ย้อนหลัง', '3 ปี', 'ประวัติ'],
+                'question': 'บริษัท X มีการซื้อขายย้อนหลัง 3 ปี',
+                'sql': """SELECT 
+                    '2024' as year,
+                    COUNT(*) as job_count,
+                    COALESCE(SUM(CAST(service_contact_ AS NUMERIC)), 0) + 
+                    COALESCE(SUM(CAST(overhaul_ AS NUMERIC)), 0) + 
+                    COALESCE(SUM(CAST(replacement AS NUMERIC)), 0) as total_amount
+                FROM sales2024
+                WHERE customer_name ILIKE '%X%'
+                UNION ALL
+                SELECT 
+                    '2023' as year,
+                    COUNT(*) as job_count,
+                    COALESCE(SUM(CAST(service_contact_ AS NUMERIC)), 0) + 
+                    COALESCE(SUM(CAST(overhaul_ AS NUMERIC)), 0) + 
+                    COALESCE(SUM(CAST(replacement AS NUMERIC)), 0) as total_amount
+                FROM sales2023
+                WHERE customer_name ILIKE '%X%'
+                UNION ALL
+                SELECT 
+                    '2022' as year,
+                    COUNT(*) as job_count,
+                    COALESCE(SUM(CAST(service_contact_ AS NUMERIC)), 0) + 
+                    COALESCE(SUM(CAST(overhaul_ AS NUMERIC)), 0) + 
+                    COALESCE(SUM(CAST(replacement AS NUMERIC)), 0) as total_amount
+                FROM sales2022
+                WHERE customer_name ILIKE '%X%'
+                ORDER BY year DESC"""
+            },
+            # Spare parts pricing
+            {
+                'intent': 'spare_price',
+                'keywords': ['ราคา', 'อะไหล่', 'model', 'รุ่น'],
+                'question': 'ราคาอะไหล่ Hitachi model RCUG120',
                 'sql': """SELECT 
                     product_code,
                     product_name,
+                    CAST(unit_price AS NUMERIC) as price,
                     CAST(balance AS NUMERIC) as stock_balance,
-                    CAST(unit_price AS NUMERIC) as price
+                    unit
                 FROM spare_part
-                ORDER BY CAST(balance AS NUMERIC) DESC
-                LIMIT 10"""
+                WHERE product_name ILIKE '%RCUG120%'
+                   OR product_name ILIKE '%Hitachi%'
+                   OR description ILIKE '%RCUG120%'
+                ORDER BY price DESC"""
             },
+            # Work planning
+            {
+                'intent': 'work_plan',
+                'keywords': ['แผน', 'วางแผน', 'งาน'],
+                'question': 'แผนงานวันที่ X มีงานอะไรบ้าง',
+                'sql': """SELECT 
+                    date,
+                    customer,
+                    project,
+                    detail,
+                    service_group,
+                    CASE 
+                        WHEN job_description_pm = true THEN 'PM'
+                        WHEN job_description_overhaul = true THEN 'Overhaul'
+                        WHEN job_description_replacement = true THEN 'Replacement'
+                        ELSE 'Other'
+                    END as job_type
+                FROM work_force
+                WHERE date ILIKE '%X%'
+                ORDER BY date"""
+            },
+            # Monthly work summary
+            {
+                'intent': 'monthly_analysis',
+                'keywords': ['เดือน', 'สรุปงาน', 'monthly'],
+                'question': 'สรุปงานที่ทำของเดือนมิถุนายน 2568',
+                'sql': """SELECT 
+                    customer_name,
+                    COUNT(*) as job_count,
+                    COALESCE(SUM(CAST(service_contact_ AS NUMERIC)), 0) as service_total,
+                    COALESCE(SUM(CAST(overhaul_ AS NUMERIC)), 0) as overhaul_total,
+                    COALESCE(SUM(CAST(replacement AS NUMERIC)), 0) as replacement_total
+                FROM sales2025
+                WHERE job_no LIKE '%25-06-%'
+                GROUP BY customer_name
+                ORDER BY job_count DESC"""
+            },
+            # Quotation summary
+            {
+                'intent': 'quotation',
+                'keywords': ['เสนอราคา', 'quotation', 'standard'],
+                'question': 'สรุปเสนอราคางาน Standard ทั้งหมด',
+                'sql': """SELECT 
+                    job_no,
+                    customer_name,
+                    description,
+                    COALESCE(CAST(service_contact_ AS NUMERIC), 0) as quotation_amount
+                FROM sales2024
+                WHERE description ILIKE '%standard%'
+                   OR description ILIKE '%มาตรฐาน%'
+                   OR job_no LIKE '%-S-%'
+                ORDER BY quotation_amount DESC"""
+            },
+            # Overhaul comparison
+            {
+                'intent': 'comparison',
+                'keywords': ['เปรียบเทียบ', 'compare', 'overhaul'],
+                'question': 'รายงานยอดขาย overhaul compressor ปี 2567-2568',
+                'sql': """SELECT 
+                    '2024' as year,
+                    COUNT(CASE WHEN description ILIKE '%compressor%' THEN 1 END) as compressor_jobs,
+                    COALESCE(SUM(CASE WHEN description ILIKE '%compressor%' 
+                        THEN CAST(overhaul_ AS NUMERIC) ELSE 0 END), 0) as compressor_amount,
+                    COALESCE(SUM(CAST(overhaul_ AS NUMERIC)), 0) as total_overhaul
+                FROM sales2024
+                WHERE overhaul_ IS NOT NULL
+                UNION ALL
+                SELECT 
+                    '2025' as year,
+                    COUNT(CASE WHEN description ILIKE '%compressor%' THEN 1 END) as compressor_jobs,
+                    COALESCE(SUM(CASE WHEN description ILIKE '%compressor%' 
+                        THEN CAST(overhaul_ AS NUMERIC) ELSE 0 END), 0) as compressor_amount,
+                    COALESCE(SUM(CAST(overhaul_ AS NUMERIC)), 0) as total_overhaul
+                FROM sales2025
+                WHERE overhaul_ IS NOT NULL
+                ORDER BY year"""
+            },
+            # Team performance
             {
                 'intent': 'team_analysis',
                 'keywords': ['ทีม', 'team', 'งาน', 'pm'],
@@ -1173,25 +1456,115 @@ Provide a clear, concise answer in Thai. Include numbers and key insights."""
                 'sql': """SELECT 
                     service_group,
                     COUNT(*) as total_jobs,
-                    SUM(CASE WHEN job_description_pm = true THEN 1 ELSE 0 END) as pm_jobs
+                    SUM(CASE WHEN job_description_pm = true THEN 1 ELSE 0 END) as pm_jobs,
+                    SUM(CASE WHEN job_description_overhaul = true THEN 1 ELSE 0 END) as overhaul_jobs,
+                    SUM(CASE WHEN job_description_replacement = true THEN 1 ELSE 0 END) as replacement_jobs
                 FROM work_force
                 WHERE service_group IS NOT NULL
                 GROUP BY service_group
-                ORDER BY pm_jobs DESC"""
+                ORDER BY pm_jobs DESC
+                LIMIT 10"""
             },
+            # Spare parts inventory
             {
-                'intent': 'comparison',
-                'keywords': ['เปรียบเทียบ', 'compare', 'ระหว่าง'],
-                'question': 'เปรียบเทียบปี 2024 กับ 2025',
+                'intent': 'spare_parts',
+                'keywords': ['อะไหล่', 'คงเหลือ', 'stock'],
+                'question': 'อะไหล่ที่มีจำนวนคงเหลือมากที่สุด',
                 'sql': """SELECT 
-                    '2024' as year,
-                    COALESCE(SUM(CAST(overhaul_ AS NUMERIC)), 0) as total
-                FROM sales2024
-                UNION ALL
-                SELECT 
-                    '2025' as year,
-                    COALESCE(SUM(CAST(overhaul_ AS NUMERIC)), 0) as total
-                FROM sales2025"""
+                    product_code,
+                    product_name,
+                    CAST(balance AS NUMERIC) as stock_balance,
+                    CAST(unit_price AS NUMERIC) as unit_price,
+                    unit,
+                    CAST(balance AS NUMERIC) * CAST(unit_price AS NUMERIC) as total_value
+                FROM spare_part
+                WHERE balance IS NOT NULL AND balance != '0'
+                ORDER BY CAST(balance AS NUMERIC) DESC
+                LIMIT 10"""
+            },
+            # Count all customers
+            {
+                'intent': 'counting',
+                'keywords': ['จำนวน', 'ลูกค้า', 'ทั้งหมด'],
+                'question': 'จำนวนลูกค้าทั้งหมด',
+                'sql': """SELECT 
+                    COUNT(DISTINCT customer_name) as total_customers,
+                    COUNT(*) as total_transactions
+                FROM (
+                    SELECT customer_name FROM sales2024
+                    UNION ALL
+                    SELECT customer_name FROM sales2023
+                    UNION ALL
+                    SELECT customer_name FROM sales2022
+                ) all_customers
+                WHERE customer_name IS NOT NULL"""
+            },
+            # Date range analysis
+            {
+                'intent': 'work_plan',
+                'keywords': ['วางแผน', 'เดือน', 'สิงหาคม', 'กันยายน'],
+                'question': 'งานที่วางแผนของเดือนสิงหาคม-กันยายน 2568',
+                'sql': """SELECT 
+                    date,
+                    customer,
+                    project,
+                    detail,
+                    service_group,
+                    CASE 
+                        WHEN job_description_pm = true THEN 'PM'
+                        WHEN job_description_overhaul = true THEN 'Overhaul'
+                        WHEN job_description_replacement = true THEN 'Replacement'
+                        ELSE 'Other'
+                    END as job_type
+                FROM work_force
+                WHERE (date LIKE '%08/2025%' OR date LIKE '%09/2025%'
+                    OR date LIKE '%08/25%' OR date LIKE '%09/25%')
+                ORDER BY date"""
+            },
+            # Yearly analysis with details
+            {
+                'intent': 'yearly_analysis',
+                'keywords': ['วิเคราะห์', 'การขาย', 'ปี'],
+                'question': 'วิเคราะห์การขายของปี 2567-2568',
+                'sql': """SELECT 
+                    year,
+                    SUM(service_total) as service_revenue,
+                    SUM(overhaul_total) as overhaul_revenue,
+                    SUM(replacement_total) as replacement_revenue,
+                    SUM(grand_total) as total_revenue,
+                    SUM(job_count) as total_jobs,
+                    COUNT(DISTINCT customer_name) as unique_customers
+                FROM (
+                    SELECT 
+                        '2024' as year,
+                        customer_name,
+                        COUNT(*) as job_count,
+                        COALESCE(SUM(CAST(service_contact_ AS NUMERIC)), 0) as service_total,
+                        COALESCE(SUM(CAST(overhaul_ AS NUMERIC)), 0) as overhaul_total,
+                        COALESCE(SUM(CAST(replacement AS NUMERIC)), 0) as replacement_total,
+                        COALESCE(SUM(CAST(service_contact_ AS NUMERIC)), 0) + 
+                        COALESCE(SUM(CAST(overhaul_ AS NUMERIC)), 0) + 
+                        COALESCE(SUM(CAST(replacement AS NUMERIC)), 0) as grand_total
+                    FROM sales2024
+                    GROUP BY customer_name
+                    
+                    UNION ALL
+                    
+                    SELECT 
+                        '2025' as year,
+                        customer_name,
+                        COUNT(*) as job_count,
+                        COALESCE(SUM(CAST(service_contact_ AS NUMERIC)), 0) as service_total,
+                        COALESCE(SUM(CAST(overhaul_ AS NUMERIC)), 0) as overhaul_total,
+                        COALESCE(SUM(CAST(replacement AS NUMERIC)), 0) as replacement_total,
+                        COALESCE(SUM(CAST(service_contact_ AS NUMERIC)), 0) + 
+                        COALESCE(SUM(CAST(overhaul_ AS NUMERIC)), 0) + 
+                        COALESCE(SUM(CAST(replacement AS NUMERIC)), 0) as grand_total
+                    FROM sales2025
+                    GROUP BY customer_name
+                ) yearly_data
+                GROUP BY year
+                ORDER BY year"""
             }
         ]
     
