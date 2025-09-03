@@ -63,72 +63,72 @@ class SmartQueryRewriter:
         ]
     
     async def ensure_safe_functions(self, db_handler):
-        """
-        สร้าง safe functions ใน database ถ้ายังไม่มี
-        """
-        if self.safe_function_created:
-            return True
-        
+        """สร้าง safe_cast_numeric function พร้อม error handling ที่ดีกว่า"""
         try:
-            # Check if function exists
-            check_sql = """
-            SELECT EXISTS (
-                SELECT 1 
-                FROM pg_proc 
-                WHERE proname = 'safe_cast_numeric'
-            );
+            # ตรวจสอบว่า function มีอยู่แล้วหรือไม่
+            check_function = """
+            SELECT proname 
+            FROM pg_proc 
+            WHERE proname = 'safe_cast_numeric'
+            AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
             """
             
-            result = await db_handler.execute_query(check_sql)
+            result = await db_handler.execute_query(check_function)
             
-            if not result or not result[0].get('exists'):
-                # Create safe cast function
-                create_function_sql = """
-                CREATE OR REPLACE FUNCTION safe_cast_numeric(input_text TEXT) 
-                RETURNS NUMERIC AS $$
-                BEGIN
-                    -- Handle NULL
-                    IF input_text IS NULL THEN
-                        RETURN 0;
-                    END IF;
-                    
-                    -- Handle empty string
-                    IF input_text = '' THEN
-                        RETURN 0;
-                    END IF;
-                    
-                    -- Try to cast to numeric
+            if result and len(result) > 0:
+                logger.info("✅ safe_cast_numeric function already exists")
+                self.safe_function_created = True
+                return True
+            
+            # ถ้ายังไม่มี ให้สร้างใหม่
+            logger.info("📝 Creating safe_cast_numeric function...")
+            
+            create_function_sql = """
+            CREATE OR REPLACE FUNCTION public.safe_cast_numeric(input_text TEXT) 
+            RETURNS NUMERIC AS $$
+            BEGIN
+                -- จัดการกรณี NULL
+                IF input_text IS NULL THEN
+                    RETURN 0;
+                END IF;
+                
+                -- จัดการกรณี empty string
+                IF trim(input_text) = '' THEN
+                    RETURN 0;
+                END IF;
+                
+                -- ตรวจสอบว่าเป็นตัวเลขหรือไม่ (รองรับจำนวนลบและทศนิยม)
+                IF input_text ~ '^-?[0-9]+\.?[0-9]*$' THEN
                     RETURN input_text::NUMERIC;
-                    
-                EXCEPTION
-                    WHEN OTHERS THEN
-                        -- Return 0 for any casting error
-                        RETURN 0;
-                END;
-                $$ LANGUAGE plpgsql IMMUTABLE;
+                END IF;
                 
-                -- Create helper function for date checking
-                CREATE OR REPLACE FUNCTION is_valid_date(input_text TEXT)
-                RETURNS BOOLEAN AS $$
-                BEGIN
-                    RETURN input_text ~ '^\d{1,2}[-/]\d{1,2}[-/]\d{4}$'
-                        OR input_text ~ '^\d{1,2}-\d{1,2}[-/]\d{1,2}[-/]\d{4}$'
-                        OR input_text ~ '^\d{5}$';  -- Excel serial
-                END;
-                $$ LANGUAGE plpgsql IMMUTABLE;
-                """
-                
-                await db_handler.execute_ddl(create_function_sql)
-                logger.info("✅ Created safe_cast_numeric function in database")
+                -- กรณีอื่นๆ return 0
+                RETURN 0;
+            EXCEPTION
+                WHEN OTHERS THEN
+                    -- ถ้ามี error ใดๆ ให้ return 0
+                    RETURN 0;
+            END;
+            $$ LANGUAGE plpgsql IMMUTABLE;
+            """
             
+            # ใช้ execute_ddl ถ้ามี หรือ execute_query ถ้าไม่มี
+            if hasattr(db_handler, 'execute_ddl'):
+                await db_handler.execute_ddl(create_function_sql)
+            else:
+                # Fallback to regular query execution
+                await db_handler.execute_query(create_function_sql)
+                
+            logger.info("✅ safe_cast_numeric function created successfully")
             self.safe_function_created = True
             return True
             
         except Exception as e:
-            logger.error(f"Failed to create safe functions: {e}")
-            # Continue anyway - will use fallback
+            logger.error(f"❌ Failed to create safe_cast_numeric: {e}")
+            logger.error(f"Error details: {str(e)}")
+            self.safe_function_created = False
             return False
-    
+            
     async def check_or_create_views(self, db_handler):
         """
         เช็คและสร้าง views ถ้าจำเป็น
