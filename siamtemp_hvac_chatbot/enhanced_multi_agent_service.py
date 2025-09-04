@@ -519,8 +519,6 @@ async def update_cache_metrics():
 @app.on_event("startup")
 async def startup_event():
     """Initialize services on startup"""
-    
-    # แสดงข้อความต้อนรับเหมือนเดิม
     logger.info(f"""
     {'='*60}
     🚀 {config.service_name}
@@ -539,32 +537,7 @@ async def startup_event():
     API Documentation: http://localhost:8000/docs
     {'='*60}
     """)
-    
-    # เพิ่มส่วนนี้เข้าไป!
-    logger.info("🔧 Preparing database functions and views...")
-    try:
-        # ตรวจสอบว่า method มีอยู่จริง
-        if hasattr(ai_agent.dual_model_ai, 'ensure_database_ready'):
-            await ai_agent.dual_model_ai.ensure_database_ready()
-            logger.info("✅ Database functions and views prepared successfully")
-        else:
-            logger.warning("⚠️ ensure_database_ready method not found")
-            
-        # ตรวจสอบว่า safe_cast_numeric function ถูกสร้างหรือยัง
-        test_query = "SELECT safe_cast_numeric('123') as test"
-        try:
-            result = await ai_agent.dual_model_ai.db_handler.execute_query(test_query)
-            logger.info(f"✅ safe_cast_numeric function verified: {result}")
-        except Exception as e:
-            logger.error(f"❌ safe_cast_numeric function not working: {e}")
-            
-    except Exception as e:
-        logger.error(f"❌ Failed to prepare database: {e}")
-        # ไม่ raise error เพื่อให้ service ยังทำงานต่อได้
-        # แต่ log ไว้ให้ชัดเจน
-        logger.warning("⚠️ Service starting without database optimizations")
 
-        
 @app.on_event("shutdown")
 async def shutdown_event():
     """Cleanup on shutdown"""

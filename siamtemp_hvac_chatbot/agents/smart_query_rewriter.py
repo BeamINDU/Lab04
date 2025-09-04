@@ -1,517 +1,189 @@
-"""
-Smart Query Rewriter for Siamtemp HVAC Database
-================================================
-แก้ปัญหา SQL errors โดยการ rewrite queries อัตโนมัติ
-ทำงานได้ทันทีโดยไม่ต้องแก้ไข SQL examples เดิม
-"""
 
 import re
 import logging
-from typing import Dict, List, Any, Optional, Tuple
-from datetime import datetime
 
-logger = logging.getLogger(__name__)
-
-# =============================================================================
-# SMART QUERY REWRITER CLASS
-# =============================================================================
+logger = logging.getLogger("agents.smart_query_rewriter")
 
 class SmartQueryRewriter:
     """
-    Rewrite SQL queries อัตโนมัติเพื่อจัดการ data quality issues
-    - แปลง CAST operations ให้ปลอดภัย
-    - สร้าง safe functions ใน database
-    - Switch ไปใช้ views ถ้ามี
+    Safer SQL rewriter (no UDF). Key behaviors:
+    - Force views (v_sales20xx, v_spare_part) instead of raw tables
+    - Map raw sales/spare fields to *_num
+    - Remove comparisons of numeric columns with '' and LENGTH() on numerics
+    - Split SUM(a+b) into SUM(a)+SUM(b)
+    - Light TH->AD year literal normalization inside LIKE patterns (2567->2024, 2568->2025)
     """
-    
     def __init__(self):
-        self.views_checked = False
-        self.views_available = {}
-        self.safe_function_created = False
-        
-        # Rewrite patterns
-        self.rewrite_patterns = [
-            # Pattern 1: CAST(NULLIF(...) AS NUMERIC)
-            (
-                r"CAST\s*\(\s*NULLIF\s*\(\s*([\w_]+)\s*,\s*''\s*\)\s+AS\s+NUMERIC\s*\)",
-                r"safe_cast_numeric(\1)"
-            ),
-            # Pattern 2: CAST(field AS NUMERIC) without NULLIF
-            (
-                r"CAST\s*\(\s*([\w_]+)\s+AS\s+NUMERIC\s*\)",
-                r"safe_cast_numeric(\1)"
-            ),
-            # Pattern 3: field::NUMERIC
-            (
-                r"(\w+)::NUMERIC",
-                r"safe_cast_numeric(\1)"
-            ),
-            # Pattern 4: Long CASE WHEN for numeric casting
-            (
-                r"CASE\s+WHEN\s+(\w+)\s+IS\s+NULL\s+OR\s+\1\s*=\s*''\s+THEN\s+0\s+"
-                r"(?:WHEN\s+[\w\s~'^$.*+\-\[\]]+\s+THEN\s+CAST\s*\(\s*\1\s+AS\s+NUMERIC\s*\)\s+)?"
-                r"ELSE\s+(?:CAST\s*\(\s*\1\s+AS\s+NUMERIC\s*\)|0)\s+END",
-                r"safe_cast_numeric(\1)",
-                re.IGNORECASE | re.DOTALL
-            ),
-            # Pattern 5: Simple CASE for empty check
-            (
-                r"CASE\s+WHEN\s+(\w+)\s*=\s*''\s+THEN\s+0\s+ELSE\s+CAST\s*\(\s*\1\s+AS\s+NUMERIC\s*\)\s+END",
-                r"safe_cast_numeric(\1)",
-                re.IGNORECASE
-            )
-        ]
-    
+        self.safe_function_created = True
+
     async def ensure_safe_functions(self, db_handler):
-        """สร้าง safe_cast_numeric function พร้อม error handling ที่ดีกว่า"""
-        try:
-            # ตรวจสอบว่า function มีอยู่แล้วหรือไม่
-            check_function = """
-            SELECT proname 
-            FROM pg_proc 
-            WHERE proname = 'safe_cast_numeric'
-            AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
-            """
-            
-            result = await db_handler.execute_query(check_function)
-            
-            if result and len(result) > 0:
-                logger.info("✅ safe_cast_numeric function already exists")
-                self.safe_function_created = True
-                return True
-            
-            # ถ้ายังไม่มี ให้สร้างใหม่
-            logger.info("📝 Creating safe_cast_numeric function...")
-            
-            create_function_sql = """
-            CREATE OR REPLACE FUNCTION public.safe_cast_numeric(input_text TEXT) 
-            RETURNS NUMERIC AS $$
-            BEGIN
-                -- จัดการกรณี NULL
-                IF input_text IS NULL THEN
-                    RETURN 0;
-                END IF;
-                
-                -- จัดการกรณี empty string
-                IF trim(input_text) = '' THEN
-                    RETURN 0;
-                END IF;
-                
-                -- ตรวจสอบว่าเป็นตัวเลขหรือไม่ (รองรับจำนวนลบและทศนิยม)
-                IF input_text ~ '^-?[0-9]+\.?[0-9]*$' THEN
-                    RETURN input_text::NUMERIC;
-                END IF;
-                
-                -- กรณีอื่นๆ return 0
-                RETURN 0;
-            EXCEPTION
-                WHEN OTHERS THEN
-                    -- ถ้ามี error ใดๆ ให้ return 0
-                    RETURN 0;
-            END;
-            $$ LANGUAGE plpgsql IMMUTABLE;
-            """
-            
-            # ใช้ execute_ddl ถ้ามี หรือ execute_query ถ้าไม่มี
-            if hasattr(db_handler, 'execute_ddl'):
-                await db_handler.execute_ddl(create_function_sql)
-            else:
-                # Fallback to regular query execution
-                await db_handler.execute_query(create_function_sql)
-                
-            logger.info("✅ safe_cast_numeric function created successfully")
-            self.safe_function_created = True
-            return True
-            
-        except Exception as e:
-            logger.error(f"❌ Failed to create safe_cast_numeric: {e}")
-            logger.error(f"Error details: {str(e)}")
-            self.safe_function_created = False
-            return False
-            
-    async def check_or_create_views(self, db_handler):
-        """
-        เช็คและสร้าง views ถ้าจำเป็น
-        """
-        if self.views_checked:
-            return self.views_available
-        
-        try:
-            # Check existing views
-            check_sql = """
-            SELECT table_name 
-            FROM information_schema.views 
-            WHERE table_schema = 'public' 
-            AND table_name LIKE 'v_%';
-            """
-            
-            result = await db_handler.execute_query(check_sql)
-            
-            if result:
-                for row in result:
-                    view_name = row.get('table_name')
-                    self.views_available[view_name] = True
-                logger.info(f"📊 Found {len(self.views_available)} existing views")
-            else:
-                # Create views if not exist
-                await self._create_safe_views(db_handler)
-            
-            self.views_checked = True
-            return self.views_available
-            
-        except Exception as e:
-            logger.error(f"Error checking views: {e}")
-            # Continue without views
-            self.views_checked = True
-            return {}
-    
+        """No-op (UDFs not required)."""
+        self.safe_function_created = True
+        return True
+
     async def _create_safe_views(self, db_handler):
+        logger.info("ℹ️ Skip auto-creating views; expecting v_sales20xx/v_spare_part/v_work_force to exist.")
+        return True
+
+    def _thai_year_normalize(self, s: str) -> str:
+        # Turn month/year literal filters with TH years into AD years in LIKE patterns.
+        # Examples: '%/08/2568%' -> '%/08/2025%'; '%2025-08%' untouched
+        mapping = {'2567': '2024', '2568': '2025', '2566': '2023'}
+        out = s
+        for th, ad in mapping.items():
+            out = re.sub(rf'(/|-){th}\b', rf'\1{ad}', out)
+            out = re.sub(rf'\b{th}(/|-)', rf'{ad}\1', out)
+            out = re.sub(rf'\b{th}\b', ad, out)
+        return out
+
+    def rewrite_query(self, sql: str, use_views: bool = True):
         """
-        สร้าง views ที่ safe สำหรับทุก table
-        """
-        try:
-            views_sql = """
-            -- Sales views
-            CREATE OR REPLACE VIEW v_sales2024 AS
-            SELECT 
-                id, job_no, customer_name, description,
-                safe_cast_numeric(overhaul_) as overhaul_,
-                safe_cast_numeric(replacement) as replacement,
-                safe_cast_numeric(service_contact_) as service_contact_,
-                safe_cast_numeric(parts_all_) as parts_all_,
-                safe_cast_numeric(product_all) as product_all,
-                safe_cast_numeric(solution_) as solution_
-            FROM sales2024;
-            
-            CREATE OR REPLACE VIEW v_sales2023 AS
-            SELECT 
-                id, job_no, customer_name, description,
-                safe_cast_numeric(overhaul_) as overhaul_,
-                safe_cast_numeric(replacement) as replacement,
-                safe_cast_numeric(service_contact_) as service_contact_,
-                safe_cast_numeric(parts_all_) as parts_all_,
-                safe_cast_numeric(product_all) as product_all,
-                safe_cast_numeric(solution_) as solution_
-            FROM sales2023;
-            
-            CREATE OR REPLACE VIEW v_sales2022 AS
-            SELECT 
-                id, job_no, customer_name, description,
-                safe_cast_numeric(overhaul_) as overhaul_,
-                safe_cast_numeric(replacement) as replacement,
-                safe_cast_numeric(service_contact_) as service_contact_,
-                safe_cast_numeric(parts_all_) as parts_all_,
-                safe_cast_numeric(product_all) as product_all,
-                safe_cast_numeric(solution_) as solution_
-            FROM sales2022;
-            
-            CREATE OR REPLACE VIEW v_sales2025 AS
-            SELECT 
-                id, job_no, customer_name, description,
-                safe_cast_numeric(overhaul_) as overhaul_,
-                safe_cast_numeric(replacement) as replacement,
-                safe_cast_numeric(service_contact_) as service_contact_,
-                safe_cast_numeric(parts_all_) as parts_all_,
-                safe_cast_numeric(product_all) as product_all,
-                safe_cast_numeric(solution_) as solution_
-            FROM sales2025;
-            
-            -- Spare part view
-            CREATE OR REPLACE VIEW v_spare_part AS
-            SELECT 
-                id, wh, product_code, product_name, unit,
-                safe_cast_numeric(balance) as balance,
-                safe_cast_numeric(unit_price) as unit_price,
-                safe_cast_numeric(total) as total,
-                description, received
-            FROM spare_part;
-            
-            -- Work force view (keep as is - no numeric fields to cast)
-            CREATE OR REPLACE VIEW v_work_force AS
-            SELECT * FROM work_force;
-            """
-            
-            await db_handler.execute_ddl(views_sql)
-            
-            # Update available views
-            for view in ['v_sales2024', 'v_sales2023', 'v_sales2022', 'v_sales2025', 
-                        'v_spare_part', 'v_work_force']:
-                self.views_available[view] = True
-            
-            logger.info("✅ Created safe views for all tables")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Failed to create views: {e}")
-            return False
-    
-    def rewrite_query(self, sql: str, use_views: bool = False) -> Tuple[str, List[str]]:
-        """
-        Rewrite SQL query เพื่อให้ปลอดภัย
         Returns: (rewritten_sql, changes_made)
         """
         if not sql:
             return sql, []
-        
-        original_sql = sql
         changes_made = []
-        
-        # Step 1: Apply rewrite patterns for CAST operations
-        for pattern in self.rewrite_patterns:
-            if len(pattern) == 2:
-                pattern_re, replacement = pattern
-                flags = re.IGNORECASE
-            else:
-                pattern_re, replacement, flags = pattern
-            
-            # Check if pattern matches
-            if re.search(pattern_re, sql, flags):
-                sql = re.sub(pattern_re, replacement, sql, flags=flags)
-                if sql != original_sql:
-                    changes_made.append(f"Replaced unsafe CAST with safe_cast_numeric")
-        
-        # Step 2: Fix SUM of additions (common error pattern)
-        # เปลี่ยนจาก SUM(field1 + field2) เป็น SUM(safe_cast_numeric(field1)) + SUM(safe_cast_numeric(field2))
-        sum_pattern = r"SUM\s*\(((?:[^()]+|\([^()]*\))+)\)"
-        sum_matches = re.findall(sum_pattern, sql, re.IGNORECASE)
-        
-        for match in sum_matches:
-            if '+' in match and 'CASE' not in match.upper():
-                # Split by + and wrap each field
-                fields = match.split('+')
-                new_sum = ' + '.join([f"SUM(safe_cast_numeric({f.strip()}))" for f in fields])
-                sql = sql.replace(f"SUM({match})", new_sum)
-                changes_made.append("Fixed SUM of additions")
-        
-        # Step 3: Switch to views if available and requested
-        if use_views and self.views_available:
-            view_mappings = [
-                ('FROM sales2024', 'FROM v_sales2024'),
-                ('FROM sales2023', 'FROM v_sales2023'),
-                ('FROM sales2022', 'FROM v_sales2022'),
-                ('FROM sales2025', 'FROM v_sales2025'),
-                ('FROM spare_part', 'FROM v_spare_part'),
-                ('FROM work_force', 'FROM v_work_force'),
-            ]
-            
-            for old, new in view_mappings:
-                if old in sql:
-                    sql = sql.replace(old, new)
-                    changes_made.append(f"Switched to safe view: {new.split()[-1]}")
-        
-        # Step 4: Fix regex patterns (~ operator)
-        # PostgreSQL regex ต้องใช้กับ text, ไม่ใช่ numeric
-        regex_pattern = r"(\w+)\s+~\s+'([^']+)'"
-        regex_matches = re.findall(regex_pattern, sql)
-        
-        for field, pattern in regex_matches:
-            # Check if it's likely a numeric field being checked
-            if '^[0-9]' in pattern or field in ['balance', 'unit_price', 'overhaul_', 'replacement']:
-                # Replace with safe check
-                sql = re.sub(
-                    f"{field}\\s+~\\s+'{re.escape(pattern)}'",
-                    f"{field} IS NOT NULL AND {field} != ''",
-                    sql
-                )
-                changes_made.append(f"Fixed regex pattern for {field}")
-        
-        # Log changes if any
-        if changes_made:
-            logger.info(f"🔄 Query rewritten: {', '.join(changes_made)}")
-        
+        original = sql
+
+        # 0) normalize TH year literals in LIKE filters
+        sql = self._thai_year_normalize(sql)
+
+        # 1) enforce views
+        mapping = {
+            r'\bFROM\s+sales2022\b': 'FROM v_sales2022',
+            r'\bFROM\s+sales2023\b': 'FROM v_sales2023',
+            r'\bFROM\s+sales2024\b': 'FROM v_sales2024',
+            r'\bFROM\s+sales2025\b': 'FROM v_sales2025',
+            r'\bJOIN\s+sales2022\b': 'JOIN v_sales2022',
+            r'\bJOIN\s+sales2023\b': 'JOIN v_sales2023',
+            r'\bJOIN\s+sales2024\b': 'JOIN v_sales2024',
+            r'\bJOIN\s+sales2025\b': 'JOIN v_sales2025',
+            r'\bFROM\s+spare_part\b': 'FROM v_spare_part',
+            r'\bJOIN\s+spare_part\b': 'JOIN v_spare_part',
+        }
+        tmp = sql
+        for pat, rep in mapping.items():
+            new = re.sub(pat, rep, tmp, flags=re.IGNORECASE)
+            if new != tmp:
+                changes_made.append(f"Switched to {rep.split()[-1]}")
+            tmp = new
+        sql = tmp
+
+        # 2) map raw fields -> *_num (apply only if using sales/spare views)
+        if re.search(r'\bv_sales20(2[2-5])\b', sql, flags=re.IGNORECASE):
+            sales_map = {
+                r'\boverhaul_\b': 'overhaul_num',
+                r'\breplacement\b': 'replacement_num',
+                r'\bservice_contact_\b': 'service_num',
+                r'\bparts_all_\b': 'parts_num',
+                r'\bproduct_all\b': 'product_num',
+                r'\bsolution_\b': 'solution_num',
+            }
+            for pat, rep in sales_map.items():
+                new = re.sub(pat, rep, sql, flags=re.IGNORECASE)
+                if new != sql:
+                    changes_made.append(f"Field {pat} -> {rep}")
+                sql = new
+
+        if re.search(r'\bv_spare_part\b', sql, flags=re.IGNORECASE):
+            spare_map = {
+                r'\bbalance\b': 'balance_num',
+                r'\bunit_price\b': 'unit_price_num',
+                r'\btotal\b': 'total_num',
+            }
+            for pat, rep in spare_map.items():
+                new = re.sub(pat, rep, sql, flags=re.IGNORECASE)
+                if new != sql:
+                    changes_made.append(f"Field {pat} -> {rep}")
+                sql = new
+
+        # 3) strip dangerous string comparisons on numerics
+        new = re.sub(r'(\b\w+\b)\s*(=|<>|!=)\s*''', 'TRUE', sql, flags=re.IGNORECASE)
+        if new != sql:
+            changes_made.append("Removed empty-string comparisons on numeric fields")
+        sql = new
+
+        new = re.sub(r'LENGTH\s*\(\s*\w+\s*\)\s*>\s*0', 'TRUE', sql, flags=re.IGNORECASE)
+        if new != sql:
+            changes_made.append("Removed LENGTH() checks on numeric fields")
+        sql = new
+
+        out2 = re.sub(r"(\b\w+\b)\s*~\s*'[^']+'", r"\1 IS NOT NULL", out, flags=re.IGNORECASE)
+
+        if new != sql:
+            changes_made.append("Removed regex checks on numeric fields")
+        sql = new
+
+        # 4) split SUM(a+b) => SUM(a)+SUM(b) for plain additions
+        def repl_sum(m):
+            inside = m.group(1)
+            if '+' in inside and 'CASE' not in inside.upper():
+                parts = [p.strip() for p in inside.split('+')]
+                return ' + '.join([f"SUM({p})" for p in parts])
+            return m.group(0)
+        new = re.sub(r'SUM\s*\(\s*([^()]+)\s*\)', repl_sum, sql, flags=re.IGNORECASE)
+        if new != sql:
+            changes_made.append("Split SUM(a+b) into SUM(a)+SUM(b)")
+        sql = new
+
+        sql = re.sub(r'\s+', ' ', sql).strip()
         return sql, changes_made
-    
+
     def make_super_safe_query(self, sql: str) -> str:
-        """
-        Fallback: สร้าง query ที่ปลอดภัยที่สุด
-        """
-        # ถ้า error มาก ให้ใช้ query ที่ safe ที่สุด
-        if 'SUM' in sql.upper() and 'sales' in sql.lower():
-            # Default safe revenue query
-            return """
+        up = sql.upper()
+        if 'SUM' in up and 'SALES' in up:
+            target_view = 'v_sales2024' if '2024' in up else 'v_sales2025' if '2025' in up else 'v_sales2024'
+            return f"""
             SELECT 
                 COUNT(*) as total_records,
-                SUM(CASE 
-                    WHEN overhaul_ IS NULL OR overhaul_ = '' THEN 0
-                    WHEN LENGTH(overhaul_) > 0 AND overhaul_ != '0' THEN 
-                        CASE 
-                            WHEN overhaul_ ~ '^[0-9]+\.?[0-9]*$' THEN overhaul_::NUMERIC
-                            ELSE 0
-                        END
-                    ELSE 0
-                END) as total_amount
-            FROM sales2024
-            WHERE overhaul_ IS NOT NULL;
+                SUM(overhaul_num) +
+                SUM(replacement_num) +
+                SUM(service_num) +
+                SUM(parts_num) +
+                SUM(product_num) +
+                SUM(solution_num) AS total_amount
+            FROM {target_view}
+            WHERE total_revenue IS NOT NULL;
             """
-        
-        # Return original if can't make safer
         return sql
 
 
-# =============================================================================
-# INTEGRATION WITH EXISTING SYSTEM
-# =============================================================================
+def integrate_query_rewriter(system):
+    """Wrap system.execute_query to apply rewriting safely."""
+    rewriter = SmartQueryRewriter()
+    if not hasattr(system, 'execute_query'):
+        logger.error("System has no execute_query to wrap.")
+        return
 
-def integrate_query_rewriter(dual_model_instance):
-    """
-    Integrate Smart Query Rewriter กับ existing system
-    """
-    # Add rewriter
-    dual_model_instance.query_rewriter = SmartQueryRewriter()
-    
-    # Override execute_query method
-    original_execute = dual_model_instance.execute_query
-    
-    async def enhanced_execute_query(sql: str) -> List[Dict]:
-        """Execute query with automatic rewriting"""
+    original_execute = system.execute_query
+
+    async def enhanced_execute_query(sql: str):
+        rewritten_sql = sql
         try:
-            # Ensure safe functions exist
-            if not dual_model_instance.query_rewriter.safe_function_created:
-                await dual_model_instance.query_rewriter.ensure_safe_functions(
-                    dual_model_instance.db_handler
-                )
-            
-            # Rewrite query
-            rewritten_sql, changes = dual_model_instance.query_rewriter.rewrite_query(
-                sql, 
-                use_views=dual_model_instance.query_rewriter.views_available
-            )
-            
-            # Execute rewritten query
-            results = await original_execute(rewritten_sql)
-            return results
-            
+            rewritten_sql, changes = rewriter.rewrite_query(sql)
+            if changes:
+                logger.info(f"[Rewriter] Changes: {changes}")
+        except Exception as e:
+            logger.exception("Rewrite step failed; using original SQL")
+            rewritten_sql = sql
+
+        try:
+            return await original_execute(rewritten_sql)
         except Exception as e:
             logger.error(f"Query failed even after rewrite: {e}")
-            
-            # Try super safe fallback
-            if 'invalid input syntax' in str(e):
-                logger.info("🛡️ Attempting super safe query")
-                safe_sql = dual_model_instance.query_rewriter.make_super_safe_query(sql)
-                return await original_execute(safe_sql)
-            
-            # Re-raise if can't handle
-            raise
-    
-    # Replace method
-    dual_model_instance.execute_query = enhanced_execute_query
-    
-    # Add startup check
-    async def ensure_database_ready():
-        """Run once at startup"""
-        await dual_model_instance.query_rewriter.check_or_create_views(
-            dual_model_instance.db_handler
-        )
-    
-    dual_model_instance.ensure_database_ready = ensure_database_ready
-    
+            # fallback super safe
+            fallback_sql = rewriter.make_super_safe_query(rewritten_sql)
+            logger.info(f"[Rewriter] Fallback SQL: {fallback_sql}")
+            return await original_execute(fallback_sql)
+
+    # monkey-patch
+    system.execute_query = enhanced_execute_query
     logger.info("✅ Smart Query Rewriter integrated successfully")
-    
-    return dual_model_instance
 
 
-# =============================================================================
-# DATABASE HANDLER EXTENSION
-# =============================================================================
-
+# Back-compat extension hook if your code expects DatabaseHandlerExtension
 class DatabaseHandlerExtension:
-    """
-    Extension methods for database handler
-    """
-    
     @staticmethod
     def add_ddl_support(db_handler):
-        """
-        Add DDL execution support to existing handler
-        """
-        async def execute_ddl(sql: str) -> bool:
-            """Execute DDL statements (CREATE, ALTER, etc.)"""
-            try:
-                with db_handler.connection.cursor() as cursor:
-                    cursor.execute(sql)
-                    db_handler.connection.commit()
-                return True
-            except Exception as e:
-                logger.error(f"DDL execution failed: {e}")
-                if db_handler.connection:
-                    db_handler.connection.rollback()
-                return False
-        
-        db_handler.execute_ddl = execute_ddl
+        # No-op hook to match previous behavior
         return db_handler
-
-
-# =============================================================================
-# USAGE EXAMPLE
-# =============================================================================
-
-"""
-การใช้งาน:
-
-1. Import และ integrate ใน dual_model_dynamic_ai.py:
-
-from smart_query_rewriter import SmartQueryRewriter, integrate_query_rewriter, DatabaseHandlerExtension
-
-class ImprovedDualModelDynamicAISystem:
-    def __init__(self):
-        # ... existing code ...
-        
-        # Add DDL support to db_handler
-        DatabaseHandlerExtension.add_ddl_support(self.db_handler)
-        
-        # Integrate query rewriter
-        integrate_query_rewriter(self)
-        
-    async def startup(self):
-        # Call this once at startup
-        await self.ensure_database_ready()
-
-2. ใน main service file:
-
-@app.on_event("startup")
-async def startup_event():
-    # ... existing code ...
-    
-    # Ensure database is ready
-    if hasattr(ultimate_ai, 'dual_model_ai'):
-        await ultimate_ai.dual_model_ai.ensure_database_ready()
-
-3. That's it! ระบบจะ rewrite queries อัตโนมัติ
-"""
-
-
-# =============================================================================
-# TESTING
-# =============================================================================
-
-if __name__ == "__main__":
-    # Test rewriting
-    rewriter = SmartQueryRewriter()
-    
-    test_queries = [
-        # Test 1: CAST with NULLIF
-        """SELECT SUM(CAST(NULLIF(overhaul_, '') AS NUMERIC)) FROM sales2024""",
-        
-        # Test 2: CASE WHEN pattern
-        """SELECT CASE WHEN overhaul_ IS NULL OR overhaul_ = '' THEN 0 
-           ELSE CAST(overhaul_ AS NUMERIC) END FROM sales2024""",
-        
-        # Test 3: Complex SUM
-        """SELECT SUM(CAST(NULLIF(overhaul_, '') AS NUMERIC) + 
-           CAST(NULLIF(replacement, '') AS NUMERIC)) FROM sales2024""",
-        
-        # Test 4: Regex pattern
-        """SELECT * FROM spare_part WHERE balance ~ '^[0-9]+' """
-    ]
-    
-    print("=" * 60)
-    print("Testing Query Rewriter")
-    print("=" * 60)
-    
-    for i, query in enumerate(test_queries, 1):
-        print(f"\nTest {i}:")
-        print(f"Original: {query[:100]}...")
-        rewritten, changes = rewriter.rewrite_query(query)
-        print(f"Rewritten: {rewritten[:100]}...")
-        print(f"Changes: {changes}")
-        print("-" * 40)
