@@ -1,11 +1,11 @@
 # =============================================================================
-# Ultra-Simplified Docker Compose for Siamtemp HVAC AI System
-# Version: 5.1-NoProxy (Direct Connection)
+# Docker Compose for Siamtemp HVAC AI System with N8N Integration
+# Version: 6.0 - Fixed Structure
 # =============================================================================
 
 services:
   # =============================================================================
-  # DATABASE SERVICES - One PostgreSQL instance per tenant
+  # DATABASE SERVICE
   # =============================================================================
   
   postgres-company-a:
@@ -29,50 +29,29 @@ services:
       timeout: 10s
       retries: 5
 
-  postgres-company-b:
-    image: postgres:15-alpine
-    container_name: postgres-company-b
-    environment:
-      POSTGRES_DB: siamtemp_company_b
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password123
-      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+  # =============================================================================
+  # REDIS CACHE SERVICE (แยกออกมาให้ถูกต้อง)
+  # =============================================================================
+  
+  redis:
+    image: redis:7-alpine
+    container_name: redis
     ports:
-      - "5433:5432"
+      - "6379:6379"
     volumes:
-      - postgres_company_b_data:/var/lib/postgresql/data
+      - redis_data:/data
     networks:
       - hvac_network
+    command: redis-server --appendonly yes
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d siamtemp_company_b"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-
-  postgres-company-c:
-    image: postgres:15-alpine
-    container_name: postgres-company-c
-    environment:
-      POSTGRES_DB: siamtemp_company_c
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password123
-      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
-    ports:
-      - "5434:5432"
-    volumes:
-      - postgres_company_c_data:/var/lib/postgresql/data
-    networks:
-      - hvac_network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d siamtemp_company_c"]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
       retries: 5
 
   # =============================================================================
-  # MAIN HVAC AI SERVICE (All-in-One)
+  # MAIN HVAC AI SERVICE
   # =============================================================================
   
   hvac-ai-service:
@@ -80,68 +59,89 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: hvac-ai-service
-    ports:
-      - "5000:5000"  # Main API
-      - "8001:8001"  # OpenAI-compatible API (built into the service)
     environment:
-      # Basic service configuration
-      - PORT=5000
-      - PROXY_PORT=8001
-      - TENANT_ID=company-a
+      # Database Configuration
+      - DB_HOST=postgres-company-a
+      - DB_PORT=5432
+      - DB_NAME=siamtemp_company_a
+      - DB_USER=postgres
+      - DB_PASSWORD=password123
       
       # External Ollama Server
       - OLLAMA_BASE_URL=http://52.74.36.160:12434
       - OLLAMA_TIMEOUT=60
+      - SQL_MODEL=mannix/defog-llama3-sqlcoder-8b:latest
+      - NL_MODEL=llama3.1:8b
       
-      # Database connections for all tenants
-      - POSTGRES_HOST_COMPANY_A=postgres-company-a
-      - POSTGRES_PORT_COMPANY_A=5432
-      - POSTGRES_DB_COMPANY_A=siamtemp_company_a
-      - POSTGRES_USER_COMPANY_A=postgres
-      - POSTGRES_PASSWORD_COMPANY_A=password123
+      # Redis Cache
+      - REDIS_URL=redis://redis:6379
+      - ENABLE_CACHING=true
+      - CACHE_TTL=3600
       
-      - POSTGRES_HOST_COMPANY_B=postgres-company-b
-      - POSTGRES_PORT_COMPANY_B=5432
-      - POSTGRES_DB_COMPANY_B=siamtemp_company_b
-      - POSTGRES_USER_COMPANY_B=postgres
-      - POSTGRES_PASSWORD_COMPANY_B=password123
-      
-      - POSTGRES_HOST_COMPANY_C=postgres-company-c
-      - POSTGRES_PORT_COMPANY_C=5432
-      - POSTGRES_DB_COMPANY_C=siamtemp_company_c
-      - POSTGRES_USER_COMPANY_C=postgres
-      - POSTGRES_PASSWORD_COMPANY_C=password123
-      
-      # AI Models Configuration
-      - MODEL_COMPANY_A=llama3.1:8b
-      - MODEL_COMPANY_B=llama3.1:8b
-      - MODEL_COMPANY_C=llama3.1:8b
-      
-      # Performance settings
-      - ENABLE_DUAL_MODEL=true
-      - ENABLE_DYNAMIC_AI=true
+      # Feature Flags
+      - ENABLE_MEMORY=true
+      - ENABLE_PARALLEL=true
+      - ENABLE_CLEANING=true
+      - ENABLE_VALIDATION=true
       - LOG_LEVEL=INFO
-      - PYTHONUNBUFFERED=1
       
+    ports:
+      - "5000:5000"
     networks:
       - hvac_network
     depends_on:
       postgres-company-a:
         condition: service_healthy
-      postgres-company-b:
-        condition: service_healthy
-      postgres-company-c:
+      redis:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 30s
-      timeout: 15s
-      retries: 5
-      start_period: 60s
+      timeout: 10s
+      retries: 3
 
   # =============================================================================
-  # OPENWEBUI FRONTEND (Connects directly to main service)
+  # OPENWEBUI PROXY SERVICE (With N8N Support)
+  # =============================================================================
+  
+  openwebui-proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile.proxy
+    container_name: openwebui-proxy
+    environment:
+      # Main AI Service
+      - MAIN_SERVICE_URL=http://hvac-ai-service:5000
+      - DEFAULT_TENANT=company-a
+      - PROXY_PORT=8001
+      
+      # External N8N on AWS EC2
+      - USE_N8N_WORKFLOW=true  # Set to true when N8N is ready
+      - N8N_BASE_URL=http://13.250.235.228:5678
+      - N8N_TIMEOUT=30
+      - N8N_FALLBACK_TO_DIRECT=true
+      
+      # N8N Authentication (if needed)
+      - N8N_API_KEY=${N8N_API_KEY:-}
+      - N8N_AUTH_TOKEN=${N8N_AUTH_TOKEN:-}
+      
+    ports:
+      - "8001:8001"
+    networks:
+      - hvac_network
+    depends_on:
+      hvac-ai-service:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # =============================================================================
+  # OPENWEBUI FRONTEND
   # =============================================================================
   
   open-webui:
@@ -150,42 +150,31 @@ services:
     ports:
       - "3000:8080"
     environment:
-      - ENV=development
-      - WEBUI_SECRET_KEY=siamtemp-hvac-secret-2024
-      - ENABLE_SIGNUP=true
-      - DEFAULT_USER_ROLE=user
-      
-      # Connect directly to our HVAC AI service
-      - OPENAI_API_BASE_URL=http://hvac-ai-service:8001/v1
-      - OPENAI_API_KEY=sk-hvac-ai-service
-      
-      # UI Configuration
+      - ENV=production
+      - OPENAI_API_BASE_URL=http://openwebui-proxy:8001/v1
+      - OPENAI_API_KEY=dummy-key
       - WEBUI_NAME=Siamtemp HVAC AI Assistant
       - WEBUI_URL=http://localhost:3000
-      - WEBUI_DESCRIPTION=AI Assistant สำหรับธุรกิจ HVAC - บริการซ่อมบำรุงและอะไหล่
-      - SHOW_ADMIN_DETAILS=false
-      
-      # Theme
-      - WEBUI_THEME_COLOR=#667eea
+      - ENABLE_SIGNUP=false
+      - DEFAULT_MODELS=llama3.1:8b
+      - WEBUI_AUTH=false  # Disable auth for testing
       
     volumes:
       - open_webui_data:/app/backend/data
     networks:
       - hvac_network
     depends_on:
-      hvac-ai-service:
-        condition: service_healthy
+      - openwebui-proxy
     restart: unless-stopped
 
 # =============================================================================
 # VOLUMES
 # =============================================================================
+
 volumes:
   postgres_company_a_data:
     driver: local
-  postgres_company_b_data:
-    driver: local
-  postgres_company_c_data:
+  redis_data:
     driver: local
   open_webui_data:
     driver: local
@@ -193,6 +182,7 @@ volumes:
 # =============================================================================
 # NETWORK
 # =============================================================================
+
 networks:
   hvac_network:
     driver: bridge

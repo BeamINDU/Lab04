@@ -16,12 +16,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import uvicorn
 import logging
+from contextlib import asynccontextmanager
 from prometheus_client import Counter, Histogram, Gauge, generate_latest
-from agents.smart_query_rewriter import SmartQueryRewriter
 # Import the ultimate AI system
-from agents.dual_model_dynamic_ai import (
-    DualModelDynamicAISystem,
-    UnifiedEnhancedPostgresOllamaAgent
+# from agents.dual_model_dynamic_ai import (
+#     DualModelDynamicAISystem,
+#     UnifiedEnhancedPostgresOllamaAgent
+# )
+
+from agents import (
+    ImprovedDualModelDynamicAISystem as UnifiedEnhancedPostgresOllamaAgent
 )
 
 # Configure logging
@@ -121,6 +125,7 @@ class ChatResponse(BaseModel):
 
 class SystemStatus(BaseModel):
     """System status model"""
+    model_config = {'protected_namespaces': ()}
     status: str
     version: str
     uptime_seconds: float
@@ -166,16 +171,16 @@ try:
     ai_agent = UnifiedEnhancedPostgresOllamaAgent()
     
     # Configure features based on environment
-    ai_agent.dual_model_ai.enable_conversation_memory = os.getenv('ENABLE_MEMORY', 'true').lower() == 'true'
-    ai_agent.dual_model_ai.enable_parallel_processing = os.getenv('ENABLE_PARALLEL', 'true').lower() == 'true'
-    ai_agent.dual_model_ai.enable_data_cleaning = os.getenv('ENABLE_CLEANING', 'true').lower() == 'true'
-    ai_agent.dual_model_ai.enable_sql_validation = os.getenv('ENABLE_VALIDATION', 'true').lower() == 'true'
+    ai_agent.enable_conversation_memory = os.getenv('ENABLE_MEMORY', 'true').lower() == 'true'
+    ai_agent.enable_parallel_processing = os.getenv('ENABLE_PARALLEL', 'true').lower() == 'true'
+    ai_agent.enable_data_cleaning = os.getenv('ENABLE_CLEANING', 'true').lower() == 'true'
+    ai_agent.enable_sql_validation = os.getenv('ENABLE_VALIDATION', 'true').lower() == 'true'
     
     logger.info("✅ Ultimate AI System initialized successfully")
-    logger.info(f"📊 Features: Memory={ai_agent.dual_model_ai.enable_conversation_memory}, "
-                f"Parallel={ai_agent.dual_model_ai.enable_parallel_processing}, "
-                f"Cleaning={ai_agent.dual_model_ai.enable_data_cleaning}, "
-                f"Validation={ai_agent.dual_model_ai.enable_sql_validation}")
+    logger.info(f"📊 Features: Memory={ai_agent.enable_conversation_memory}, "
+                f"Parallel={ai_agent.enable_parallel_processing}, "
+                f"Cleaning={ai_agent.enable_data_cleaning}, "
+                f"Validation={ai_agent.enable_sql_validation}")
     
     AI_SYSTEM_AVAILABLE = True
     
@@ -191,10 +196,44 @@ SERVICE_START_TIME = datetime.now()
 # FASTAPI APPLICATION
 # =============================================================================
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # ========== STARTUP ==========
+    logger.info(f"""
+    {'='*60}
+    🚀 {config.service_name}
+    Version: {config.version}
+    {'='*60}
+    Features Enabled:
+    - Conversation Memory: {ai_agent.enable_conversation_memory}
+    - Parallel Processing: {ai_agent.enable_parallel_processing}
+    - Data Cleaning: {ai_agent.enable_data_cleaning}
+    - SQL Validation: {ai_agent.enable_sql_validation}
+    
+    Models:
+    - SQL: {config.sql_model}
+    - NL: {config.nl_model}
+    
+    API Documentation: http://localhost:8000/docs
+    {'='*60}
+    """)
+    
+    yield  # ⬅️ ส่วนนี้สำคัญ! Application runs here
+    
+    # ========== SHUTDOWN ==========
+    logger.info("Shutting down service...")
+    
+    # Close database connections
+    if hasattr(ai_agent, 'db_handler'):
+        ai_agent.db_handler.close_connections()
+    
+    logger.info("Service shutdown complete")
+
 app = FastAPI(
     title=config.service_name,
     description="Ultimate AI-powered HVAC business intelligence system with advanced features",
     version=config.version,
+    lifespan=lifespan,
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_tags=[
@@ -247,11 +286,11 @@ async def chat_endpoint(
         
         # Configure features for this request
         if not request.use_conversation_memory:
-            ai_agent.dual_model_ai.enable_conversation_memory = False
+            ai_agent.enable_conversation_memory = False
         if not request.use_parallel_processing:
-            ai_agent.dual_model_ai.enable_parallel_processing = False
+            ai_agent.enable_parallel_processing = False
         if not request.use_data_cleaning:
-            ai_agent.dual_model_ai.enable_data_cleaning = False
+            ai_agent.enable_data_cleaning = False
         
         # Process the question
         result = await ai_agent.process_any_question(
@@ -261,9 +300,9 @@ async def chat_endpoint(
         )
         
         # Reset features to default
-        ai_agent.dual_model_ai.enable_conversation_memory = True
-        ai_agent.dual_model_ai.enable_parallel_processing = True
-        ai_agent.dual_model_ai.enable_data_cleaning = True
+        ai_agent.enable_conversation_memory = True
+        ai_agent.enable_parallel_processing = True
+        ai_agent.enable_data_cleaning = True
         
         # Prepare response
         response = ChatResponse(
@@ -347,12 +386,12 @@ async def get_conversation_history(user_id: str, limit: int = 20):
     Get conversation history for a user
     """
     try:
-        conversations = list(ai_agent.dual_model_ai.conversation_memory.conversations[user_id])[-limit:]
+        conversations = list(ai_agent.conversation_memory.conversations[user_id])[-limit:]
         
         return ConversationHistory(
             user_id=user_id,
             conversations=conversations,
-            total_count=len(ai_agent.dual_model_ai.conversation_memory.conversations[user_id]),
+            total_count=len(ai_agent.conversation_memory.conversations[user_id]),
             session_stats={
                 'total_queries': len(conversations),
                 'successful_queries': sum(1 for c in conversations if c.get('success', False)),
@@ -369,8 +408,8 @@ async def clear_conversation_history(user_id: str):
     Clear conversation history for a user
     """
     try:
-        if user_id in ai_agent.dual_model_ai.conversation_memory.conversations:
-            ai_agent.dual_model_ai.conversation_memory.conversations[user_id].clear()
+        if user_id in ai_agent.conversation_memory.conversations:
+            ai_agent.conversation_memory.conversations[user_id].clear()
             return {"message": f"History cleared for user {user_id}"}
         else:
             return {"message": f"No history found for user {user_id}"}
@@ -443,8 +482,8 @@ async def clear_cache():
     Clear all caches
     """
     try:
-        ai_agent.dual_model_ai.sql_cache.clear()
-        ai_agent.dual_model_ai.conversation_memory.successful_patterns.clear()
+        ai_agent.sql_cache.clear()
+        ai_agent.conversation_memory.successful_patterns.clear()
         
         return {
             "message": "All caches cleared successfully",
@@ -470,15 +509,15 @@ async def toggle_feature(feature: str, enabled: bool):
         raise HTTPException(status_code=400, detail=f"Invalid feature. Valid options: {valid_features}")
     
     try:
-        setattr(ai_agent.dual_model_ai, f"enable_{feature}", enabled)
+        setattr(ai_agent, f"enable_{feature}", enabled)
         
         return {
             "message": f"Feature '{feature}' {'enabled' if enabled else 'disabled'}",
             "current_state": {
-                'conversation_memory': ai_agent.dual_model_ai.enable_conversation_memory,
-                'parallel_processing': ai_agent.dual_model_ai.enable_parallel_processing,
-                'data_cleaning': ai_agent.dual_model_ai.enable_data_cleaning,
-                'sql_validation': ai_agent.dual_model_ai.enable_sql_validation
+                'conversation_memory': ai_agent.enable_conversation_memory,
+                'parallel_processing': ai_agent.enable_parallel_processing,
+                'data_cleaning': ai_agent.enable_data_cleaning,
+                'sql_validation': ai_agent.enable_sql_validation
             }
         }
     except Exception as e:
@@ -491,7 +530,7 @@ async def get_sql_examples():
     Get current SQL examples used for learning
     """
     try:
-        examples = ai_agent.dual_model_ai.sql_examples
+        examples = ai_agent.sql_examples
         return {
             "total_examples": len(examples),
             "examples": examples
@@ -516,38 +555,8 @@ async def update_cache_metrics():
 # STARTUP AND SHUTDOWN EVENTS
 # =============================================================================
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize services on startup"""
-    logger.info(f"""
-    {'='*60}
-    🚀 {config.service_name}
-    Version: {config.version}
-    {'='*60}
-    Features Enabled:
-    - Conversation Memory: {ai_agent.dual_model_ai.enable_conversation_memory}
-    - Parallel Processing: {ai_agent.dual_model_ai.enable_parallel_processing}
-    - Data Cleaning: {ai_agent.dual_model_ai.enable_data_cleaning}
-    - SQL Validation: {ai_agent.dual_model_ai.enable_sql_validation}
-    
-    Models:
-    - SQL: {config.sql_model}
-    - NL: {config.nl_model}
-    
-    API Documentation: http://localhost:8000/docs
-    {'='*60}
-    """)
 
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Cleanup on shutdown"""
-    logger.info("Shutting down service...")
-    
-    # Close database connections
-    if hasattr(ai_agent.dual_model_ai, 'db_handler'):
-        ai_agent.dual_model_ai.db_handler.close_connections()
-    
-    logger.info("Service shutdown complete")
+
 
 # =============================================================================
 # MAIN EXECUTION
