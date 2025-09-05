@@ -57,7 +57,7 @@ class ImprovedDualModelDynamicAISystem:
         self._initialize_stats()
         self.conversation_memory = ScalableStorageAdapter()
         self.db_handler = ScalableDatabaseHandler()
-        
+
         logger.info("🚀 Refactored System initialized")
     
     # =========================================================================
@@ -421,9 +421,12 @@ class ImprovedDualModelDynamicAISystem:
     def _update_confidence_stats(self, confidence: float):
         """Update confidence statistics"""
         total = self.stats['total_queries']
-        self.stats['avg_confidence'] = (
-            (self.stats['avg_confidence'] * (total - 1) + confidence) / total
-        )
+        if total > 0:  # เพิ่มการ check
+            self.stats['avg_confidence'] = (
+                (self.stats['avg_confidence'] * (total - 1) + confidence) / total
+            )
+        else:
+            self.stats['avg_confidence'] = confidence
     
     def _update_response_time_stats(self, response_time: float):
         """Update response time statistics"""
