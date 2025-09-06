@@ -10,7 +10,7 @@ from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 from ..storage.redis_memory import ScalableStorageAdapter
 from ..storage.scalable_database import ScalableDatabaseHandler
-
+from ..storage.database import SimplifiedDatabaseHandler
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +57,7 @@ class ImprovedDualModelDynamicAISystem:
         self._initialize_stats()
         self.conversation_memory = ScalableStorageAdapter()
         self.db_handler = ScalableDatabaseHandler()
-
+        self.db_handler = SimplifiedDatabaseHandler()
         logger.info("🚀 Refactored System initialized")
     
     # =========================================================================

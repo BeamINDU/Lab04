@@ -362,7 +362,17 @@ class ScalableStorageAdapter:
         return self.memory.add_conversation(user_id, query, response)
     
     def get_context(self, user_id: str, query: str) -> Dict:
-        return self.memory.get_context(user_id, query)
+        try:
+            return self.memory.get_context(user_id, query)
+        except Exception as e:
+            logger.warning(f"Redis unavailable: {e}")
+            # Return empty context if Redis fails
+            return {
+                'conversation_count': 0,
+                'has_history': False,
+                'recent_queries': [],
+                'recent_intents': []
+            }
     
     @property
     def conversations(self):
