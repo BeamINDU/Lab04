@@ -108,8 +108,8 @@ class ImprovedDualModelDynamicAISystem:
     # =========================================================================
     
     async def process_any_question(self, question: str, 
-                                  tenant_id: str = 'company-a',
-                                  user_id: str = 'default') -> Dict[str, Any]:
+                                tenant_id: str = 'company-a',
+                                user_id: str = 'default') -> Dict[str, Any]:
         """
         Main processing pipeline - clean and modular
         """
@@ -117,8 +117,13 @@ class ImprovedDualModelDynamicAISystem:
         context = QueryContext(question, tenant_id, user_id)
         
         try:
-            # Step 1: Preparation
+            # Step 1: Preparation (MUST BE FIRST - loads conversation context)
             await self._prepare_processing(context)
+            
+            # Check for continuation query (AFTER context is loaded)
+            continuation_result = await self.handle_continuation_query(context)
+            if continuation_result:
+                return continuation_result
             
             # Step 2: Intent Detection
             await self._detect_intent(context)
@@ -149,6 +154,24 @@ class ImprovedDualModelDynamicAISystem:
         except Exception as e:
             return self._handle_error(e, context, start_time)
     
+    async def handle_continuation_query(self, context: QueryContext) -> Optional[Dict[str, Any]]:
+        """
+        Handle continuation/pagination queries
+        Returns None if not a continuation query
+        """
+        # Get conversation context (already loaded in _prepare_processing)
+        user_memory = self.conversation_memory.get_context(
+            context.user_id, 
+            context.question
+        )
+        
+        # Check if this is a continuation query
+        if not user_memory.get('is_continuation'):
+            return None  # Not a continuation, proceed normally
+        
+        # Rest of continuation handling logic...
+        # (code from the artifact I provided earlier)   
+
     # =========================================================================
     # STEP 1: PREPARATION
     # =========================================================================
