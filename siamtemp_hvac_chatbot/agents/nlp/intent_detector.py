@@ -590,7 +590,9 @@ class ImprovedIntentDetector:
         
         # Look for "บริษัท" patterns
         company_patterns = [
-            r'บริษัท\s+([A-Za-z]+)(?:\s|$)',
+            r'(คลีนิค[^\s]*โรคศิลป์[^\s]*)', 
+            r'(บริษัท[^มี]*)',
+            r'([ก-๙]+(?:ประกอบ|โรคศิลป์|จำกัด)[ก-๙]*)',
             r'([A-Z][A-Z\s&.,()]+(?:CO\.|LTD\.|LIMITED|INC\.))',
             r'CLARION|HONDA|AGC|SADESA|STANLEY'
         ]
@@ -599,9 +601,14 @@ class ImprovedIntentDetector:
             matches = re.findall(pattern, question, re.IGNORECASE)
             if isinstance(matches[0], tuple) if matches else False:
                 customers.extend([m[0] for m in matches])
+            if not customers and 'คลีนิค' in question:
+                pattern = r'(คลีนิค[^\s,]*)'
+                matches = re.findall(pattern, question)
+                customers.extend(matches)
             else:
                 customers.extend(matches)
-        
+
+
         return list(set(customers))
     
     def _extract_brands(self, question: str) -> List[str]:

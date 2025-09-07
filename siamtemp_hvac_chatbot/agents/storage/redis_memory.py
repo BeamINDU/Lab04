@@ -5,6 +5,7 @@ Data persists across restarts and can be shared across instances
 """
 
 import json
+import os
 import redis
 import pickle
 import logging
@@ -22,7 +23,8 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RedisConfig:
     """Redis configuration"""
-    host: str = "localhost"
+    host: str = os.getenv('REDIS_HOST', 'redis') 
+    port: int = int(os.getenv('REDIS_PORT', '6379'))
     port: int = 6379
     db: int = 0
     password: Optional[str] = None
@@ -354,8 +356,17 @@ class ScalableStorageAdapter:
     """
     
     def __init__(self, redis_config: Optional[RedisConfig] = None):
-        self.memory = ScalableConversationMemory(redis_config)
-        self.sql_cache = ScalableSQLCache(self.memory.redis_client)
+        try:
+            self.memory = ScalableConversationMemory(redis_config)
+            self.sql_cache = ScalableSQLCache(self.memory.redis_client)
+            self.redis_available = True
+        except:
+            # Fallback to in-memory if Redis unavailable
+            from ..storage.memory import ConversationMemory
+            self.memory = ConversationMemory()
+            self.sql_cache = {}
+            self.redis_available = False
+            logger.warning("Redis unavailable, using in-memory storage")
         
     # Implement same interface as original ConversationMemory
     def add_conversation(self, user_id: str, query: str, response: Dict):

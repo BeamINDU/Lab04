@@ -207,7 +207,24 @@ class ImprovedDualModelDynamicAISystem:
         context.entities = detection_result.get('entities', {})
         context.confidence = detection_result.get('confidence', 0.0)
         
+        # ===== เพิ่ม detailed logging =====
         logger.info(f"Intent: {context.intent} (confidence: {context.confidence:.2f})")
+        
+        # Log entities ที่จับได้
+        logger.info("="*60)
+        logger.info("DETECTED ENTITIES:")
+        for entity_type, values in context.entities.items():
+            if values:  # แสดงเฉพาะที่มีค่า
+                logger.info(f"  {entity_type}: {values}")
+        
+        # เน้นปัญหา customer detection
+        if not context.entities.get('customers'):
+            logger.warning("  ⚠️ No customers detected!")
+            # ถ้ามีคำว่าคลีนิค แต่จับไม่ได้
+            if 'คลีนิค' in context.question:
+                logger.warning("  ⚠️ Found 'คลีนิค' in question but not extracted!")
+        
+        logger.info("="*60)
         
         # Update average confidence
         self._update_confidence_stats(context.confidence)
@@ -268,6 +285,7 @@ class ImprovedDualModelDynamicAISystem:
     
     async def _generate_sql(self, context: QueryContext) -> str:
         """Generate and validate SQL query"""
+
         # Build SQL prompt
         prompt = self.prompt_manager.build_sql_prompt(
             question=context.question,
@@ -287,7 +305,7 @@ class ImprovedDualModelDynamicAISystem:
                 logger.info(f"SQL fixes applied: {len(issues)}")
             sql = fixed_sql
         
-        logger.info(f"Generated SQL: {sql[:100]}...")
+        logger.info(f"Generated SQL:\n{sql}") 
         return sql
     
     # =========================================================================
