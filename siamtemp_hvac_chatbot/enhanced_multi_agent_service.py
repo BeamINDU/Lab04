@@ -106,10 +106,10 @@ class ChatRequest(BaseModel):
     use_parallel_processing: bool = Field(default=True, description="Enable parallel processing")
     use_data_cleaning: bool = Field(default=True, description="Enable data cleaning")
     stream: bool = Field(default=False, description="Enable streaming response")
-    context: Optional[Dict[str, Any]] = Field(default=None, description="Additional context")
+    context: Optional[Dict[str, Any]] = Field(default=None, description="Additional context from conversation history")
 
 class ChatResponse(BaseModel):
-    """Chat response model"""
+    """Enhanced chat response model with conversation support"""
     answer: str
     success: bool
     sql_query: Optional[str] = None
@@ -122,6 +122,16 @@ class ChatResponse(BaseModel):
     entities: Optional[Dict] = None
     data_quality: Optional[Dict] = None
     features_used: Optional[Dict] = None
+    
+    # Multi-turn additions
+    conversation_id: Optional[str] = None
+    session_id: Optional[str] = None
+    is_followup: bool = False
+    resolved_question: Optional[str] = None
+    suggested_followups: Optional[List[str]] = None
+    conversation_turn: int = 1
+    references_resolved: Optional[Dict] = None
+
 
 class SystemStatus(BaseModel):
     """System status model"""

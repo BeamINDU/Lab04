@@ -28,7 +28,7 @@ class ProxyConfig:
         
         # N8N Integration Configuration
         self.use_n8n = os.getenv('USE_N8N_WORKFLOW', 'false').lower() == 'true'
-        self.n8n_base_url = os.getenv('N8N_BASE_URL', 'http://13.250.235.228:5678')
+        self.n8n_base_url = os.getenv('N8N_BASE_URL', 'http://n8n:5678')
         
         # N8N Webhook URLs for each tenant
         self.n8n_webhooks = {

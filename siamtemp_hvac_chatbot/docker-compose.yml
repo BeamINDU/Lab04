@@ -115,7 +115,7 @@ services:
       
       # External N8N on AWS EC2
       - USE_N8N_WORKFLOW=true  # Set to true when N8N is ready
-      - N8N_BASE_URL=http://13.250.235.228:5678
+      - N8N_BASE_URL=http://n8n:5678
       - N8N_TIMEOUT=30
       - N8N_FALLBACK_TO_DIRECT=true
       

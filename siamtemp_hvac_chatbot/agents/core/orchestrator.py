@@ -4,6 +4,7 @@ Refactored ImprovedDualModelDynamicAISystem
 Clean architecture with separated concerns
 """
 
+from collections import defaultdict
 import time
 import logging
 from typing import Dict, Any, Optional, List
@@ -11,7 +12,8 @@ from dataclasses import dataclass
 from ..storage.redis_memory import ScalableStorageAdapter
 from ..storage.scalable_database import ScalableDatabaseHandler
 from ..storage.database import SimplifiedDatabaseHandler
-
+from .context_handler import ContextHandler, ConversationTurn, ConversationState
+from collections import defaultdict
 logger = logging.getLogger(__name__)
 
 # =============================================================================
@@ -58,6 +60,8 @@ class ImprovedDualModelDynamicAISystem:
         self.conversation_memory = ScalableStorageAdapter()
         self.db_handler = ScalableDatabaseHandler()
         self.db_handler = SimplifiedDatabaseHandler()
+        self.context_handler = ContextHandler()
+        self.conversation_turns = defaultdict(list) 
         logger.info("🚀 Refactored System initialized")
     
     # =========================================================================
