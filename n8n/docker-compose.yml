@@ -1,6 +1,7 @@
+# n8n/docker-compose.yml - Fixed Version
+version: '3.8'
+
 services:
-
-
   n8n:
     image: n8nio/n8n:latest
     container_name: siamtech-n8n
@@ -11,53 +12,53 @@ services:
       - N8N_BASIC_AUTH_ACTIVE=true
       - N8N_BASIC_AUTH_USER=admin
       - N8N_BASIC_AUTH_PASSWORD=password
-      - N8N_HOST=localhost
+      - N8N_HOST=0.0.0.0  # Fix: ต้องเป็น 0.0.0.0 ไม่ใช่ localhost
       - N8N_PORT=5678
       - N8N_PROTOCOL=http
-      - WEBHOOK_URL=http://localhost:5678
+      - WEBHOOK_URL=http://n8n:5678  # Fix: ใช้ชื่อ container แทน localhost
       
-      # External Ollama Server
-      - OLLAMA_BASE_URL=http://52.74.36.160:12434
+      # Database Configuration (Optional - ถ้าไม่ใส่จะใช้ SQLite)
+      - DB_TYPE=sqlite
       
-      # Enhanced RAG Service URL
-      - RAG_SERVICE_URL=http://hvac-ai-service:5000
-      - ENHANCED_RAG_ENDPOINTS=true
+      # Timezone (เพิ่มเติม)
+      - GENERIC_TIMEZONE=Asia/Bangkok
+      - TZ=Asia/Bangkok
       
-      # Multi-tenant Database Configuration (for n8n nodes)
-      - POSTGRES_HOST_COMPANY_A=postgres-company-a
-      - POSTGRES_PORT_COMPANY_A=5432
-      - POSTGRES_DB_COMPANY_A=siamtech_company_a
-      - POSTGRES_USER_COMPANY_A=postgres
-      - POSTGRES_PASSWORD_COMPANY_A=password123
+      # Execution Settings (เพิ่มเติม)
+      - EXECUTIONS_PROCESS=main
+      - N8N_METRICS=true
+      - N8N_METRICS_PREFIX=n8n_
       
+      # ❌ ลบออก - ไม่ต้องการสำหรับ basic setup
+      # - OLLAMA_BASE_URL=http://52.74.36.160:12434  # ไม่จำเป็น
+      # - RAG_SERVICE_URL=http://hvac-ai-service:5000  # n8n จะเรียกผ่าน HTTP Request node
+      # - ENHANCED_RAG_ENDPOINTS=true  # ไม่มี env นี้ใน n8n
       
-      # Enhanced Models per Tenant
-      - MODEL_COMPANY_A=llama3.1:8b
-
+      # ❌ ลบออก - PostgreSQL configs ที่ไม่จำเป็น
+      # (n8n จะเชื่อมต่อผ่าน Postgres node ใน workflow แทน)
       
     volumes:
       - n8n_data:/home/node/.n8n
+      - ./workflows:/home/node/workflows  # เพิ่ม: สำหรับ backup workflows
+      - ./credentials:/home/node/credentials  # เพิ่ม: สำหรับ backup credentials
     networks:
       - hvac_network
     restart: unless-stopped
+    healthcheck:  # เพิ่ม: Health check
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:5678/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     labels:
       - "com.siamtech.service=workflow-orchestrator"
-      - "com.siamtech.integration=enhanced-rag"
-
-
-# =============================================================================
-# VOLUMES
-# =============================================================================
+      - "com.siamtech.version=1.0.0"
 
 volumes:
   n8n_data:
     driver: local
     
-# =============================================================================
-# NETWORK
-# =============================================================================
-
 networks:
   hvac_network:
-    driver: bridge
-    name: hvac_network
+    external: true  # Fix: ต้องใช้ external network ที่มีอยู่แล้ว
+    # driver: bridge  # ลบออก
+    # name: hvac_network  # ลบออก
