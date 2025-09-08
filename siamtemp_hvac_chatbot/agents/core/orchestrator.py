@@ -194,7 +194,7 @@ class ImprovedDualModelDynamicAISystem:
             )
             context.previous_intent = conv_context.get('recent_intents', [None])[-1] if conv_context.get('recent_intents') else None
         
-        logger.info(f"🎯 Processing: {context.question[:50]}...")
+        logger.info(f"Processing: {context.question[:100]}...")
     
     # =========================================================================
     # STEP 2: INTENT DETECTION

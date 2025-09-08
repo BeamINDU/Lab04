@@ -1,3 +1,9 @@
+# openwebui_proxy.py - Updated with n8n Support
+"""
+OpenWebUI Proxy with n8n Workflow Integration
+เพิ่มการรองรับ n8n workflow routing
+"""
+
 import os
 import json
 import asyncio
@@ -26,45 +32,22 @@ class ProxyConfig:
         self.force_tenant = os.getenv('FORCE_TENANT')
         self.port = int(os.getenv('PROXY_PORT', '8001'))
         
-        # N8N Integration Configuration
-        self.use_n8n = os.getenv('USE_N8N_WORKFLOW', 'false').lower() == 'true'
-        self.n8n_base_url = os.getenv('N8N_BASE_URL', 'http://n8n:5678')
-        
-        # N8N Webhook URLs for each tenant
-        self.n8n_webhooks = {
-            'company-a': f"{self.n8n_base_url}/webhook/company-a-chat",
-            'company-b': f"{self.n8n_base_url}/webhook/company-b-chat",
-            'company-c': f"{self.n8n_base_url}/webhook/company-c-chat"
-        }
-        
-        # Fallback configuration
+        # ========== เพิ่ม n8n Configuration ==========
+        self.use_n8n_workflow = os.getenv('USE_N8N_WORKFLOW', 'false').lower() == 'true'
+        self.n8n_base_url = os.getenv('N8N_BASE_URL', 'http://siamtech-n8n:5678')  # ใช้ชื่อ container
+        self.n8n_webhook_path = 'webhook/siamtemp-chat'  # path ของ webhook ใน n8n
+        self.n8n_timeout = int(os.getenv('N8N_TIMEOUT', '60'))
         self.n8n_fallback_to_direct = os.getenv('N8N_FALLBACK_TO_DIRECT', 'true').lower() == 'true'
-        self.n8n_timeout = int(os.getenv('N8N_TIMEOUT', '30'))
         
         # Tenant configurations
         self.tenant_configs = {
-            'company-a': {
-                'name': 'SiamTech Bangkok HQ', 
-                'model': 'llama3.1:8b', 
-                'language': 'th',
-                'use_n8n': True
-            },
-            'company-b': {
-                'name': 'SiamTech Chiang Mai', 
-                'model': 'llama3.1:8b', 
-                'language': 'th',
-                'use_n8n': True
-            },
-            'company-c': {
-                'name': 'SiamTech International', 
-                'model': 'llama3.1:8b', 
-                'language': 'en',
-                'use_n8n': False
-            }
+            'company-a': {'name': 'SiamTech Bangkok HQ', 'model': 'llama3.1:8b', 'language': 'th'},
+            'company-b': {'name': 'SiamTech Chiang Mai', 'model': 'llama3.1:8b', 'language': 'th'},
+            'company-c': {'name': 'SiamTech International', 'model': 'llama3.1:8b', 'language': 'en'}
         }
 
 config = ProxyConfig()
-app = FastAPI(title="OpenWebUI Proxy with N8N", version="3.0.0")
+app = FastAPI(title="OpenWebUI Proxy", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware, 
@@ -87,80 +70,63 @@ class ChatCompletionRequest(BaseModel):
     stream: Optional[bool] = False
 
 # =============================================================================
-# N8N WORKFLOW INTEGRATION
+# N8N WORKFLOW INTEGRATION (เพิ่มใหม่)
 # =============================================================================
 
-async def call_n8n_workflow(tenant_id: str, message: str, user_id: str = "default"):
-    """Call N8N workflow for message processing"""
-    if tenant_id not in config.n8n_webhooks:
-        logger.warning(f"No N8N webhook for tenant {tenant_id}")
-        return
+async def call_n8n_workflow(message: str, tenant_id: str, user_id: str = "default") -> Optional[Dict]:
+    """Call n8n workflow for processing"""
     
-    webhook_url = config.n8n_webhooks[tenant_id]
+    if not config.use_n8n_workflow:
+        return None
     
+    webhook_url = f"{config.n8n_base_url}/{config.n8n_webhook_path}"
+    
+    # Prepare payload with body wrapper for n8n
     payload = {
-        "message": message,
-        "tenant_id": tenant_id,
-        "user_id": user_id,
-        "timestamp": datetime.now().isoformat(),
-        "source": "openwebui_proxy",
-        "mode": "streaming"
+        "body": {
+            "message": message,
+            "tenant_id": tenant_id,
+            "user_id": user_id,
+            "timestamp": datetime.now().isoformat()
+        }
     }
     
     try:
-        logger.info(f"Calling N8N workflow for {tenant_id}: {webhook_url}")
+        logger.info(f"🔄 Calling n8n workflow at: {webhook_url}")
+        logger.debug(f"Sending payload: {json.dumps(payload, indent=2)}")
         
         async with aiohttp.ClientSession() as session:
             async with session.post(
                 webhook_url,
-                json=payload,
+                json=payload,  # ✅ ใช้ json= แค่ครั้งเดียว
                 headers={"Content-Type": "application/json"},
                 timeout=aiohttp.ClientTimeout(total=config.n8n_timeout)
             ) as response:
+                
                 if response.status == 200:
-                    logger.info(f"N8N workflow responded for {tenant_id}")
-                    
-                    content_type = response.headers.get('content-type', '')
-                    
-                    if 'application/json' in content_type:
-                        result = await response.json()
-                        yield {
-                            "type": "complete",
-                            "content": result.get("answer", ""),
-                            "sql_query": result.get("sql_query"),
-                            "source": "n8n_workflow"
-                        }
-                    else:
-                        async for line in response.content:
-                            if line:
-                                try:
-                                    line_str = line.decode('utf-8').strip()
-                                    if line_str.startswith('data: '):
-                                        data_str = line_str[6:]
-                                        if data_str and data_str != '[DONE]':
-                                            data = json.loads(data_str)
-                                            data["source"] = "n8n_workflow"
-                                            yield data
-                                except Exception as e:
-                                    logger.debug(f"N8N stream parse error: {e}")
-                                    continue
+                    result = await response.json()
+                    logger.info("✅ n8n workflow executed successfully")
+                    return result
                 else:
-                    logger.error(f"N8N workflow error: HTTP {response.status}")
-                    return
+                    logger.error(f"❌ n8n workflow failed: HTTP {response.status}")
+                    if config.n8n_fallback_to_direct:
+                        logger.info("⚠️ Falling back to direct service call")
+                    return None
                     
     except asyncio.TimeoutError:
-        logger.error(f"N8N workflow timeout for {tenant_id}")
-        return
+        logger.error(f"⏱️ n8n workflow timeout after {config.n8n_timeout}s")
+        return None
     except Exception as e:
-        logger.error(f"N8N workflow failed: {e}")
-        return
+        logger.error(f"❌ n8n workflow error: {e}")
+        return None
+
 
 # =============================================================================
-# DIRECT SERVICE CALL
+# EXISTING FUNCTIONS (ไม่เปลี่ยน)
 # =============================================================================
 
-async def call_main_service_direct(endpoint: str, payload: dict, stream: bool = False):
-    """Direct call to main service"""
+async def call_main_service(endpoint: str, payload: dict, stream: bool = False):
+    """Direct call to main AI service"""
     url = f"{config.main_service_url}{endpoint}"
     
     try:
@@ -194,67 +160,12 @@ async def call_main_service_direct(endpoint: str, payload: dict, stream: bool = 
                         yield {"error": f"Service error: {response.status}"}
                         
     except Exception as e:
-        logger.error(f"Direct service call error: {e}")
+        logger.error(f"Service call error: {e}")
         if stream:
             error_msg = json.dumps({"error": str(e)})
             yield error_msg.encode()
         else:
             yield {"error": str(e)}
-
-# =============================================================================
-# INTELLIGENT ROUTING
-# =============================================================================
-
-async def process_message_with_routing(
-    message: str, 
-    tenant_id: str, 
-    user_id: str = "default",
-    stream: bool = False
-):
-    """Route message through N8N or direct to service"""
-    tenant_config = config.tenant_configs.get(tenant_id, {})
-    use_n8n = config.use_n8n and tenant_config.get('use_n8n', True)
-    
-    if use_n8n:
-        logger.info(f"Attempting N8N workflow for {tenant_id}")
-        
-        n8n_success = False
-        async for chunk in call_n8n_workflow(tenant_id, message, user_id):
-            if chunk:
-                n8n_success = True
-                yield chunk
-        
-        if n8n_success:
-            return
-        
-        if not config.n8n_fallback_to_direct:
-            yield {"error": "N8N workflow failed and fallback is disabled"}
-            return
-        
-        logger.info(f"Falling back to direct service call for {tenant_id}")
-    
-    service_payload = {
-        "question": message,
-        "tenant_id": tenant_id,
-        "user_id": user_id,
-        "stream": stream
-    }
-    
-    endpoint = "/v1/chat/stream" if stream else "/v1/chat"
-    
-    async for chunk in call_main_service_direct(endpoint, service_payload, stream):
-        if stream:
-            try:
-                line_str = chunk.decode('utf-8').strip()
-                if line_str:
-                    data = json.loads(line_str)
-                    data["source"] = "direct_service"
-                    yield data
-            except:
-                continue
-        else:
-            chunk["source"] = "direct_service"
-            yield chunk
 
 # =============================================================================
 # HELPER FUNCTIONS
@@ -277,7 +188,7 @@ def extract_user_message(messages: list) -> str:
     return ""
 
 # =============================================================================
-# MAIN OPENAI-COMPATIBLE ENDPOINT
+# MAIN ENDPOINT WITH N8N SUPPORT (แก้ไข)
 # =============================================================================
 
 @app.post("/v1/chat/completions")
@@ -286,7 +197,8 @@ async def chat_completions(
     x_tenant_id: Optional[str] = Header(None),
     x_user_id: Optional[str] = Header(None)
 ):
-    """OpenAI-compatible endpoint with N8N support"""
+    """OpenAI-compatible endpoint with n8n workflow support"""
+    
     tenant_id = get_tenant_id(x_tenant_id)
     user_id = x_user_id or "openwebui_user"
     tenant_config = config.tenant_configs.get(tenant_id, config.tenant_configs['company-a'])
@@ -296,13 +208,46 @@ async def chat_completions(
         if not user_message:
             raise HTTPException(400, "No user message found")
         
-        routing_method = "N8N + Fallback" if config.use_n8n else "Direct Only"
-        logger.info(f"Request for {tenant_id} via {routing_method}: {user_message[:50]}...")
+        logger.info(f"📨 Request for {tenant_id}: {user_message[:50]}...")
         
+        # ========== Try n8n workflow first (ถ้าเปิดใช้งาน) ==========
+        result = None
+        if config.use_n8n_workflow:
+            logger.info("🔄 Attempting n8n workflow processing...")
+            n8n_result = await call_n8n_workflow(user_message, tenant_id, user_id)
+            
+            if n8n_result:
+                # n8n workflow success
+                result = n8n_result
+                logger.info("✅ Using n8n workflow response")
+            elif config.n8n_fallback_to_direct:
+                # Fallback to direct service
+                logger.info("⚠️ n8n failed, falling back to direct service")
+            else:
+                # No fallback, return error
+                raise HTTPException(503, "n8n workflow unavailable and fallback disabled")
+        
+        # ========== Direct service call (ถ้าไม่ใช้ n8n หรือ fallback) ==========
+        if not result:
+            service_payload = {
+                "question": user_message,
+                "tenant_id": tenant_id,
+                "user_id": user_id,
+                "stream": request.stream
+            }
+            
+            endpoint = "/v1/chat/stream" if request.stream else "/v1/chat"
+            
+            async for chunk in call_main_service(endpoint, service_payload, request.stream):
+                result = chunk
+                break
+        
+        # ========== Format response ==========
         if request.stream:
-            async def generate_openai_stream():
+            # Streaming response
+            async def generate():
                 try:
-                    # Initial chunk
+                    # Send initial chunk
                     initial_chunk = {
                         "id": f"chatcmpl-{int(datetime.now().timestamp())}",
                         "object": "chat.completion.chunk",
@@ -316,98 +261,47 @@ async def chat_completions(
                     }
                     yield f"data: {json.dumps(initial_chunk)}\n\n"
                     
-                    accumulated_content = ""
-                    source_used = "unknown"
+                    # Stream the answer
+                    answer = result.get('answer', '') if isinstance(result, dict) else str(result)
+                    chunk_size = 50
                     
-                    async for chunk in process_message_with_routing(
-                        user_message, tenant_id, user_id, stream=True
-                    ):
-                        if isinstance(chunk, dict):
-                            source_used = chunk.get('source', source_used)
-                            
-                            if chunk.get('done') or chunk.get('type') == 'complete':
-                                if chunk.get('content'):
-                                    accumulated_content += chunk['content']
-                                    content_chunk = {
-                                        "id": f"chatcmpl-{int(datetime.now().timestamp())}",
-                                        "object": "chat.completion.chunk",
-                                        "created": int(datetime.now().timestamp()),
-                                        "model": request.model,
-                                        "choices": [{
-                                            "index": 0,
-                                            "delta": {"content": chunk['content']},
-                                            "finish_reason": None
-                                        }]
-                                    }
-                                    yield f"data: {json.dumps(content_chunk)}\n\n"
-                                
-                                final_chunk = {
-                                    "id": f"chatcmpl-{int(datetime.now().timestamp())}",
-                                    "object": "chat.completion.chunk",
-                                    "created": int(datetime.now().timestamp()),
-                                    "model": request.model,
-                                    "choices": [{
-                                        "index": 0,
-                                        "delta": {},
-                                        "finish_reason": "stop"
-                                    }],
-                                    "system_fingerprint": source_used
-                                }
-                                yield f"data: {json.dumps(final_chunk)}\n\n"
-                                yield "data: [DONE]\n\n"
-                                break
-                            else:
-                                content = chunk.get('chunk', chunk.get('content', ''))
-                                if content:
-                                    accumulated_content += content
-                                    stream_chunk = {
-                                        "id": f"chatcmpl-{int(datetime.now().timestamp())}",
-                                        "object": "chat.completion.chunk",
-                                        "created": int(datetime.now().timestamp()),
-                                        "model": request.model,
-                                        "choices": [{
-                                            "index": 0,
-                                            "delta": {"content": content},
-                                            "finish_reason": None
-                                        }]
-                                    }
-                                    yield f"data: {json.dumps(stream_chunk)}\n\n"
-                    
-                    if not accumulated_content:
-                        error_chunk = {
+                    for i in range(0, len(answer), chunk_size):
+                        chunk = answer[i:i + chunk_size]
+                        stream_chunk = {
                             "id": f"chatcmpl-{int(datetime.now().timestamp())}",
                             "object": "chat.completion.chunk",
                             "created": int(datetime.now().timestamp()),
                             "model": request.model,
                             "choices": [{
                                 "index": 0,
-                                "delta": {"content": "ขออภัย ไม่สามารถประมวลผลได้"},
-                                "finish_reason": "stop"
+                                "delta": {"content": chunk},
+                                "finish_reason": None
                             }]
                         }
-                        yield f"data: {json.dumps(error_chunk)}\n\n"
-                        yield "data: [DONE]\n\n"
+                        yield f"data: {json.dumps(stream_chunk)}\n\n"
+                        await asyncio.sleep(0.05)
                     
-                    logger.info(f"Streaming completed via {source_used}")
-                    
-                except Exception as e:
-                    logger.error(f"Streaming error: {e}")
-                    error_response = {
+                    # Send completion
+                    final_chunk = {
                         "id": f"chatcmpl-{int(datetime.now().timestamp())}",
                         "object": "chat.completion.chunk",
                         "created": int(datetime.now().timestamp()),
                         "model": request.model,
                         "choices": [{
                             "index": 0,
-                            "delta": {"content": f"Error: {str(e)}"},
+                            "delta": {},
                             "finish_reason": "stop"
                         }]
                     }
-                    yield f"data: {json.dumps(error_response)}\n\n"
+                    yield f"data: {json.dumps(final_chunk)}\n\n"
                     yield "data: [DONE]\n\n"
+                    
+                except Exception as e:
+                    logger.error(f"Streaming error: {e}")
+                    yield f"data: {json.dumps({'error': str(e)})}\n\n"
             
             return StreamingResponse(
-                generate_openai_stream(),
+                generate(),
                 media_type="text/event-stream",
                 headers={
                     "Cache-Control": "no-cache",
@@ -417,45 +311,28 @@ async def chat_completions(
             )
         
         else:
-            result = None
-            source_used = "unknown"
+            # Non-streaming response
+            answer = result.get('answer', 'ไม่สามารถประมวลผลได้') if isinstance(result, dict) else str(result)
             
-            async for chunk in process_message_with_routing(
-                user_message, tenant_id, user_id, stream=False
-            ):
-                if isinstance(chunk, dict):
-                    result = chunk
-                    source_used = chunk.get('source', source_used)
-                    break
-            
-            if result and not result.get('error'):
-                answer = result.get("answer", "ไม่สามารถประมวลผลได้")
-                
-                logger.info(f"Non-streaming completed via {source_used}")
-                
-                return {
-                    "id": f"chatcmpl-{int(datetime.now().timestamp())}",
-                    "object": "chat.completion",
-                    "created": int(datetime.now().timestamp()),
-                    "model": request.model,
-                    "choices": [{
-                        "index": 0,
-                        "message": {
-                            "role": "assistant",
-                            "content": answer
-                        },
-                        "finish_reason": "stop"
-                    }],
-                    "usage": {
-                        "prompt_tokens": len(user_message.split()),
-                        "completion_tokens": len(answer.split()),
-                        "total_tokens": len(user_message.split()) + len(answer.split())
+            return {
+                "id": f"chatcmpl-{int(datetime.now().timestamp())}",
+                "object": "chat.completion",
+                "created": int(datetime.now().timestamp()),
+                "model": request.model,
+                "choices": [{
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": answer
                     },
-                    "system_fingerprint": source_used
+                    "finish_reason": "stop"
+                }],
+                "usage": {
+                    "prompt_tokens": len(user_message.split()),
+                    "completion_tokens": len(answer.split()),
+                    "total_tokens": len(user_message.split()) + len(answer.split())
                 }
-            else:
-                error_msg = result.get('error', 'Unknown error') if result else 'No response'
-                raise HTTPException(500, error_msg)
+            }
             
     except HTTPException:
         raise
@@ -479,13 +356,14 @@ async def chat_completions(
         }
 
 # =============================================================================
-# HEALTH & MONITORING ENDPOINTS
+# HEALTH CHECK WITH N8N STATUS (แก้ไข)
 # =============================================================================
 
 @app.get("/health")
 async def health():
-    """Health check with N8N status"""
+    """Health check endpoint with n8n status"""
     
+    # Check main AI service
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(
@@ -496,33 +374,30 @@ async def health():
     except:
         service_healthy = False
     
+    # Check n8n status (ถ้าเปิดใช้งาน)
     n8n_status = "disabled"
-    if config.use_n8n:
+    if config.use_n8n_workflow:
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(
-                    config.n8n_base_url,
+                    f"{config.n8n_base_url}/healthz",
                     timeout=aiohttp.ClientTimeout(total=5)
                 ) as response:
-                    n8n_status = "healthy" if response.status == 200 else f"error_{response.status}"
+                    n8n_status = "healthy" if response.status == 200 else "unhealthy"
         except:
             n8n_status = "unreachable"
     
-    overall_status = "healthy"
-    if not service_healthy:
-        overall_status = "degraded" if config.n8n_fallback_to_direct else "unhealthy"
-    
     return {
-        "status": overall_status,
-        "service": "OpenWebUI Proxy with N8N",
-        "version": "3.0.0",
-        "components": {
-            "main_service": "connected" if service_healthy else "disconnected",
-            "n8n_workflow": n8n_status,
-            "n8n_enabled": config.use_n8n,
-            "n8n_fallback": config.n8n_fallback_to_direct
+        "status": "healthy" if service_healthy else "degraded",
+        "service": "OpenWebUI Proxy",
+        "version": "2.0.0",
+        "main_service": "connected" if service_healthy else "disconnected",
+        "n8n_workflow": {
+            "enabled": config.use_n8n_workflow,
+            "status": n8n_status,
+            "url": config.n8n_base_url if config.use_n8n_workflow else None,
+            "fallback": config.n8n_fallback_to_direct
         },
-        "routing": "N8N + Fallback" if config.use_n8n else "Direct Only",
         "timestamp": datetime.now().isoformat()
     }
 
@@ -538,45 +413,8 @@ async def list_models():
             "id": tenant_config['model'],
             "object": "model",
             "created": int(datetime.now().timestamp()),
-            "owned_by": f"siamtech-{tenant_id}",
-            "metadata": {
-                "n8n_enabled": config.use_n8n and tenant_config.get('use_n8n', True),
-                "language": tenant_config.get('language', 'th')
-            }
+            "owned_by": f"siamtech-{tenant_id}"
         }]
-    }
-
-@app.get("/n8n/status")
-async def n8n_status():
-    """Detailed N8N status check"""
-    webhooks_status = {}
-    
-    for tenant, webhook_url in config.n8n_webhooks.items():
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    webhook_url,
-                    json={"test": True, "timestamp": datetime.now().isoformat()},
-                    timeout=aiohttp.ClientTimeout(total=5)
-                ) as response:
-                    webhooks_status[tenant] = {
-                        "url": webhook_url,
-                        "status": "active" if response.status in [200, 201] else f"error_{response.status}"
-                    }
-        except Exception as e:
-            webhooks_status[tenant] = {
-                "url": webhook_url,
-                "status": "unreachable",
-                "error": str(e)
-            }
-    
-    return {
-        "n8n_base_url": config.n8n_base_url,
-        "n8n_enabled": config.use_n8n,
-        "fallback_enabled": config.n8n_fallback_to_direct,
-        "timeout": config.n8n_timeout,
-        "webhooks": webhooks_status,
-        "timestamp": datetime.now().isoformat()
     }
 
 # =============================================================================
@@ -585,20 +423,16 @@ async def n8n_status():
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("OpenWebUI Proxy with N8N Integration")
+    print("OpenWebUI Proxy Service")
     print("=" * 60)
     print(f"Main Service: {config.main_service_url}")
-    print(f"N8N URL: {config.n8n_base_url}")
-    print(f"N8N Enabled: {config.use_n8n}")
-    print(f"Fallback: {config.n8n_fallback_to_direct}")
-    print(f"Proxy Port: {config.port}")
+    print(f"n8n Workflow: {'ENABLED' if config.use_n8n_workflow else 'DISABLED'}")
+    if config.use_n8n_workflow:
+        print(f"n8n URL: {config.n8n_base_url}")
+        print(f"n8n Webhook: /{config.n8n_webhook_path}")
+        print(f"Fallback: {config.n8n_fallback_to_direct}")
+    print(f"Port: {config.port}")
     print(f"Default Tenant: {config.default_tenant}")
-    print("=" * 60)
-    print("Endpoints:")
-    print("  POST /v1/chat/completions - OpenAI-compatible chat")
-    print("  GET  /health - Health check")
-    print("  GET  /n8n/status - N8N status details")
-    print("  GET  /v1/models - List models")
     print("=" * 60)
     
     uvicorn.run(app, host="0.0.0.0", port=config.port)

@@ -108,34 +108,24 @@ services:
       dockerfile: Dockerfile.proxy
     container_name: openwebui-proxy
     environment:
-      # Main AI Service
+      # Main service
       - MAIN_SERVICE_URL=http://hvac-ai-service:5000
       - DEFAULT_TENANT=company-a
       - PROXY_PORT=8001
       
-      # External N8N on AWS EC2
-      - USE_N8N_WORKFLOW=true  # Set to true when N8N is ready
-      - N8N_BASE_URL=http://n8n:5678
-      - N8N_TIMEOUT=30
+      # ========== เพิ่ม n8n Configuration ==========
+      - USE_N8N_WORKFLOW=true 
+      - N8N_BASE_URL=http://siamtech-n8n:5678
+      - N8N_TIMEOUT=60
       - N8N_FALLBACK_TO_DIRECT=true
-      
-      # N8N Authentication (if needed)
-      - N8N_API_KEY=${N8N_API_KEY:-}
-      - N8N_AUTH_TOKEN=${N8N_AUTH_TOKEN:-}
-      
+      - N8N_WEBHOOK_PATH=webhook/siamtemp-chat
     ports:
       - "8001:8001"
     networks:
       - hvac_network
     depends_on:
-      hvac-ai-service:
-        condition: service_healthy
+      - hvac-ai-service
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
   # =============================================================================
   # OPENWEBUI FRONTEND
