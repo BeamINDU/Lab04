@@ -14,6 +14,7 @@ from ..storage.scalable_database import ScalableDatabaseHandler
 from ..storage.database import SimplifiedDatabaseHandler
 from .context_handler import ContextHandler, ConversationTurn, ConversationState
 from collections import defaultdict
+from agents.nlp.general_chat_handler import GeneralChatHandler
 logger = logging.getLogger(__name__)
 
 # =============================================================================
@@ -62,6 +63,7 @@ class ImprovedDualModelDynamicAISystem:
         self.db_handler = SimplifiedDatabaseHandler()
         self.context_handler = ContextHandler()
         self.conversation_turns = defaultdict(list) 
+        self.general_chat = GeneralChatHandler()
         logger.info("🚀 Refactored System initialized")
     
     # =========================================================================
@@ -123,7 +125,20 @@ class ImprovedDualModelDynamicAISystem:
         try:
             # Step 1: Preparation (MUST BE FIRST - loads conversation context)
             await self._prepare_processing(context)
-            
+            await self._detect_intent(context)
+            is_general, chat_type = self.general_chat.is_general_chat(question)
+            if is_general:
+                response = self.general_chat.get_response(chat_type, question)
+                return {
+                    'answer': response,
+                    'success': True,
+                    'intent': f'general_{chat_type}',
+                    'entities': {},
+                    'confidence': 1.0,
+                    'processing_time': time.time() - start_time,
+                    'tenant_id': tenant_id,
+                    'user_id': user_id
+                }
             # Check for continuation query (AFTER context is loaded)
             continuation_result = await self.handle_continuation_query(context)
             if continuation_result:

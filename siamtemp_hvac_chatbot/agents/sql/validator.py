@@ -367,7 +367,7 @@ class SQLValidator:
     def _get_default_schema(self) -> Dict:
         """Get default schema if prompt manager not available"""
         return {
-            'v_sales2024': [
+            'v_sales': [
                 'id', 'job_no', 'customer_name', 'description',
                 'overhaul_num', 'replacement_num', 'service_num',
                 'parts_num', 'product_num', 'solution_num', 'total_revenue'

@@ -1,0 +1,157 @@
+                                        View "public.v_sales"
+      Column      |          Type          | Collation | Nullable | Default | Storage  | Description 
+------------------+------------------------+-----------+----------+---------+----------+-------------
+ id               | integer                |           |          |         | plain    | 
+ year             | character varying(4)   |           |          |         | extended | 
+ job_no           | character varying(100) |           |          |         | extended | 
+ customer_name    | character varying(255) |           |          |         | extended | 
+ description      | character varying(255) |           |          |         | extended | 
+ overhaul_text    | character varying(255) |           |          |         | extended | 
+ replacement_text | character varying(255) |           |          |         | extended | 
+ service_text     | character varying(255) |           |          |         | extended | 
+ parts_text       | character varying(255) |           |          |         | extended | 
+ product_text     | character varying(255) |           |          |         | extended | 
+ solution_text    | character varying(255) |           |          |         | extended | 
+ overhaul_num     | numeric                |           |          |         | main     | 
+ replacement_num  | numeric                |           |          |         | main     | 
+ service_num      | numeric                |           |          |         | main     | 
+ parts_num        | numeric                |           |          |         | main     | 
+ product_num      | numeric                |           |          |         | main     | 
+ solution_num     | numeric                |           |          |         | main     | 
+ total_revenue    | numeric                |           |          |         | main     | 
+View definition:
+ SELECT s.id,
+    s.year,
+    s.job_no,
+    s.customer_name,
+    s.description,
+    s.overhaul_ AS overhaul_text,
+    s.replacement AS replacement_text,
+    s.service_contact_ AS service_text,
+    s.parts_all_ AS parts_text,
+    s.product_all AS product_text,
+    s.solution_ AS solution_text,
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.overhaul_::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.overhaul_::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END AS overhaul_num,
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.replacement::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.replacement::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END AS replacement_num,
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.service_contact_::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.service_contact_::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END AS service_num,
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.parts_all_::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.parts_all_::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END AS parts_num,
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.product_all::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.product_all::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END AS product_num,
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.solution_::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.solution_::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END AS solution_num,
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.overhaul_::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.overhaul_::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END +
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.replacement::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.replacement::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END +
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.service_contact_::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.service_contact_::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END +
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.parts_all_::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.parts_all_::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END +
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.product_all::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.product_all::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END +
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.solution_::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.solution_::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END AS total_revenue
+   FROM sales s;
+
+                                     View "public.v_spare_part"
+     Column      |          Type          | Collation | Nullable | Default | Storage  | Description 
+-----------------+------------------------+-----------+----------+---------+----------+-------------
+ id              | integer                |           |          |         | plain    | 
+ wh              | character varying(100) |           |          |         | extended | 
+ product_code    | character varying(100) |           |          |         | extended | 
+ product_name    | character varying(100) |           |          |         | extended | 
+ unit            | character varying(100) |           |          |         | extended | 
+ balance_text    | integer                |           |          |         | plain    | 
+ unit_price_text | integer                |           |          |         | plain    | 
+ total_text      | integer                |           |          |         | plain    | 
+ balance_num     | numeric                |           |          |         | main     | 
+ unit_price_num  | numeric                |           |          |         | main     | 
+ total_num       | numeric                |           |          |         | main     | 
+ description     | character varying(255) |           |          |         | extended | 
+ received        | character varying(100) |           |          |         | extended | 
+View definition:
+ SELECT spare_part1.id,
+    spare_part1.wh,
+    spare_part1.product_code,
+    spare_part1.product_name,
+    spare_part1.unit,
+    spare_part1.balance AS balance_text,
+    spare_part1.unit_price AS unit_price_text,
+    spare_part1.total AS total_text,
+    COALESCE(spare_part1.balance::numeric, 0::numeric) AS balance_num,
+    COALESCE(spare_part1.unit_price::numeric, 0::numeric) AS unit_price_num,
+    COALESCE(spare_part1.total::numeric, 0::numeric) AS total_num,
+    spare_part1.description,
+    spare_part1.received
+   FROM spare_part spare_part1;
+
+                                           View "public.v_work_force"
+           Column            |          Type           | Collation | Nullable | Default | Storage  | Description 
+-----------------------------+-------------------------+-----------+----------+---------+----------+-------------
+ id                          | integer                 |           |          |         | plain    | 
+ date                        | date                    |           |          |         | plain    | 
+ customer                    | character varying(1000) |           |          |         | extended | 
+ project                     | character varying(100)  |           |          |         | extended | 
+ job_description_pm          | boolean                 |           |          |         | plain    | 
+ job_description_replacement | boolean                 |           |          |         | plain    | 
+ job_description_overhaul    | character varying(255)  |           |          |         | extended | 
+ job_description_start_up    | character varying(255)  |           |          |         | extended | 
+ job_description_support_all | character varying(255)  |           |          |         | extended | 
+ job_description_cpa         | boolean                 |           |          |         | plain    | 
+ detail                      | character varying(255)  |           |          |         | extended | 
+ duration                    | character varying(255)  |           |          |         | extended | 
+ service_group               | character varying(255)  |           |          |         | extended | 
+ success                     | character varying(255)  |           |          |         | extended | 
+ unsuccessful                | character varying(255)  |           |          |         | extended | 
+ failure_reason              | character varying(255)  |           |          |         | extended | 
+ report_kpi_2_days           | character varying(255)  |           |          |         | extended | 
+ report_over_kpi_2_days      | character varying(255)  |           |          |         | extended | 
+View definition:
+ SELECT work_force1.id,
+    work_force1.date,
+    work_force1.customer,
+    work_force1.project,
+    work_force1.job_description_pm,
+    work_force1.job_description_replacement,
+    work_force1.job_description_overhaul,
+    work_force1.job_description_start_up,
+    work_force1.job_description_support_all,
+    work_force1.job_description_cpa,
+    work_force1.detail,
+    work_force1.duration,
+    work_force1.service_group,
+    work_force1.success,
+    work_force1.unsuccessful,
+    work_force1.failure_reason,
+    work_force1.report_kpi_2_days,
+    work_force1.report_over_kpi_2_days
+   FROM work_force work_force1;
+

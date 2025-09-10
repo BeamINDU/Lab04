@@ -585,31 +585,204 @@ class ImprovedIntentDetector:
         return list(set(products))
     
     def _extract_customers(self, question: str) -> List[str]:
-        """Extract customer/company names"""
+        """
+        Extract customer/company names - COMPREHENSIVE VERSION
+        Based on actual database patterns
+        """
         customers = []
+        question_original = question  # Keep original for case-sensitive
         
-        # Look for "บริษัท" patterns
-        company_patterns = [
-            r'(คลีนิค[^\s]*โรคศิลป์[^\s]*)', 
-            r'(บริษัท[^มี]*)',
-            r'([ก-๙]+(?:ประกอบ|โรคศิลป์|จำกัด)[ก-๙]*)',
-            r'([A-Z][A-Z\s&.,()]+(?:CO\.|LTD\.|LIMITED|INC\.))',
-            r'CLARION|HONDA|AGC|SADESA|STANLEY'
+        # ========== KNOWN CUSTOMERS FROM DATABASE ==========
+        # จากข้อมูลจริงที่เห็น
+        known_customers = {
+            # คลีนิค variations
+            'คลีนิคประกอบโรคศิลป์': ['คลีนิคประกอบโรคศิลป์ฯ', 'คลีนิคการประกอบโรคศิลปะ', 'คลีนิคประกอบโรคศิลปะ'],
+            
+            # English companies
+            'CLARION': ['CLARION', 'CLARION ASIA', 'CLARION ASIA (THAILAND)', 'CLARION ASIA ( THAILAND ) CO.,LTD.'],
+            'STANLEY': ['STANLEY', 'STANLEY ELECTRIC'],
+            'HONDA': ['HONDA', 'HONDA AUTOMOBILE', 'ฮอนด้า', 'ฮอนด้า ลาดกระบัง'],
+            'SADESA': ['SADESA', 'Sadesa', 'SADESA (THAILAND)', 'ซาเดซ่า'],
+            'AGC': ['AGC', 'เอจีซี', 'บริษัทเอจีซี แฟลทกลาส'],
+            'IRPC': ['IRPC', 'IRPC Public', 'IRPC PUBLIC'],
+            'DENSO': ['DENSO', 'DENSO (THAILAND)', 'เดนโซ่'],
+            'SEIKO': ['SEIKO', 'SEIKO INSTRUMENTS'],
+            'HITACHI': ['HITACHI', 'ฮิตาชิ', 'Hitachi Astemo', 'บริษัท ฮิตาชิ แอสเตโม'],
+            
+            # Thai companies
+            'ชินอิทซึ': ['ชินอิทซึ แมกเนติค', 'ชินอิทซึ แม็คเนติคส์', 'ชินอิทซึ แม็กเนติค'],
+            'สหกล': ['สหกลอิควิปเมนท์', 'สหกลอิควีปเม้นท์', 'สหกลอิควิปเมนต์'],
+            'อรุณสวัสดิ์': ['อรุณสวัสดิ์', 'อรุณสวัสดิ์ เอ็กซเพรส', 'อรุณสวัสดิ์ เอ็กเพรส'],
+            
+            # Government
+            'กระทรวงกลาโหม': ['สำนักงานปลัดกระทรวงกลาโหม', 'สำนักปลัดกระทรวงกลาโหม', 'กลาโหม'],
+            'การไฟฟ้า': ['การไฟฟ้านครหลวง', 'การไฟฟ้าฝ่ายผลิต'],
+            
+            # Others
+            'คุณคณกร': ['คุณคณกร', 'บ้านคุณคณกร', 'คณกร เตชาหัวสิงห์'],
+            'บิโก้': ['บีโก้', 'บิโก้', 'บิโก้ ปราจีน', 'บีโก้ ปราจีนบุรี'],
+        }
+        
+        # Check for known customers
+        question_lower = question.lower()
+        for key, variations in known_customers.items():
+            for variation in variations:
+                if variation.lower() in question_lower:
+                    customers.append(variation)
+                    # Also add the main key
+                    if key not in customers:
+                        customers.append(key)
+        
+        # ========== PATTERN 1: บริษัท/บ./บจก./บมจ. ==========
+        thai_company_patterns = [
+            # บริษัท patterns
+            r'บริษัท\s*([^จ]{2,30}(?:จำกัด|จก\.|จก(?:\s|$)))',
+            r'บริษัท\s*([^\s][^จ]{2,30})',
+            
+            # บ. patterns (short form)
+            r'บ\.\s*([^จ]{2,20}(?:จก\.|จำกัด|ฯ))',
+            r'บ\.\s*([ก-๙a-zA-Z][^ม]{2,20})',
+            
+            # บจก. patterns
+            r'บจก\.\s*([ก-๙a-zA-Z].{2,20})',
+            
+            # บมจ. patterns (public company)
+            r'บมจ\.\s*([ก-๙a-zA-Z].{2,20})',
+            
+            # หจก. patterns
+            r'หจก\.\s*([ก-๙a-zA-Z].{2,20})',
         ]
         
-        for pattern in company_patterns:
+        for pattern in thai_company_patterns:
             matches = re.findall(pattern, question, re.IGNORECASE)
-            if isinstance(matches[0], tuple) if matches else False:
-                customers.extend([m[0] for m in matches])
-            if not customers and 'คลีนิค' in question:
-                pattern = r'(คลีนิค[^\s,]*)'
+            for match in matches:
+                # Clean the match
+                clean = match.strip()
+                # Remove common endings
+                clean = re.sub(r'\s*(มี|ได้|ไหม|บ้าง|ครับ|ค่ะ|และ|หรือ|กับ|ที่|ของ|เป็น|เท่า|การ|ซื้อ|ขาย|ย้อน|หลัง).*$', '', clean)
+                
+                if clean and len(clean) > 2:
+                    customers.append(clean)
+        
+        # ========== PATTERN 2: English Company Names ==========
+        eng_patterns = [
+            # Company with Ltd., Co., Inc.
+            r'\b([A-Z][A-Za-z0-9\s\-&.,()]+(?:CO\.|LTD\.|LIMITED|INC\.|CORP\.|Co\.,Ltd\.))',
+            
+            # All caps names (likely company names)
+            r'\b([A-Z]{3,}(?:\s+[A-Z]+)*)\b',
+            
+            # Mixed case with (THAILAND)
+            r'\b([A-Za-z]+(?:\s+[A-Za-z]+)*\s*\(\s*THAILAND\s*\))',
+        ]
+        
+        for pattern in eng_patterns:
+            matches = re.findall(pattern, question_original)  # Use original for case
+            for match in matches:
+                # Filter out common non-company words
+                if match.upper() not in ['PM', 'HVAC', 'AHU', 'FCU', 'VRF', 'THE', 'AND', 'OR', 'FOR']:
+                    customers.append(match)
+        
+        # ========== PATTERN 3: คลีนิค ==========
+        if 'คลีนิค' in question:
+            clinic_patterns = [
+                r'(คลีนิค[ก-๙]*โรคศิลป[ก-๙]*)',
+                r'(คลีนิค[ก-๙]*ประกอบ[ก-๙]*)',
+                r'(คลีนิค[ก-๙]+)',
+                r'(คลีนิค\s+[ก-๙]+)',
+            ]
+            
+            for pattern in clinic_patterns:
                 matches = re.findall(pattern, question)
                 customers.extend(matches)
-            else:
+        
+        # ========== PATTERN 4: โรงพยาบาล/รพ. ==========
+        if 'โรงพยาบาล' in question or 'รพ.' in question:
+            hospital_patterns = [
+                r'(โรงพยาบาล[ก-๙a-zA-Z]+)',
+                r'(รพ\.[ก-๙a-zA-Z]+)',
+                r'(รพ\.\s*[ก-๙a-zA-Z]+)',
+            ]
+            
+            for pattern in hospital_patterns:
+                matches = re.findall(pattern, question)
                 customers.extend(matches)
+        
+        # ========== PATTERN 5: คุณ + ชื่อ ==========
+        if 'คุณ' in question:
+            name_pattern = r'คุณ\s*([ก-๙]+(?:\s+[ก-๙]+)?)'
+            matches = re.findall(name_pattern, question)
+            for match in matches:
+                customers.append(f"คุณ{match}")
+        
+        # ========== PATTERN 6: สำนัก/กรม ==========
+        gov_patterns = [
+            r'(สำนัก[ก-๙]+)',
+            r'(กรม[ก-๙]+)',
+            r'(การไฟฟ้า[ก-๙]*)',
+        ]
+        
+        for pattern in gov_patterns:
+            matches = re.findall(pattern, question)
+            customers.extend(matches)
+        
+        # ========== CLEAN AND DEDUPLICATE ==========
+        cleaned_customers = []
+        seen = set()
+        
+        for customer in customers:
+            # Clean
+            clean = customer.strip()
+            clean = re.sub(r'\s+', ' ', clean)  # Multiple spaces to single
+            clean = clean.rstrip(',.;:?!-')  # Remove trailing punctuation
+            
+            # Must be meaningful
+            if len(clean) > 2:
+                # Normalize for deduplication
+                clean_normalized = clean.lower().replace(' ', '').replace('.', '')
+                
+                if clean_normalized not in seen:
+                    seen.add(clean_normalized)
+                    cleaned_customers.append(clean)
+                    
+                    # Add variations
+                    # If "บ. X" also add "บริษัท X"
+                    if clean.startswith('บ.'):
+                        full_form = clean.replace('บ.', 'บริษัท', 1)
+                        if full_form.lower().replace(' ', '') not in seen:
+                            cleaned_customers.append(full_form)
+                            seen.add(full_form.lower().replace(' ', ''))
+                    
+                    # If has จก. also add version with จำกัด
+                    if 'จก.' in clean:
+                        full_form = clean.replace('จก.', 'จำกัด')
+                        if full_form.lower().replace(' ', '') not in seen:
+                            cleaned_customers.append(full_form)
+                            seen.add(full_form.lower().replace(' ', ''))
+        
+        # ========== SPECIAL FALLBACK ==========
+        # ถ้าไม่เจออะไรเลย แต่มีคำบ่งชี้ว่าถามเรื่องบริษัท
+        if not cleaned_customers:
+            if any(word in question for word in ['บริษัท', 'บ.', 'ลูกค้า', 'customer']):
+                # Try aggressive extraction
+                # Extract any Thai phrase between markers
+                aggressive_pattern = r'(?:บริษัท|บ\.|ลูกค้า)\s*([ก-๙a-zA-Z\s]+?)(?:มี|ได้|ไหม|การ|ซื้อ|ขาย|$)'
+                match = re.search(aggressive_pattern, question)
+                if match:
+                    company = match.group(1).strip()
+                    if company and len(company) > 2:
+                        cleaned_customers.append(company)
+        
+        # ========== LOGGING ==========
+        if cleaned_customers:
+            logger.info(f"✅ Found customers: {cleaned_customers}")
+        else:
+            logger.warning(f"⚠️ No customers found in: {question[:100]}...")
+        
+        return cleaned_customers
 
 
-        return list(set(customers))
+
     
     def _extract_brands(self, question: str) -> List[str]:
         """Extract brand names"""

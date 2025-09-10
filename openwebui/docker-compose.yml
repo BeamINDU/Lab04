@@ -1,0 +1,36 @@
+services:
+  # =============================================================================
+  # DATABASE SERVICE
+  # =============================================================================
+  
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    ports:
+      - "3000:8080"
+    environment:
+      - ENV=production
+      - OPENAI_API_BASE_URL=http://openwebui-proxy:8001/v1
+      - OPENAI_API_KEY=dummy-key
+      - WEBUI_NAME=Siamtemp HVAC AI Assistant
+      - WEBUI_URL=http://localhost:3000
+      - ENABLE_SIGNUP=false
+      - DEFAULT_MODELS=llama3.1:8b
+      - WEBUI_AUTH=false  # Disable auth for testing
+      
+    volumes:
+      - open_webui_data:/app/backend/data
+    networks:
+      - hvac_network
+    depends_on:
+      - openwebui-proxy
+    restart: unless-stopped
+
+# =============================================================================
+# NETWORK
+# =============================================================================
+
+networks:
+  hvac_network:
+    driver: bridge
+    name: hvac_network
