@@ -12,12 +12,7 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 class PromptManager:
-    """
-    Production PromptManager for 3-table database structure
-    Tables: v_sales (all years), v_spare_part, v_work_force
-    Version: 5.0 - Optimized for performance and accuracy
-    """
-    
+
     def __init__(self, db_handler=None):
         self.db_handler = db_handler
         
@@ -76,6 +71,21 @@ class PromptManager:
             'customer_history': re.compile(r'ประวัติ.*ลูกค้า|การซื้อขาย.*ย้อนหลัง', re.IGNORECASE),
             'spare_parts': re.compile(r'อะไหล่|ราคาอะไหล่|spare|parts', re.IGNORECASE),
             'sales_analysis': re.compile(r'วิเคราะห์การขาย|วิเคราะห์.*ยอดขาย', re.IGNORECASE),
+            'top_parts_customers': re.compile(r'ลูกค้า.*ซื้ออะไหล่|ลูกค้า.*parts.*สูง|top.*parts.*customer', re.IGNORECASE),
+            'service_vs_replacement': re.compile(r'เปรียบเทียบ.*service.*replacement|service.*กับ.*replacement', re.IGNORECASE),
+            'solution_sales': re.compile(r'ยอด.*solution|solution.*สูง|ลูกค้า.*solution', re.IGNORECASE),
+            'quarterly_summary': re.compile(r'ไตรมาส|quarterly|รายไตรมาส|quarter', re.IGNORECASE),
+            'highest_value_items': re.compile(r'สินค้า.*มูลค่าสูง|มูลค่าสูงสุด.*คลัง|highest.*value.*item', re.IGNORECASE),
+            'warehouse_summary': re.compile(r'สรุป.*คลัง|มูลค่า.*แต่ละคลัง|warehouse.*summary', re.IGNORECASE),
+            'low_stock_items': re.compile(r'ใกล้หมด|สต็อกน้อย|สินค้าเหลือน้อย|low.*stock', re.IGNORECASE),
+            'high_unit_price': re.compile(r'ราคาต่อหน่วยสูง|ราคาแพง|expensive.*parts|high.*price', re.IGNORECASE),
+            'successful_work_monthly': re.compile(r'งานสำเร็จ|งานเสร็จ|successful.*work|completed.*work', re.IGNORECASE),
+            'pm_work_summary': re.compile(r'งาน\s*pm|preventive.*maintenance|บำรุงรักษาเชิงป้องกัน', re.IGNORECASE),
+            'startup_works': re.compile(r'start.*up|สตาร์ทอัพ|เริ่มเครื่อง|งานติดตั้ง', re.IGNORECASE),
+            'kpi_reported_works': re.compile(r'kpi|รายงาน.*kpi|งาน.*kpi', re.IGNORECASE),
+            'team_specific_works': re.compile(r'งาน.*ทีม|งาน.*สุพรรณ|งาน.*ช่าง|team.*work', re.IGNORECASE),
+            'replacement_monthly': re.compile(r'งาน.*replacement|งานเปลี่ยน|replacement.*เดือน', re.IGNORECASE),
+            'long_duration_works': re.compile(r'ใช้เวลานาน|หลายวัน|งานนาน|long.*duration', re.IGNORECASE),
         }
     
     def _load_production_examples(self) -> Dict[str, str]:
