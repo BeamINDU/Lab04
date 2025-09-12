@@ -1,5 +1,5 @@
 # agents/__init__.py
-"""Siamtemp HVAC AI Chatbot Agents Package."""
+"""Siamtemp AI Chatbot Agents Package."""
 
 from .core.orchestrator import ImprovedDualModelDynamicAISystem
 from .nlp.intent_detector import ImprovedIntentDetector

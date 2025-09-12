@@ -34,16 +34,14 @@ class ProxyConfig:
         
         # ========== เพิ่ม n8n Configuration ==========
         self.use_n8n_workflow = os.getenv('USE_N8N_WORKFLOW', 'false').lower() == 'true'
-        self.n8n_base_url = os.getenv('N8N_BASE_URL', 'http://siamtech-n8n:5678')  # ใช้ชื่อ container
+        self.n8n_base_url = os.getenv('N8N_BASE_URL', 'http://13.250.235.228:5678')  # ใช้ชื่อ container
         self.n8n_webhook_path = 'webhook/siamtemp-chat'  # path ของ webhook ใน n8n
         self.n8n_timeout = int(os.getenv('N8N_TIMEOUT', '60'))
         self.n8n_fallback_to_direct = os.getenv('N8N_FALLBACK_TO_DIRECT', 'true').lower() == 'true'
         
         # Tenant configurations
         self.tenant_configs = {
-            'company-a': {'name': 'SiamTech Bangkok HQ', 'model': 'llama3.1:8b', 'language': 'th'},
-            'company-b': {'name': 'SiamTech Chiang Mai', 'model': 'llama3.1:8b', 'language': 'th'},
-            'company-c': {'name': 'SiamTech International', 'model': 'llama3.1:8b', 'language': 'en'}
+            'company-a': {'name': 'siamtemp Bangkok HQ', 'model': 'AI', 'language': 'th'},
         }
 
 config = ProxyConfig()
@@ -413,7 +411,7 @@ async def list_models():
             "id": tenant_config['model'],
             "object": "model",
             "created": int(datetime.now().timestamp()),
-            "owned_by": f"siamtech-{tenant_id}"
+            "owned_by": f"siamtemp-{tenant_id}"
         }]
     }
 

@@ -86,6 +86,7 @@ class PromptManager:
             'team_specific_works': re.compile(r'งาน.*ทีม|งาน.*สุพรรณ|งาน.*ช่าง|team.*work', re.IGNORECASE),
             'replacement_monthly': re.compile(r'งาน.*replacement|งานเปลี่ยน|replacement.*เดือน', re.IGNORECASE),
             'long_duration_works': re.compile(r'ใช้เวลานาน|หลายวัน|งานนาน|long.*duration', re.IGNORECASE),
+            'customer_years': re.compile(r'ซื้อขาย.*กี่ปี|มีการซื้อขาย.*ปี|years.*operation|how.*many.*years', re.IGNORECASE),
         }
     
     def _load_production_examples(self) -> Dict[str, str]:
@@ -451,32 +452,42 @@ class PromptManager:
                 ORDER BY date DESC;
             """).strip(),
 
+            'customer_years_count': dedent("""
+            SELECT year,
+                COUNT(*) AS transaction_count,
+                SUM(total_revenue) AS total_revenue
+            FROM v_sales
+            WHERE customer_name LIKE '%ABB%'
+            GROUP BY year
+            ORDER BY year;
+        """).strip(),
+
         }
     
     def _get_system_prompt(self) -> str:
-        """Simplified and clear system prompt"""
+        """Enhanced system prompt - เน้นย้ำว่ามี table เดียว"""
         return dedent("""
-        Generate PostgreSQL SQL queries for these 3 tables ONLY:
+        ⚠️ CRITICAL: You have EXACTLY 3 tables. NO OTHER TABLES EXIST!
         
-        1. v_sales (sales data):
-           - Has: year, customer_name, overhaul_num, replacement_num, service_num, 
-                  parts_num, product_num, solution_num, total_revenue
-           - NO date column - only year!
+        1. v_sales (ONE table for ALL years):
+        - Contains data from 2022, 2023, 2024, 2025 in single table
+        - Use WHERE year IN ('2023','2024','2025') to filter years
+        - ❌ NEVER use v_sales2023, v_sales2024 - THEY DON'T EXIST!
+        - ✅ ALWAYS use: FROM v_sales WHERE year = 'YYYY'
         
         2. v_work_force (work/repair records):  
-           - Has: date, customer, detail, project, service_group, job_description_pm
-           - Use date::date for date comparisons
+        - Has: date, customer, detail, project, service_group
+        - Use date::date for date comparisons
         
         3. v_spare_part (inventory):
-           - Has: product_code, product_name, balance_num, unit_price_num, total_num
+        - Has: product_code, product_name, balance_num, unit_price_num
         
-        CRITICAL RULES:
-        - For work/plan queries: use v_work_force
-        - For sales/revenue: use v_sales  
-        - For parts/inventory: use v_spare_part
-        - Use LIKE not ILIKE
-        - Date ranges: WHERE date::date BETWEEN 'YYYY-MM-DD' AND 'YYYY-MM-DD'
-        - For "how many works": SELECT date, customer, detail (NOT COUNT)
+        ⚠️ FORBIDDEN - THESE TABLES DO NOT EXIST:
+        - v_sales2022, v_sales2023, v_sales2024, v_sales2025
+        - sales_2023, sales_2024, sales_2025
+        - Any year-specific table variants
+        
+        ALWAYS use the EXACT structure from the provided example!
         """).strip()
 
     # ===== VALIDATION METHODS =====
@@ -636,7 +647,7 @@ class PromptManager:
     
     def build_sql_prompt(self, question: str, intent: str, entities: Dict,
                         context: Dict = None, examples_override: List[str] = None) -> str:
-        """Build SQL generation prompt with STRICT output format"""
+        """Build SQL generation prompt with ULTRA STRICT COPY enforcement"""
         
         try:
             # Validate input
@@ -647,7 +658,7 @@ class PromptManager:
             
             # Validate and convert entities
             entities = self.validate_entities(entities)
-            
+            question = re.sub(r'\b25[67]\d\b', lambda m: str(int(m.group())-543), question)
             # Use context if provided
             if context:
                 logger.debug(f"Using context: {context}")
@@ -657,7 +668,7 @@ class PromptManager:
             
             # Select best matching example
             example = self._select_best_example(question, intent, entities)
-            
+
             # Log selected example for debugging
             example_name = self._get_example_name(example)
             logger.info(f"Selected SQL example: {example_name}")
@@ -665,44 +676,237 @@ class PromptManager:
             # Build entity-specific hints
             hints = self._build_sql_hints(entities, intent)
             
-            # Additional instructions for GROUP BY queries
-            group_by_instruction = ""
-            if 'GROUP BY' in example.upper():
-                group_by_instruction = dedent("""
-                IMPORTANT for GROUP BY:
-                - If example has "SELECT year", you MUST include year in your query
-                - Copy the SELECT structure from the example
-                - Keep ALL columns shown in the example's SELECT
-                """)
+            # ===== DETERMINE IF WE HAVE EXACT MATCH =====
+            has_exact_example = self._has_exact_matching_example(question, example_name)
             
-            # Create prompt - VERY CLEAR about output format
-            prompt = dedent(f"""
-            {self.SQL_SYSTEM_PROMPT}
+            if has_exact_example:
+                # ===== ULTRA STRICT MODE FOR EXACT MATCHES =====
+                prompt = dedent(f"""
+                You are a SQL query generator. Output ONLY the SQL query with no explanation.
+                
+                EXAMPLE SQL TO COPY:
+                ----------------------------------------
+                {example}
+                ----------------------------------------
+                
+                COPY RULES:
+                1. COPY the SELECT clause structure EXACTLY
+                2. COPY the FROM clause EXACTLY  
+                3. COPY the WHERE clause pattern, only change the search value
+                4. COPY the GROUP BY if present
+                5. COPY the ORDER BY if present
+                
+                ONLY ALLOWED CHANGES:
+                - Customer name in WHERE clause: Change to '{entities.get('customers', [''])[0] if entities.get('customers') else 'search_term'}'
+                - Year values in WHERE clause: Change to {entities.get('years', [])}
+                - Product code: Change to '{entities.get('products', [''])[0] if entities.get('products') else 'search_term'}'
+                
+                ⚠️ DO NOT:
+                - Change column names
+                - Add or remove columns
+                - Change aggregation functions
+                - Add WHERE clauses not in the example
+                - Remove GROUP BY if example has it
+                
+                YOUR TASK: {question}
+                
+                FINAL INSTRUCTION: COPY THE EXAMPLE, change ONLY the search values!
+                
+                SQL:
+                """).strip()
             
-            EXAMPLE SQL:
-            {example}
-            
-            {group_by_instruction}
-            
-            Generate SQL for: {question}
-            
-            {hints}
-            
-            OUTPUT RULES:
-            1. Return ONLY the SQL statement
-            2. Start with SELECT (no prefixes, no explanations)
-            3. End with semicolon
-            4. No markdown, no comments, no text before or after
-            5. ONLY valid PostgreSQL SQL syntax
-            
-            SQL:
-            """).strip()
+            else:
+                # ===== STRICT SCHEMA MODE FOR NON-EXACT MATCHES =====
+                schema_definition = self._get_strict_schema_for_intent(intent)
+                column_rules = self._get_column_rules_for_intent(intent)
+                error_examples = self._get_common_errors()
+                
+                prompt = dedent(f"""
+                You are a SQL query generator. Output ONLY the SQL query with no explanation.
+                ⚠️ STRICT MODE: Follow the example structure closely!
+                
+                {schema_definition}
+                
+                REFERENCE EXAMPLE:
+                ----------------------------------------
+                {example}
+                ----------------------------------------
+                
+                IMPORTANT:
+                - Use the SAME SELECT structure as the example
+                - Use the SAME table as the example
+                - Follow the WHERE clause pattern from the example
+                
+                {column_rules}
+                
+                {error_examples}
+                
+                YOUR TASK: {question}
+                
+                {hints}
+                
+                CHECKLIST:
+                ✓ Did you use the same columns as the example?
+                ✓ Did you copy the FROM clause?
+                ✓ Did you follow the WHERE pattern?
+                ✓ Did you keep GROUP BY if example has it?
+                
+                SQL:
+                """).strip()
             
             return prompt
             
         except Exception as e:
             logger.error(f"Failed to build SQL prompt: {e}")
             return self._get_fallback_prompt(question)
+
+    def _has_exact_matching_example(self, question: str, example_name: str) -> bool:
+        """Check if we have an exact matching example for this question type"""
+        question_lower = question.lower()
+        
+        # Define exact match patterns
+        exact_matches = {
+            'customer_years_count': ['ซื้อขายมากี่ปี', 'กี่ปีแล้ว', 'how many years'],
+            'customer_history': ['ประวัติลูกค้า', 'ประวัติการซื้อขาย', 'customer history'],
+            'work_monthly': ['งานที่วางแผน', 'แผนงาน', 'work plan'],
+            'overhaul_sales': ['ยอดขาย overhaul', 'overhaul sales'],
+            'sales_analysis': ['วิเคราะห์การขาย', 'sales analysis'],
+            'spare_parts_price': ['ราคาอะไหล่', 'spare parts price'],
+        }
+        
+        # Check if current example has exact match patterns
+        if example_name in exact_matches:
+            patterns = exact_matches[example_name]
+            for pattern in patterns:
+                if pattern in question_lower:
+                    logger.info(f"Found exact match pattern '{pattern}' for example '{example_name}'")
+                    return True
+        
+        return False
+
+    def _get_strict_schema_for_intent(self, intent: str) -> str:
+        """Get exact schema based on intent"""
+        
+        if intent in ['sales', 'sales_analysis', 'customer_history', 'overhaul_report', 
+                    'top_customers', 'revenue', 'annual_revenue']:
+            return dedent("""
+            TABLE: v_sales
+            EXACT COLUMNS (use ONLY these):
+            - year (varchar) → filter: WHERE year = '2024'
+            - customer_name (varchar) → filter: WHERE customer_name LIKE '%X%'
+            - job_no (varchar)
+            - description (varchar)
+            - total_revenue (numeric) → FOR ALL REVENUE/INCOME QUERIES
+            - overhaul_num (numeric) → overhaul amount
+            - replacement_num (numeric) → replacement amount
+            - service_num (numeric) → service amount
+            - parts_num (numeric) → parts amount
+            - product_num (numeric) → product amount
+            - solution_num (numeric) → solution amount
+            
+            ⚠️ FORBIDDEN COLUMNS (DO NOT USE):
+            - sales_num ❌ (does not exist)
+            - revenue_num ❌ (use total_revenue)
+            - sales_amount ❌ (use total_revenue)
+            - total_sales ❌ (use total_revenue)
+            """)
+        
+        elif intent in ['work_plan', 'work_force', 'work_summary', 'repair_history',
+                        'pm_summary', 'startup_summary', 'successful_works']:
+            return dedent("""
+            TABLE: v_work_force
+            EXACT COLUMNS (use ONLY these):
+            - date (date) → filter: WHERE date::date BETWEEN 'YYYY-MM-DD' AND 'YYYY-MM-DD'
+            - customer (varchar) → filter: WHERE customer LIKE '%X%'
+            - project (varchar)
+            - detail (varchar)
+            - duration (varchar)
+            - service_group (varchar)
+            - job_description_pm (boolean) → filter: WHERE job_description_pm = true
+            - job_description_replacement (boolean)
+            - success (varchar)
+            
+            ⚠️ FORBIDDEN COLUMNS (DO NOT USE):
+            - work_date ❌ (use date)
+            - customer_name ❌ (use customer)
+            - job_detail ❌ (use detail)
+            """)
+        
+        elif intent in ['spare_parts', 'parts_price', 'inventory_check', 
+                        'inventory_value', 'warehouse_summary']:
+            return dedent("""
+            TABLE: v_spare_part
+            EXACT COLUMNS (use ONLY these):
+            - product_code (varchar)
+            - product_name (varchar)
+            - wh (varchar) → warehouse
+            - balance_num (numeric) → stock quantity
+            - unit_price_num (numeric) → price per unit
+            - total_num (numeric) → total value
+            - unit (varchar)
+            - description (varchar)
+            
+            ⚠️ FORBIDDEN COLUMNS (DO NOT USE):
+            - stock_num ❌ (use balance_num)
+            - quantity ❌ (use balance_num)
+            - price ❌ (use unit_price_num)
+            """)
+        
+        else:
+            # Default to v_sales for unknown intents
+            return self._get_strict_schema_for_intent('sales')
+
+    def _get_column_rules_for_intent(self, intent: str) -> str:
+        """Get specific rules for common queries"""
+        
+        rules_map = {
+            'sales': """
+            COLUMN USAGE RULES:
+            - Question about "รายได้" → USE: SUM(total_revenue)
+            - Question about "ยอดขาย" → USE: SUM(total_revenue) 
+            - Question about "overhaul" → USE: SUM(overhaul_num)
+            - Question about "service" → USE: SUM(service_num)
+            - Question about "parts/อะไหล่" → USE: SUM(parts_num)
+            """,
+            
+            'work_plan': """
+            COLUMN USAGE RULES:
+            - Always SELECT: date, customer, detail
+            - For date ranges: WHERE date::date BETWEEN 'start' AND 'end'
+            - For PM jobs: WHERE job_description_pm = true
+            - Never use COUNT(*) for "มีกี่งาน" - show the actual records
+            """,
+            
+            'spare_parts': """
+            COLUMN USAGE RULES:
+            - Stock quantity → USE: balance_num
+            - Unit price → USE: unit_price_num
+            - Total value → USE: total_num
+            - Search by name: WHERE product_name LIKE '%X%'
+            """
+        }
+        
+        return rules_map.get(intent, "")
+
+    def _get_common_errors(self) -> str:
+        """Show common mistakes to avoid"""
+        return dedent("""
+        ❌ COMMON ERRORS TO AVOID:
+        
+        WRONG: SELECT SUM(sales_num) FROM v_sales
+        RIGHT: SELECT SUM(total_revenue) FROM v_sales
+        
+        WRONG: SELECT * FROM v_sales2024
+        RIGHT: SELECT * FROM v_sales WHERE year = '2024'
+        
+        WRONG: SELECT COUNT(*) FROM v_work_force WHERE...
+        RIGHT: SELECT date, customer, detail FROM v_work_force WHERE...
+        
+        WRONG: SELECT stock_num FROM v_spare_part
+        RIGHT: SELECT balance_num FROM v_spare_part
+        """)
+
+
     
     def _get_example_name(self, example: str) -> str:
         """Get example name for logging"""
@@ -777,6 +981,12 @@ class PromptManager:
             logger.info("Selected: customer_history")
             return self.SQL_EXAMPLES['customer_history']
         
+        if ('กี่ปี' in question_lower or 'จำนวนปี' in question_lower) and \
+            ('ซื้อขาย' in question_lower or 'การซื้อขาย' in question_lower):
+            if entities.get('customers'):
+                logger.info("Selected: customer_years_count (years of operation)")
+                return self.SQL_EXAMPLES['customer_years_count']
+        
         # PRIORITY 8: Default by intent
         intent_map = {
             'work_plan': self.SQL_EXAMPLES['work_monthly'],
@@ -806,6 +1016,8 @@ class PromptManager:
             'kpi_works': self.SQL_EXAMPLES['kpi_reported_works'],
             'team_works': self.SQL_EXAMPLES['team_specific_works'],
             'replacement_works': self.SQL_EXAMPLES['replacement_monthly'],
+            'customer_years': self.SQL_EXAMPLES['customer_years_count'],
+            'years_of_operation': self.SQL_EXAMPLES['customer_years_count'],
             'long_works': self.SQL_EXAMPLES['long_duration_works']
         }
         
@@ -893,30 +1105,48 @@ class PromptManager:
         return '\n'.join(hints) if hints else ""
     
     def build_response_prompt(self, question: str, results: List[Dict],
-                             sql_query: str, locale: str = "th") -> str:
-        """Build response generation prompt"""
+                            sql_query: str, locale: str = "th") -> str:
+        """Build response generation prompt - แก้ไขให้แสดงข้อมูลครบ"""
         if not results:
             return f"ไม่พบข้อมูลสำหรับคำถาม: {question}"
         
         stats = self._analyze_results(results)
-        sample = results[:10]
+        
+        # ปรับจำนวน sample และไม่ตัด string
+        if len(results) <= 20:
+            # ถ้าข้อมูลไม่เกิน 20 รายการ ส่งทั้งหมด
+            sample = results
+            sample_json = json.dumps(sample, ensure_ascii=False, default=str)
+        else:
+            # ถ้าเกิน 20 รายการ ส่งแค่ 20 รายการแรก
+            sample = results[:20]
+            sample_json = json.dumps(sample, ensure_ascii=False, default=str)
+            # ถ้า json ยาวเกินไป ค่อยตัด
+            if len(sample_json) > 3000:
+                sample_json = sample_json[:3000] + "..."
         
         prompt = dedent(f"""
-        สรุปข้อมูล HVAC สำหรับคำถาม: {question}
+        สรุปข้อมูลสำหรับคำถาม: {question}
         
-        พบข้อมูล: {len(results)} รายการ
+        พบข้อมูลทั้งหมด: {len(results)} รายการ
         {stats}
         
-        ตัวอย่างข้อมูล:
-        {json.dumps(sample, ensure_ascii=False, default=str)[:1000]}
+        ข้อมูลทั้งหมด ({len(sample)} รายการ):
+        {sample_json}
         
-        กรุณาสรุป:
-        1. ข้อมูลที่พบ (จำนวน, ช่วงเวลา)
-        2. รายละเอียดสำคัญ (ยอดเงิน, รายชื่อ)
-        3. ข้อสังเกต/แนวโน้ม
+        กรุณาสรุปข้อมูลให้ครบถ้วน:
+        1. จำนวนรายการทั้งหมดที่พบ
+        2. รายละเอียดของแต่ละรายการ (แสดงให้ครบทุกรายการ)
+        3. ข้อสังเกตหรือการวิเคราะห์
         
-        ตอบภาษาไทยแบบกระชับ:
-        """).strip()
+        ข้อกำหนดสำคัญ:
+        ⚠️ ห้ามแต่งหรือเพิ่มข้อมูลที่ไม่มีอยู่ในข้อมูลต้นฉบับ
+        ✓ ใช้ข้อมูลจากที่ให้มาเท่านั้น
+        ✓ หากข้อมูลมีมากกว่าที่แสดง ให้ระบุไว้ชัดเจน
+
+
+        ตอบภาษาไทยแบบกระชับ ตรงประเด็น อ่านง่าย:
+        """)
         
         return prompt
     

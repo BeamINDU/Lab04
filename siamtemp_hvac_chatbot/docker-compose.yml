@@ -67,8 +67,8 @@ services:
       # External Ollama Server
       - OLLAMA_BASE_URL=http://52.74.36.160:12434
       - OLLAMA_TIMEOUT=60
-      - SQL_MODEL=mannix/defog-llama3-sqlcoder-8b:latest
-      - NL_MODEL=llama3.1:8b
+      - SQL_MODEL=llama3.1:8b
+      - NL_MODEL=qwen2.5:7b-instruct
       
       # Redis Cache
       - REDIS_URL=redis://redis:6379
@@ -115,7 +115,7 @@ services:
       
       # ========== เพิ่ม n8n Configuration ==========
       - USE_N8N_WORKFLOW=true 
-      - N8N_BASE_URL=http://siamtech-n8n:5678
+      - N8N_BASE_URL=http://13.250.235.228:5678
       - N8N_TIMEOUT=60
       - N8N_FALLBACK_TO_DIRECT=true
       - N8N_WEBHOOK_PATH=webhook/siamtemp-chat

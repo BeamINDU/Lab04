@@ -31,7 +31,7 @@ class SimplifiedOllamaClient:
         payload = {
             'model': model,
             'prompt': prompt,
-            'stream': False,  # ⚠️ IMPORTANT: Set to False to avoid NDJSON
+            'stream': False,  # 
             'temperature': 0.1,
             'top_p': 0.9,
             'max_tokens': 1000,

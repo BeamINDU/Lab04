@@ -53,7 +53,7 @@ class ServiceConfig:
     """Service configuration"""
     
     def __init__(self):
-        self.service_name = "Siamtemp Ultimate HVAC AI Service"
+        self.service_name = "Siamtemp AI Service"
         self.version = "8.0-Ultimate"
         self.tenant_configs = {
             'company-a': {
@@ -83,8 +83,8 @@ class ServiceConfig:
         self.max_requests_per_minute = int(os.getenv('MAX_REQUESTS_PER_MINUTE', '60'))
         
         # Model settings
-        self.sql_model = os.getenv('SQL_MODEL', 'mannix/defog-llama3-sqlcoder-8b:latest')
-        self.nl_model = os.getenv('NL_MODEL', 'llama3.1:8b')
+        self.sql_model = os.getenv('SQL_MODEL', 'llama3.1:8b')
+        self.nl_model = os.getenv('NL_MODEL', 'qwen2.5:7b-instruct')
         
         # Feature flags
         self.enable_streaming = os.getenv('ENABLE_STREAMING', 'false').lower() == 'true'
@@ -241,7 +241,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=config.service_name,
-    description="Ultimate AI-powered HVAC business intelligence system with advanced features",
+    description="AI-powered  business intelligence system with advanced features",
     version=config.version,
     lifespan=lifespan,
     docs_url="/docs",

@@ -543,5 +543,5 @@ class ImprovedDualModelDynamicAISystem:
         }
     
     # Model configurations
-    SQL_MODEL = 'mannix/defog-llama3-sqlcoder-8b:latest'
-    NL_MODEL = 'llama3.1:8b'
+    SQL_MODEL = 'llama3.1:8b'
+    NL_MODEL = 'qwen2.5:7b-instruct'

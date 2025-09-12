@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 class DataCleaningEngine:
     """
-    DataCleaningEngine - Optimized for Siamtemp HVAC data
+    DataCleaningEngine - Optimized for Siamtemp data
     Focus on standardization and formatting since encoding is fixed
     """
     
