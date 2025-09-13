@@ -38,7 +38,7 @@ class ProxyConfig:
         self.n8n_webhook_path = 'webhook/siamtemp-chat'  # path ของ webhook ใน n8n
         self.n8n_timeout = int(os.getenv('N8N_TIMEOUT', '60'))
         self.n8n_fallback_to_direct = os.getenv('N8N_FALLBACK_TO_DIRECT', 'true').lower() == 'true'
-        
+        self.block_system_prompts = os.getenv('BLOCK_SYSTEM_PROMPTS', 'true').lower() == 'true'
         # Tenant configurations
         self.tenant_configs = {
             'company-a': {'name': 'siamtemp Bangkok HQ', 'model': 'AI', 'language': 'th'},
@@ -189,6 +189,25 @@ def extract_user_message(messages: list) -> str:
 # MAIN ENDPOINT WITH N8N SUPPORT (แก้ไข)
 # =============================================================================
 
+def is_system_prompt(message: str) -> bool:
+    """Detect OpenWebUI system prompts"""
+    if not message:
+        return False
+    
+    system_indicators = [
+        "### Task:",
+        "### Guidelines:",
+        "### Output:",
+        "Suggest 3-5 relevant follow-up",
+        "follow_ups",
+        "<chat_history>",
+        "USER:",
+        "ASSISTANT:",
+        "JSON format:"
+    ]
+    
+    return any(indicator in message for indicator in system_indicators)
+
 @app.post("/v1/chat/completions")
 async def chat_completions(
     request: ChatCompletionRequest,
@@ -202,11 +221,33 @@ async def chat_completions(
     tenant_config = config.tenant_configs.get(tenant_id, config.tenant_configs['company-a'])
     
     try:
+        # ✅ Extract message เพียงครั้งเดียว
         user_message = extract_user_message(request.messages)
         if not user_message:
             raise HTTPException(400, "No user message found")
         
-        logger.info(f"📨 Request for {tenant_id}: {user_message[:50]}...")
+        # ✅ Safety check ทันทีหลังได้ message
+        if config.block_system_prompts and is_system_prompt(user_message):
+            logger.warning(f"🚫 Blocked system prompt from {user_id}: {user_message[:100]}...")
+            
+            # Return empty response for system prompts
+            return {
+                "id": f"chatcmpl-{int(datetime.now().timestamp())}",
+                "object": "chat.completion",
+                "created": int(datetime.now().timestamp()),
+                "model": request.model,
+                "choices": [{
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": '{"follow_ups": []}'  # Return empty JSON for follow-up requests
+                    },
+                    "finish_reason": "stop"
+                }],
+                "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+            }
+        
+        logger.info(f"📨 Valid request for {tenant_id}: {user_message[:50]}...")
         
         # ========== Try n8n workflow first (ถ้าเปิดใช้งาน) ==========
         result = None
@@ -215,14 +256,11 @@ async def chat_completions(
             n8n_result = await call_n8n_workflow(user_message, tenant_id, user_id)
             
             if n8n_result:
-                # n8n workflow success
                 result = n8n_result
                 logger.info("✅ Using n8n workflow response")
             elif config.n8n_fallback_to_direct:
-                # Fallback to direct service
                 logger.info("⚠️ n8n failed, falling back to direct service")
             else:
-                # No fallback, return error
                 raise HTTPException(503, "n8n workflow unavailable and fallback disabled")
         
         # ========== Direct service call (ถ้าไม่ใช้ n8n หรือ fallback) ==========
@@ -352,7 +390,6 @@ async def chat_completions(
             }],
             "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
         }
-
 # =============================================================================
 # HEALTH CHECK WITH N8N STATUS (แก้ไข)
 # =============================================================================

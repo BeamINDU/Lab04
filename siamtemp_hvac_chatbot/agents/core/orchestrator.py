@@ -58,9 +58,9 @@ class ImprovedDualModelDynamicAISystem:
         self._initialize_components()
         self._initialize_features()
         self._initialize_stats()
-        self.conversation_memory = ScalableStorageAdapter()
-        self.db_handler = ScalableDatabaseHandler()
-        self.db_handler = SimplifiedDatabaseHandler()
+        # self.conversation_memory = ScalableStorageAdapter()
+        # self.db_handler = ScalableDatabaseHandler()
+        # self.db_handler = SimplifiedDatabaseHandler()
         self.context_handler = ContextHandler()
         self.conversation_turns = defaultdict(list) 
         self.general_chat = GeneralChatHandler()
@@ -69,24 +69,35 @@ class ImprovedDualModelDynamicAISystem:
     # =========================================================================
     # INITIALIZATION METHODS
     # =========================================================================
-    
+
     def _initialize_components(self):
         """Initialize all system components"""
         from ..nlp.prompt_manager import PromptManager
         from ..sql.validator import SQLValidator
         from ..nlp.intent_detector import ImprovedIntentDetector
         from ..data.cleaner import DataCleaningEngine
-        from ..storage.database import SimplifiedDatabaseHandler
         from ..clients.ollama import SimplifiedOllamaClient
-        from ..storage.memory import ConversationMemory
+        from ..storage.database import SimplifiedDatabaseHandler
         
+        # ✅ ใช้ SimplifiedDatabaseHandler เสมอ (ซึ่งทำงานได้ดีอยู่แล้ว)
+        self.db_handler = SimplifiedDatabaseHandler()
+        
+        # Redis storage (optional)
+        try:
+            from ..storage.redis_memory import ScalableStorageAdapter
+            self.conversation_memory = ScalableStorageAdapter()
+            logger.info("✅ Using Redis-based conversation memory")
+        except Exception as e:
+            from ..storage.memory import ConversationMemory
+            logger.warning(f"Redis unavailable: {e}, using in-memory storage")
+            self.conversation_memory = ConversationMemory()
+        
+        # Other components
         self.prompt_manager = PromptManager()
         self.sql_validator = SQLValidator(self.prompt_manager)
         self.intent_detector = ImprovedIntentDetector()
         self.data_cleaner = DataCleaningEngine()
-        self.db_handler = SimplifiedDatabaseHandler()
         self.ollama_client = SimplifiedOllamaClient()
-        self.conversation_memory = ConversationMemory()
     
     def _initialize_features(self):
         """Initialize feature flags"""
