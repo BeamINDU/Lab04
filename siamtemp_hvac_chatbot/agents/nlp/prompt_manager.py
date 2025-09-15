@@ -1,22 +1,96 @@
-# PromptManager - Production Ready Version 5.0
+# PromptManager - Dynamic Schema Version 6.0
 # File: agents/nlp/prompt_manager.py
-# Optimized for Siamtemp HVAC Chatbot with 3-table structure
+# Dynamic schema loading from database with caching
 
 import json
 import logging
 import re
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 from textwrap import dedent
-from datetime import datetime
+from datetime import datetime, timedelta
+from functools import lru_cache
+import hashlib
 
 logger = logging.getLogger(__name__)
 
-class PromptManager:
+class SchemaCache:
+    """Schema caching with TTL support"""
+    
+    def __init__(self, ttl_seconds: int = 3600):
+        self.cache = {}
+        self.ttl = ttl_seconds
+        self.last_update = {}
+    
+    def get(self, key: str) -> Optional[Any]:
+        """Get cached value if not expired"""
+        if key in self.cache:
+            if datetime.now() - self.last_update[key] < timedelta(seconds=self.ttl):
+                return self.cache[key]
+            else:
+                # Cache expired
+                del self.cache[key]
+                del self.last_update[key]
+        return None
+    
+    def set(self, key: str, value: Any):
+        """Set cache value with timestamp"""
+        self.cache[key] = value
+        self.last_update[key] = datetime.now()
+    
+    def invalidate(self, key: str = None):
+        """Invalidate specific key or entire cache"""
+        if key:
+            self.cache.pop(key, None)
+            self.last_update.pop(key, None)
+        else:
+            self.cache.clear()
+            self.last_update.clear()
 
-    def __init__(self, db_handler=None):
+class PromptManager:
+    """Dynamic PromptManager with real-time schema discovery - keeps original class name"""
+    
+    def __init__(self, db_handler=None, cache_ttl: int = 3600):
         self.db_handler = db_handler
+        self.schema_cache = SchemaCache(ttl_seconds=cache_ttl)
         
-        # Schema definition for 3 tables
+        # Initialize with empty schema - will be loaded dynamically
+        self.VIEW_COLUMNS = {}
+        
+        # Load production SQL examples
+        self.SQL_EXAMPLES = self._load_production_examples()
+        
+        # System prompt
+        self.SQL_SYSTEM_PROMPT = self._get_system_prompt()
+        
+        # Precompiled patterns for performance
+        self._compile_patterns()
+        
+        # Days in month mapping
+        self.DAYS_IN_MONTH = {
+            1: 31, 2: 28, 3: 31, 4: 30, 5: 31, 6: 30,
+            7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31
+        }
+        
+        # Table metadata cache
+        self.table_metadata = {}
+        
+        # Initialize schema on startup
+        self._initialize_schema()
+    
+    def _initialize_schema(self):
+        """Initialize schema on startup"""
+        try:
+            logger.info("Initializing dynamic schema...")
+            self._load_dynamic_schema()
+            logger.info(f"Schema initialized with {len(self.VIEW_COLUMNS)} tables")
+        except Exception as e:
+            logger.error(f"Failed to initialize schema: {e}")
+            # Fall back to minimal known schema
+            self._load_fallback_schema()
+    
+    def _load_fallback_schema(self):
+        """Load minimal fallback schema when DB is unavailable"""
+        logger.warning("Using fallback schema")
         self.VIEW_COLUMNS = {
             'v_sales': [
                 'id', 'year', 'job_no', 'customer_name', 'description',
@@ -41,20 +115,190 @@ class PromptManager:
                 'report_kpi_2_days', 'report_over_kpi_2_days'
             ]
         }
+    
+    def _load_dynamic_schema(self) -> Dict[str, List[str]]:
+        """Dynamically load schema from database"""
+        cache_key = "table_schema"
         
-        # Load production SQL examples
-        self.SQL_EXAMPLES = self._load_production_examples()
+        # Try to get from cache first
+        cached_schema = self.schema_cache.get(cache_key)
+        if cached_schema:
+            logger.debug("Using cached schema")
+            self.VIEW_COLUMNS = cached_schema
+            return cached_schema
         
-        # System prompt - simplified and clear
-        self.SQL_SYSTEM_PROMPT = self._get_system_prompt()
+        if not self.db_handler:
+            logger.warning("No database handler available, using fallback")
+            self._load_fallback_schema()
+            return self.VIEW_COLUMNS
         
-        # Precompiled patterns for performance
-        self._compile_patterns()
+        try:
+            logger.info("Loading schema from database...")
+            
+            # Query to get all tables and their columns
+            schema_query = """
+                SELECT 
+                    table_name,
+                    column_name,
+                    data_type,
+                    is_nullable,
+                    column_default,
+                    ordinal_position
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                    AND table_name IN ('v_sales', 'v_spare_part', 'v_work_force')
+                ORDER BY table_name, ordinal_position;
+            """
+            
+            # Execute query
+            schema_results = self.db_handler.execute_query(schema_query)
+            
+            if not schema_results:
+                logger.warning("No schema information retrieved, using fallback")
+                self._load_fallback_schema()
+                return self.VIEW_COLUMNS
+            
+            # Parse results into schema dictionary
+            new_schema = {}
+            table_metadata = {}
+            
+            for row in schema_results:
+                table_name = row['table_name']
+                column_name = row['column_name']
+                data_type = row['data_type']
+                
+                if table_name not in new_schema:
+                    new_schema[table_name] = []
+                    table_metadata[table_name] = {}
+                
+                new_schema[table_name].append(column_name)
+                
+                # Store column metadata
+                table_metadata[table_name][column_name] = {
+                    'data_type': data_type,
+                    'nullable': row['is_nullable'] == 'YES',
+                    'default': row['column_default'],
+                    'position': row['ordinal_position']
+                }
+            
+            # Update instance variables
+            self.VIEW_COLUMNS = new_schema
+            self.table_metadata = table_metadata
+            
+            # Cache the schema
+            self.schema_cache.set(cache_key, new_schema)
+            self.schema_cache.set("table_metadata", table_metadata)
+            
+            logger.info(f"Schema loaded successfully: {len(new_schema)} tables")
+            for table, columns in new_schema.items():
+                logger.debug(f"  {table}: {len(columns)} columns")
+            
+            return new_schema
+            
+        except Exception as e:
+            logger.error(f"Failed to load dynamic schema: {e}")
+            self._load_fallback_schema()
+            return self.VIEW_COLUMNS
+    
+    def refresh_schema(self):
+        """Force refresh schema from database"""
+        logger.info("Force refreshing schema...")
+        self.schema_cache.invalidate("table_schema")
+        self.schema_cache.invalidate("table_metadata")
+        return self._load_dynamic_schema()
+    
+    def discover_new_columns(self) -> Dict[str, List[str]]:
+        """Discover columns that were added since last check"""
+        old_schema = self.VIEW_COLUMNS.copy()
+        new_schema = self.refresh_schema()
         
-        # Days in month mapping
-        self.DAYS_IN_MONTH = {
-            1: 31, 2: 28, 3: 31, 4: 30, 5: 31, 6: 30,
-            7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31
+        new_columns = {}
+        for table_name in new_schema:
+            if table_name in old_schema:
+                old_cols = set(old_schema[table_name])
+                new_cols = set(new_schema[table_name])
+                added = new_cols - old_cols
+                if added:
+                    new_columns[table_name] = list(added)
+            else:
+                # Entire table is new
+                new_columns[table_name] = new_schema[table_name]
+        
+        if new_columns:
+            logger.info(f"Discovered new columns: {new_columns}")
+        
+        return new_columns
+    
+    def validate_column_exists(self, table_name: str, column_name: str) -> bool:
+        """Check if a column exists in a table (with schema refresh if needed)"""
+        # First check current schema
+        if table_name in self.VIEW_COLUMNS:
+            if column_name in self.VIEW_COLUMNS[table_name]:
+                return True
+        
+        # Column not found - try refreshing schema
+        logger.info(f"Column {column_name} not found in {table_name}, refreshing schema...")
+        self.refresh_schema()
+        
+        # Check again after refresh
+        if table_name in self.VIEW_COLUMNS:
+            return column_name in self.VIEW_COLUMNS[table_name]
+        
+        return False
+    
+    def suggest_column(self, table_name: str, search_term: str) -> List[str]:
+        """Suggest similar column names based on search term"""
+        if table_name not in self.VIEW_COLUMNS:
+            return []
+        
+        columns = self.VIEW_COLUMNS[table_name]
+        search_lower = search_term.lower()
+        
+        suggestions = []
+        
+        # Exact matches
+        for col in columns:
+            if search_lower == col.lower():
+                suggestions.append((col, 1.0))
+        
+        # Partial matches
+        for col in columns:
+            col_lower = col.lower()
+            if search_lower in col_lower:
+                score = len(search_lower) / len(col_lower)
+                suggestions.append((col, score))
+        
+        # Sort by score and return top 5
+        suggestions.sort(key=lambda x: x[1], reverse=True)
+        return [col for col, _ in suggestions[:5]]
+    
+    def get_table_info(self, table_name: str) -> Dict[str, Any]:
+        """Get detailed information about a table"""
+        if table_name not in self.VIEW_COLUMNS:
+            # Try to refresh schema
+            self._load_dynamic_schema()
+        
+        if table_name not in self.VIEW_COLUMNS:
+            return {}
+        
+        metadata = self.table_metadata.get(table_name, {})
+        
+        return {
+            'columns': self.VIEW_COLUMNS[table_name],
+            'column_count': len(self.VIEW_COLUMNS[table_name]),
+            'metadata': metadata,
+            'numeric_columns': [
+                col for col, meta in metadata.items()
+                if meta.get('data_type') in ('numeric', 'integer', 'bigint', 'real', 'double precision')
+            ],
+            'text_columns': [
+                col for col, meta in metadata.items()
+                if meta.get('data_type') in ('character varying', 'text', 'varchar')
+            ],
+            'date_columns': [
+                col for col, meta in metadata.items()
+                if meta.get('data_type') in ('date', 'timestamp', 'timestamp without time zone')
+            ]
         }
     
     def _compile_patterns(self):
@@ -236,6 +480,7 @@ class PromptManager:
                 FROM yearly curr
                 ORDER BY year;
             """).strip(),
+            
             'top_parts_customers': dedent("""
                 SELECT customer_name,
                     SUM(parts_num) AS total_parts,
@@ -248,7 +493,6 @@ class PromptManager:
                 LIMIT 10;
             """).strip(),
 
-            # เปรียบเทียบยอดขาย service vs replacement
             'service_vs_replacement': dedent("""
                 SELECT year,
                     SUM(service_num) AS total_service,
@@ -260,7 +504,6 @@ class PromptManager:
                 ORDER BY year;
             """).strip(),
 
-            # ลูกค้าที่มียอด solution สูงสุด
             'solution_customers': dedent("""
                 SELECT customer_name,
                     job_no,
@@ -273,7 +516,6 @@ class PromptManager:
                 LIMIT 20;
             """).strip(),
 
-            # สรุปยอดขายรายไตรมาส (จำลอง)
             'quarterly_summary': dedent("""
                 SELECT year,
                     CASE 
@@ -289,9 +531,6 @@ class PromptManager:
                 ORDER BY quarter;
             """).strip(),
 
-            # ========== v_spare_part Examples ==========
-
-            # สินค้าที่มีมูลค่าสูงสุดในคลัง
             'highest_value_items': dedent("""
                 SELECT product_code,
                     product_name,
@@ -304,7 +543,6 @@ class PromptManager:
                 LIMIT 20;
             """).strip(),
 
-            # สรุปมูลค่าสินค้าแต่ละคลัง
             'warehouse_summary': dedent("""
                 SELECT wh AS warehouse,
                     COUNT(*) AS item_count,
@@ -316,7 +554,6 @@ class PromptManager:
                 ORDER BY total_value DESC;
             """).strip(),
 
-            # ค้นหาสินค้าที่ใกล้หมด (balance น้อย)
             'low_stock_items': dedent("""
                 SELECT product_code,
                     product_name,
@@ -328,7 +565,6 @@ class PromptManager:
                 LIMIT 50;
             """).strip(),
 
-            # สินค้าที่มีราคาต่อหน่วยสูง
             'high_unit_price': dedent("""
                 SELECT product_code,
                     product_name,
@@ -340,9 +576,6 @@ class PromptManager:
                 LIMIT 30;
             """).strip(),
 
-            # ========== v_work_force Examples ==========
-
-            # งานที่ทำสำเร็จในเดือนที่กำหนด
             'successful_work_monthly': dedent("""
                 SELECT date,
                     customer,
@@ -354,7 +587,6 @@ class PromptManager:
                 ORDER BY date;
             """).strip(),
 
-            # สรุปงาน PM (Preventive Maintenance)
             'pm_work_summary': dedent("""
                 SELECT date,
                     customer,
@@ -367,7 +599,6 @@ class PromptManager:
                 LIMIT 100;
             """).strip(),
 
-            # งาน Start Up ในช่วงเวลา
             'startup_works': dedent("""
                 SELECT date,
                     customer,
@@ -380,7 +611,6 @@ class PromptManager:
                 ORDER BY date DESC;
             """).strip(),
 
-            # งานที่มีการรายงาน KPI
             'kpi_reported_works': dedent("""
                 SELECT date,
                     customer,
@@ -393,7 +623,6 @@ class PromptManager:
                 ORDER BY date;
             """).strip(),
 
-            # งานของทีมบริการเฉพาะ
             'team_specific_works': dedent("""
                 SELECT date,
                     customer,
@@ -405,7 +634,6 @@ class PromptManager:
                 ORDER BY date;
             """).strip(),
 
-            # งาน Replacement ประจำเดือน
             'replacement_monthly': dedent("""
                 SELECT date,
                     customer,
@@ -417,9 +645,6 @@ class PromptManager:
                 ORDER BY date;
             """).strip(),
 
-            # ========== Cross-table Examples ==========
-
-            # ตรวจสอบลูกค้าที่มีทั้งยอดขายและงานบริการ
             'customer_sales_and_service': dedent("""
                 WITH sales_customers AS (
                     SELECT DISTINCT customer_name
@@ -439,7 +664,6 @@ class PromptManager:
                 LIMIT 50;
             """).strip(),
 
-            # วิเคราะห์งานที่ใช้เวลานาน
             'long_duration_works': dedent("""
                 SELECT date,
                     customer,
@@ -453,34 +677,38 @@ class PromptManager:
             """).strip(),
 
             'customer_years_count': dedent("""
-            SELECT year,
-                COUNT(*) AS transaction_count,
-                SUM(total_revenue) AS total_revenue
-            FROM v_sales
-            WHERE customer_name LIKE '%ABB%'
-            GROUP BY year
-            ORDER BY year;
-        """).strip(),
-
+                SELECT year,
+                    COUNT(*) AS transaction_count,
+                    SUM(total_revenue) AS total_revenue
+                FROM v_sales
+                WHERE customer_name LIKE '%ABB%'
+                GROUP BY year
+                ORDER BY year;
+            """).strip(),
         }
     
     def _get_system_prompt(self) -> str:
         """Enhanced system prompt - เน้นย้ำว่ามี table เดียว"""
-        return dedent("""
-        ⚠️ CRITICAL: You have EXACTLY 3 tables. NO OTHER TABLES EXIST!
+        # Check if schema is loaded dynamically
+        if self.VIEW_COLUMNS:
+            table_list = ', '.join(self.VIEW_COLUMNS.keys())
+            prompt = dedent(f"""
+            ⚠️ CRITICAL: You have EXACTLY {len(self.VIEW_COLUMNS)} tables: {table_list}
+            NO OTHER TABLES EXIST!
+            
+            Current schema is dynamically loaded from database.
+            """)
+        else:
+            # Fallback prompt
+            prompt = dedent("""
+            ⚠️ CRITICAL: You have EXACTLY 3 tables. NO OTHER TABLES EXIST!
+            
+            1. v_sales (ONE table for ALL years)
+            2. v_work_force (work/repair records)  
+            3. v_spare_part (inventory)
+            """)
         
-        1. v_sales (ONE table for ALL years):
-        - Contains data from 2022, 2023, 2024, 2025 in single table
-        - Use WHERE year IN ('2023','2024','2025') to filter years
-        - ❌ NEVER use v_sales2023, v_sales2024 - THEY DON'T EXIST!
-        - ✅ ALWAYS use: FROM v_sales WHERE year = 'YYYY'
-        
-        2. v_work_force (work/repair records):  
-        - Has: date, customer, detail, project, service_group
-        - Use date::date for date comparisons
-        
-        3. v_spare_part (inventory):
-        - Has: product_code, product_name, balance_num, unit_price_num
+        prompt += dedent("""
         
         ⚠️ FORBIDDEN - THESE TABLES DO NOT EXIST:
         - v_sales2022, v_sales2023, v_sales2024, v_sales2025
@@ -488,8 +716,10 @@ class PromptManager:
         - Any year-specific table variants
         
         ALWAYS use the EXACT structure from the provided example!
-        """).strip()
-
+        """)
+        
+        return prompt.strip()
+    
     # ===== VALIDATION METHODS =====
     
     def validate_sql_safety(self, sql: str) -> tuple[bool, str]:
@@ -647,9 +877,13 @@ class PromptManager:
     
     def build_sql_prompt(self, question: str, intent: str, entities: Dict,
                         context: Dict = None, examples_override: List[str] = None) -> str:
-        """Build SQL generation prompt with ULTRA STRICT COPY enforcement"""
+        """Build SQL generation prompt with dynamic schema"""
         
         try:
+            # Ensure schema is loaded
+            if not self.VIEW_COLUMNS:
+                self._load_dynamic_schema()
+            
             # Validate input
             is_valid, msg = self.validate_input(question)
             if not is_valid:
@@ -659,6 +893,7 @@ class PromptManager:
             # Validate and convert entities
             entities = self.validate_entities(entities)
             question = re.sub(r'\b25[67]\d\b', lambda m: str(int(m.group())-543), question)
+            
             # Use context if provided
             if context:
                 logger.debug(f"Using context: {context}")
@@ -668,21 +903,28 @@ class PromptManager:
             
             # Select best matching example
             example = self._select_best_example(question, intent, entities)
-
-            # Log selected example for debugging
             example_name = self._get_example_name(example)
             logger.info(f"Selected SQL example: {example_name}")
             
             # Build entity-specific hints
             hints = self._build_sql_hints(entities, intent)
             
-            # ===== DETERMINE IF WE HAVE EXACT MATCH =====
+            # Get dynamic schema for target table
+            target_table = self._get_target_table(intent)
+            schema_prompt = self._get_dynamic_schema_prompt(target_table)
+            
+            # Determine if we have exact match
             has_exact_example = self._has_exact_matching_example(question, example_name)
             
             if has_exact_example:
-                # ===== ULTRA STRICT MODE FOR EXACT MATCHES =====
+                # ULTRA STRICT MODE FOR EXACT MATCHES
                 prompt = dedent(f"""
                 You are a SQL query generator. Output ONLY the SQL query with no explanation.
+                
+                CURRENT DATABASE SCHEMA:
+                ----------------------------------------
+                {schema_prompt}
+                ----------------------------------------
                 
                 EXAMPLE SQL TO COPY:
                 ----------------------------------------
@@ -696,46 +938,28 @@ class PromptManager:
                 4. COPY the GROUP BY if present
                 5. COPY the ORDER BY if present
                 
-                ONLY ALLOWED CHANGES:
-                - Customer name in WHERE clause: Change to '{entities.get('customers', [''])[0] if entities.get('customers') else 'search_term'}'
-                - Year values in WHERE clause: Change to {entities.get('years', [])}
-                - Product code: Change to '{entities.get('products', [''])[0] if entities.get('products') else 'search_term'}'
-                
-                ⚠️ DO NOT:
-                - Change column names
-                - Add or remove columns
-                - Change aggregation functions
-                - Add WHERE clauses not in the example
-                - Remove GROUP BY if example has it
-                
                 YOUR TASK: {question}
-                
-                FINAL INSTRUCTION: COPY THE EXAMPLE, change ONLY the search values!
                 
                 SQL:
                 """).strip()
             
             else:
-                # ===== STRICT SCHEMA MODE FOR NON-EXACT MATCHES =====
-                schema_definition = self._get_strict_schema_for_intent(intent)
+                # STRICT SCHEMA MODE FOR NON-EXACT MATCHES
                 column_rules = self._get_column_rules_for_intent(intent)
                 error_examples = self._get_common_errors()
                 
                 prompt = dedent(f"""
                 You are a SQL query generator. Output ONLY the SQL query with no explanation.
-                ⚠️ STRICT MODE: Follow the example structure closely!
                 
-                {schema_definition}
+                CURRENT DATABASE SCHEMA:
+                ----------------------------------------
+                {schema_prompt}
+                ----------------------------------------
                 
                 REFERENCE EXAMPLE:
                 ----------------------------------------
                 {example}
                 ----------------------------------------
-                
-                IMPORTANT:
-                - Use the SAME SELECT structure as the example
-                - Use the SAME table as the example
-                - Follow the WHERE clause pattern from the example
                 
                 {column_rules}
                 
@@ -745,12 +969,6 @@ class PromptManager:
                 
                 {hints}
                 
-                CHECKLIST:
-                ✓ Did you use the same columns as the example?
-                ✓ Did you copy the FROM clause?
-                ✓ Did you follow the WHERE pattern?
-                ✓ Did you keep GROUP BY if example has it?
-                
                 SQL:
                 """).strip()
             
@@ -759,7 +977,83 @@ class PromptManager:
         except Exception as e:
             logger.error(f"Failed to build SQL prompt: {e}")
             return self._get_fallback_prompt(question)
-
+    
+    def _get_dynamic_schema_prompt(self, table_name: str) -> str:
+        """Generate schema prompt dynamically based on current database structure"""
+        table_info = self.get_table_info(table_name)
+        
+        if not table_info:
+            return f"Table {table_name} not found in schema"
+        
+        prompt_parts = [f"TABLE: {table_name}"]
+        prompt_parts.append(f"COLUMNS ({len(table_info['columns'])} total):")
+        
+        # List all columns
+        for col in table_info['columns']:
+            prompt_parts.append(f"  - {col}")
+        
+        # Add usage hints based on column names
+        hints = self._generate_column_hints(table_name, table_info['columns'])
+        if hints:
+            prompt_parts.append("\nUSAGE HINTS:")
+            prompt_parts.extend(hints)
+        
+        return "\n".join(prompt_parts)
+    
+    def _generate_column_hints(self, table_name: str, columns: List[str]) -> List[str]:
+        """Generate intelligent hints based on column names"""
+        hints = []
+        
+        # Common patterns
+        if table_name == 'v_sales':
+            for col in columns:
+                if 'revenue' in col.lower():
+                    hints.append(f"  - {col}: Use for revenue/income queries")
+                elif '_num' in col and col in ['overhaul_num', 'replacement_num', 'service_num', 'parts_num']:
+                    base_name = col.replace('_num', '')
+                    hints.append(f"  - {col}: Numeric value for {base_name}")
+        
+        elif table_name == 'v_spare_part':
+            if 'balance_num' in columns:
+                hints.append(f"  - balance_num: Stock quantity")
+            if 'unit_price_num' in columns:
+                hints.append(f"  - unit_price_num: Price per unit")
+            if 'total_num' in columns:
+                hints.append(f"  - total_num: Total value")
+        
+        elif table_name == 'v_work_force':
+            for col in columns:
+                if col.startswith('job_description_'):
+                    job_type = col.replace('job_description_', '')
+                    hints.append(f"  - {col}: Filter for {job_type} jobs")
+        
+        return hints[:5]  # Limit hints
+    
+    def _get_target_table(self, intent: str) -> str:
+        """Determine target table based on intent"""
+        intent_to_table = {
+            'sales': 'v_sales',
+            'sales_analysis': 'v_sales',
+            'customer_history': 'v_sales',
+            'overhaul_report': 'v_sales',
+            'top_customers': 'v_sales',
+            'revenue': 'v_sales',
+            'annual_revenue': 'v_sales',
+            'work_plan': 'v_work_force',
+            'work_force': 'v_work_force',
+            'work_summary': 'v_work_force',
+            'repair_history': 'v_work_force',
+            'pm_summary': 'v_work_force',
+            'startup_summary': 'v_work_force',
+            'successful_works': 'v_work_force',
+            'spare_parts': 'v_spare_part',
+            'parts_price': 'v_spare_part',
+            'inventory_check': 'v_spare_part',
+            'inventory_value': 'v_spare_part',
+            'warehouse_summary': 'v_spare_part'
+        }
+        return intent_to_table.get(intent, 'v_sales')
+    
     def _has_exact_matching_example(self, question: str, example_name: str) -> bool:
         """Check if we have an exact matching example for this question type"""
         question_lower = question.lower()
@@ -783,79 +1077,12 @@ class PromptManager:
                     return True
         
         return False
-
+    
     def _get_strict_schema_for_intent(self, intent: str) -> str:
-        """Get exact schema based on intent"""
-        
-        if intent in ['sales', 'sales_analysis', 'customer_history', 'overhaul_report', 
-                    'top_customers', 'revenue', 'annual_revenue']:
-            return dedent("""
-            TABLE: v_sales
-            EXACT COLUMNS (use ONLY these):
-            - year (varchar) → filter: WHERE year = '2024'
-            - customer_name (varchar) → filter: WHERE customer_name LIKE '%X%'
-            - job_no (varchar)
-            - description (varchar)
-            - total_revenue (numeric) → FOR ALL REVENUE/INCOME QUERIES
-            - overhaul_num (numeric) → overhaul amount
-            - replacement_num (numeric) → replacement amount
-            - service_num (numeric) → service amount
-            - parts_num (numeric) → parts amount
-            - product_num (numeric) → product amount
-            - solution_num (numeric) → solution amount
-            
-            ⚠️ FORBIDDEN COLUMNS (DO NOT USE):
-            - sales_num ❌ (does not exist)
-            - revenue_num ❌ (use total_revenue)
-            - sales_amount ❌ (use total_revenue)
-            - total_sales ❌ (use total_revenue)
-            """)
-        
-        elif intent in ['work_plan', 'work_force', 'work_summary', 'repair_history',
-                        'pm_summary', 'startup_summary', 'successful_works']:
-            return dedent("""
-            TABLE: v_work_force
-            EXACT COLUMNS (use ONLY these):
-            - date (date) → filter: WHERE date::date BETWEEN 'YYYY-MM-DD' AND 'YYYY-MM-DD'
-            - customer (varchar) → filter: WHERE customer LIKE '%X%'
-            - project (varchar)
-            - detail (varchar)
-            - duration (varchar)
-            - service_group (varchar)
-            - job_description_pm (boolean) → filter: WHERE job_description_pm = true
-            - job_description_replacement (boolean)
-            - success (varchar)
-            
-            ⚠️ FORBIDDEN COLUMNS (DO NOT USE):
-            - work_date ❌ (use date)
-            - customer_name ❌ (use customer)
-            - job_detail ❌ (use detail)
-            """)
-        
-        elif intent in ['spare_parts', 'parts_price', 'inventory_check', 
-                        'inventory_value', 'warehouse_summary']:
-            return dedent("""
-            TABLE: v_spare_part
-            EXACT COLUMNS (use ONLY these):
-            - product_code (varchar)
-            - product_name (varchar)
-            - wh (varchar) → warehouse
-            - balance_num (numeric) → stock quantity
-            - unit_price_num (numeric) → price per unit
-            - total_num (numeric) → total value
-            - unit (varchar)
-            - description (varchar)
-            
-            ⚠️ FORBIDDEN COLUMNS (DO NOT USE):
-            - stock_num ❌ (use balance_num)
-            - quantity ❌ (use balance_num)
-            - price ❌ (use unit_price_num)
-            """)
-        
-        else:
-            # Default to v_sales for unknown intents
-            return self._get_strict_schema_for_intent('sales')
-
+        """Get exact schema based on intent - dynamically"""
+        target_table = self._get_target_table(intent)
+        return self._get_dynamic_schema_prompt(target_table)
+    
     def _get_column_rules_for_intent(self, intent: str) -> str:
         """Get specific rules for common queries"""
         
@@ -887,7 +1114,7 @@ class PromptManager:
         }
         
         return rules_map.get(intent, "")
-
+    
     def _get_common_errors(self) -> str:
         """Show common mistakes to avoid"""
         return dedent("""
@@ -899,14 +1126,9 @@ class PromptManager:
         WRONG: SELECT * FROM v_sales2024
         RIGHT: SELECT * FROM v_sales WHERE year = '2024'
         
-        WRONG: SELECT COUNT(*) FROM v_work_force WHERE...
-        RIGHT: SELECT date, customer, detail FROM v_work_force WHERE...
-        
         WRONG: SELECT stock_num FROM v_spare_part
         RIGHT: SELECT balance_num FROM v_spare_part
         """)
-
-
     
     def _get_example_name(self, example: str) -> str:
         """Get example name for logging"""
@@ -931,7 +1153,7 @@ class PromptManager:
         
         logger.debug(f"Selecting example for intent: {intent}, question: {question_lower[:50]}...")
         
-        # PRIORITY 1: Work plan with months - ALWAYS use work_monthly
+        # PRIORITY 1: Work plan with months
         if intent == 'work_plan' and entities.get('months'):
             logger.info("Selected: work_monthly (work_plan with months)")
             return self.SQL_EXAMPLES['work_monthly']
@@ -1001,7 +1223,6 @@ class PromptManager:
             'overhaul_report': self.SQL_EXAMPLES['overhaul_sales'],
             'top_customers': self.SQL_EXAMPLES['top_customers'],
             'inventory_check': self.SQL_EXAMPLES['inventory_check'],
-            'top_parts_customers': 'top_parts_customers',
             'top_parts_customers': self.SQL_EXAMPLES['top_parts_customers'],
             'service_comparison': self.SQL_EXAMPLES['service_vs_replacement'], 
             'solution_sales': self.SQL_EXAMPLES['solution_customers'],
@@ -1030,39 +1251,34 @@ class PromptManager:
         return self.SQL_EXAMPLES['sales_analysis']
     
     def _build_sql_hints(self, entities: Dict, intent: str) -> str:
-        """Build SQL hints with table specification - FIXED VERSION"""
+        """Build SQL hints with table specification"""
         hints = []
         
-        # Table specification based on intent
-        if intent in ['work_plan', 'work_force', 'work_summary', 'repair_history']:
-            hints.append("USE TABLE: v_work_force")
+        # Get target table
+        target_table = self._get_target_table(intent)
+        hints.append(f"USE TABLE: {target_table}")
+        
+        # Table-specific hints
+        if target_table == 'v_work_force':
             hints.append("Format: WHERE date::date BETWEEN 'YYYY-MM-DD' AND 'YYYY-MM-DD'")
             hints.append("SELECT: date, customer, detail (do NOT use COUNT)")
-        elif intent in ['sales', 'sales_analysis', 'customer_history', 'top_customers', 'overhaul_report']:
-            hints.append("USE TABLE: v_sales")
+        elif target_table == 'v_sales':
             hints.append("Filter by year column")
-        elif intent in ['spare_parts', 'parts_price', 'inventory_value', 'inventory_check']:
-            hints.append("USE TABLE: v_spare_part")
         
-        # Year hints - ไม่แปลงซ้ำ! ใช้ค่าที่ validate แล้ว
+        # Year hints
         if entities.get('years'):
             years = entities['years']
-            
-            # Log for debugging
             logger.debug(f"Building SQL hints for years: {years}")
             
-            # ใช้ค่าที่ผ่าน validate_entities มาแล้วโดยตรง
-            # ไม่เรียก convert_thai_year อีก!
             year_list = []
             for year in years:
-                # แค่แปลงเป็น string ถ้าจำเป็น
                 year_str = str(year)
                 year_list.append(year_str)
                 logger.debug(f"Using year: {year_str}")
             
             year_str = "', '".join(year_list)
             
-            if intent in ['sales', 'sales_analysis', 'customer_history', 'top_customers', 'overhaul_report']:
+            if target_table == 'v_sales':
                 hint = f"WHERE year IN ('{year_str}')"
                 hints.append(hint)
                 logger.info(f"Generated year hint: {hint}")
@@ -1092,7 +1308,7 @@ class PromptManager:
         # Customer hints
         if entities.get('customers'):
             customer = entities['customers'][0]
-            if 'sales' in intent or 'customer_history' in intent:
+            if target_table == 'v_sales':
                 hints.append(f"WHERE customer_name LIKE '%{customer}%'")
             else:
                 hints.append(f"WHERE customer LIKE '%{customer}%'")
@@ -1114,14 +1330,11 @@ class PromptManager:
         
         # ปรับจำนวน sample และไม่ตัด string
         if len(results) <= 20:
-            # ถ้าข้อมูลไม่เกิน 20 รายการ ส่งทั้งหมด
             sample = results
             sample_json = json.dumps(sample, ensure_ascii=False, default=str)
         else:
-            # ถ้าเกิน 20 รายการ ส่งแค่ 20 รายการแรก
             sample = results[:20]
             sample_json = json.dumps(sample, ensure_ascii=False, default=str)
-            # ถ้า json ยาวเกินไป ค่อยตัด
             if len(sample_json) > 3000:
                 sample_json = sample_json[:3000] + "..."
         
@@ -1143,7 +1356,6 @@ class PromptManager:
         ⚠️ ห้ามแต่งหรือเพิ่มข้อมูลที่ไม่มีอยู่ในข้อมูลต้นฉบับ
         ✓ ใช้ข้อมูลจากที่ให้มาเท่านั้น
         ✓ หากข้อมูลมีมากกว่าที่แสดง ให้ระบุไว้ชัดเจน
-
 
         ตอบภาษาไทยแบบกระชับ ตรงประเด็น อ่านง่าย:
         """)
