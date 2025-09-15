@@ -1,7 +1,3 @@
-# PromptManager - Dynamic Schema Version 6.0
-# File: agents/nlp/prompt_manager.py
-# Dynamic schema loading from database with caching
-
 import json
 import logging
 import re

@@ -6,7 +6,7 @@ import { DatabaseService, DatabaseColumn } from '../../../lib/services/DatabaseS
 import { FileImportService } from '../../../lib/services/FileImportService';
 import multer from 'multer';
 import { z } from 'zod';
-
+import { getCompanyDatabase } from '../../../lib/database';
 // API Response interface
 interface ApiResponse<T = any> {
   success: boolean;
@@ -233,7 +233,77 @@ export default async function importHandler(req: NextApiRequest, res: NextApiRes
       batchSize: validatedData.batchSize,
       customColumns: customColumns // ส่ง custom columns ไปด้วย
     });
+    try {
+      const historyQuery = `
+        INSERT INTO import_history (
+          company_code, 
+          file_name, 
+          file_size, 
+          file_type,
+          schema_name, 
+          table_name, 
+          total_rows, 
+          success_rows,
+          error_rows, 
+          execution_time, 
+          status, 
+          created_by, 
+          errors
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      `;
 
+      // Determine status based on results
+      let status: 'SUCCESS' | 'PARTIAL' | 'FAILED';
+      if (result.errorRows === 0 && result.successRows === result.totalRows) {
+        status = 'SUCCESS';
+      } else if (result.successRows === 0) {
+        status = 'FAILED';
+      } else {
+        status = 'PARTIAL';
+      }
+
+      // Get file type from mime type or file extension
+      let fileType = 'unknown';
+      if (file.mimetype.includes('csv')) {
+        fileType = 'csv';
+      } else if (file.mimetype.includes('excel') || file.mimetype.includes('spreadsheet')) {
+        fileType = 'excel';
+      } else if (file.mimetype.includes('json')) {
+        fileType = 'json';
+      } else if (file.originalname) {
+        const ext = file.originalname.split('.').pop()?.toLowerCase();
+        if (ext === 'csv') fileType = 'csv';
+        else if (ext === 'xlsx' || ext === 'xls') fileType = 'excel';
+        else if (ext === 'json') fileType = 'json';
+      }
+
+      // Prepare errors array (limit to first 100 errors for storage)
+      const errorsToStore = result.errors ? result.errors.slice(0, 100) : [];
+
+      const historyValues = [
+        companyCode,                                    // company_code
+        file.originalname || 'unknown',                 // file_name
+        file.size || 0,                                  // file_size
+        fileType,                                        // file_type
+        validatedData.schema,                           // schema_name
+        validatedData.tableName,                        // table_name
+        result.totalRows || 0,                          // total_rows
+        result.successRows || 0,                        // success_rows
+        result.errorRows || 0,                          // error_rows
+        (result.executionTime || 0) / 1000,            // execution_time (convert ms to seconds)
+        status,                                          // status
+        session.user.email || 'unknown',                // created_by
+        JSON.stringify(errorsToStore)                   // errors
+      ];
+
+      const pool = getCompanyDatabase(companyCode);
+      await pool.query(historyQuery, historyValues);
+      
+      console.log(`✅ Import history recorded: ${status} - ${result.successRows}/${result.totalRows} rows`);
+    } catch (historyError) {
+      // Log error but don't fail the import
+      console.error('⚠️ Failed to record import history:', historyError);
+    }
     console.log('✅ Import completed:', {
       success: result.success,
       totalRows: result.totalRows,
