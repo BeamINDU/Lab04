@@ -1,0 +1,80 @@
+[
+    {
+        "test_number": 1,
+        "timestamp": "2025-09-16 13:35:34",
+        "category": "รายได้",
+        "question": "รายได้รวมทั้งหมดเท่าไหร่",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 46,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "รายได้รวมทั้งหมดเท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 2,
+        "timestamp": "2025-09-16 13:35:35",
+        "category": "รายได้",
+        "question": "รายได้ปี 2024 เป็นเท่าไหร่",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 11,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "รายได้ปี 2024 เป็นเท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 3,
+        "timestamp": "2025-09-16 13:35:35",
+        "category": "รายได้",
+        "question": "เปรียบเทียบรายได้ปี 2023 กับ 2024",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 9,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "เปรียบเทียบรายได้ปี 2023 กับ 2024",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 4,
+        "timestamp": "2025-09-16 13:35:36",
+        "category": "รายได้",
+        "question": "ยอดขาย overhaul ทั้งหมดเท่าไหร่",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 12,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ยอดขาย overhaul ทั้งหมดเท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 5,
+        "timestamp": "2025-09-16 13:35:36",
+        "category": "รายได้",
+        "question": "ยอดขาย service ปี 2024",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ยอดขาย service ปี 2024",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }

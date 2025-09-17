@@ -1,0 +1,3 @@
+timestamp,question_number,category,question,status,response_time,response_size,http_code
+2025-09-16 17:01:23,1,รายได้,"รายได้รวมทั้งหมดเท่าไหร่",FAILED,32,0,000
+2025-09-16 17:01:23,2,รายได้,"รายได้ปี 2024 เป็นเท่าไหร่",FAILED,7,0,000

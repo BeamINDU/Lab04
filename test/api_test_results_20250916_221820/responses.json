@@ -1,0 +1,48 @@
+[
+    {
+        "test_number": 1,
+        "timestamp": "2025-09-16 22:18:42",
+        "category": "รายได้",
+        "question": "รายได้รวมทั้งหมดเท่าไหร่",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 22372,
+        "response_size_bytes": 1435,
+        "request": {
+    "question": "รายได้รวมทั้งหมดเท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"รายได้รวมในปี 2025 ของ Siamtemp คือ **463,076,628.80 บาท** ตามข้อมูลจากผลการวิเคราะห์ข้อมูลการขายที่ได้รับ.\n\nสรุปข้อมูลสำคัญ:\n- ตัวเลขทั้งหมดในตารางมีเพียงรายการเดียว ซึ่งแสดงให้เห็นถึงรายได้รวมของปีนั้น\n- จำนวนเงินทั้งหมดเป็น **463,076,628.80 บาท** หรือประมาณ 463 ล้านบาท\n\nหากมีข้อสงสัยเพิ่มเติมหรือต้องการวิเคราะห์ข้อมูลเพิ่มเติมในด้านอื่น ๆ สามารถแจ้งได้เลยครับ.","success":true,"sql_query":"SELECT SUM(total_revenue) as total FROM v_sales WHERE year = '2025' LIMIT 1000;","results_count":1,"tenant_id":"company-a","user_id":"default","processing_time":22.33667230606079,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 2,
+        "timestamp": "2025-09-16 22:19:30",
+        "category": "รายได้",
+        "question": "รายได้ปี 2024 เป็นเท่าไหร่",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 47458,
+        "response_size_bytes": 2335,
+        "request": {
+    "question": "รายได้ปี 2024 เป็นเท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ตามข้อมูลที่ได้รับจากการวิเคราะห์รายได้ในปี 2024 พบว่ามีการขายรวมทั้งหมด 132 รายการ โดยผลลัพธ์บางส่วนที่แสดงออกมาเป็นดังนี้:\n\n- รายได้สูงสุด: 221,180 บาท\n- รายได้ต่ำสุด: 0 บาท (มี 4 รายการ)\n- ยอดรวมทั้งหมด: 637,950 บาท\n\nสรุปได้ว่า รายได้ในปี 2024 มีการกระจายอยู่ในช่วงต่างๆ โดยมีบางรายการที่ทำเงินได้สูงมาก และบางรายการที่ไม่มีการขายเลย ซึ่งอาจเป็นข้อมูลที่น่าสนใจในการวางแผนธุรกิจและปรับกลยุทธ์เพื่อเพิ่มประสิทธิภาพ\n\n**ข้อเสนอแนะ:**\n1. ควรทำการตรวจสอบรายการที่ไม่มีการขาย (0 บาท) เพื่อดูว่าเป็นเพราะเหตุผลใด\n2. สามารถศึกษาและเรียนรู้จากรายการที่ทำเงินได้สูงเพื่อนำไปปรับใช้ในกลยุทธ์ทางธุรกิจ\n\nหากมีข้อมูลเพิ่มเติมหรือต้องการวิเคราะห์รายละเอียดเพิ่มเติม สามารถแจ้งได้เลยครับ","success":true,"sql_query":"SELECT total_revenue FROM v_sales WHERE year = '2024' LIMIT 1000;","results_count":132,"tenant_id":"company-a","user_id":"default","processing_time":47.4327175617218,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 3,
+        "timestamp": "2025-09-16 22:20:10",
+        "category": "รายได้",
+        "question": "เปรียบเทียบรายได้ปี 2023 กับ 2024",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 39626,
+        "response_size_bytes": 2847,
+        "request": {
+    "question": "เปรียบเทียบรายได้ปี 2023 กับ 2024",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"**สรุปผลการวิเคราะห์รายได้ปี 2023 และ 2024**\n\nจากการวิเคราะห์ข้อมูลรายได้ของ Siamtemp ในปี 2023 และ 2024 (แสดงเฉพาะ 20 รายการแรก) พบว่า:\n\n1. **รายได้รวมในปี 2023**\n   - จำนวนรายการ: 457 รายการ\n   - รายได้สูงสุด: 660,000 บาท\n   - รายได้น้อยสุด: 0 บาท\n   - รายได้เฉลี่ย: 12,893.44 บาท\n\n2. **highlight สำคัญ**\n   - มีรายการที่มียอดขายสูงมาก เช่น 660,000 บาท และ 166,655 บาท\n   - มีรายการที่ไม่มีรายได้เลย (ยอดขาย 0 บาท) จำนวนหลายรายการ\n\n3. **แนวโน้มและinsights**\n   - ปี 2023 มีความหลากหลายในระดับรายได้ ตั้งแต่ 0 บาทถึง 660,000 บาท\n   - อาจมีลูกค้าบางกลุ่มที่ไม่มีการใช้งานบริการ HVAC ในปีนี้\n\n4. **ข้อเสนอแนะ**\n   - ควรทำการวิเคราะห์ลูกค้าที่ไม่มีการใช้บริการเพื่อหาเหตุผล\n   - อาจมีโอกาสในการพัฒนาผลิตภัณฑ์หรือบริการใหม่เพื่อดึงดูดลูกค้ากลุ่มนี้\n\n**สรุป**\nจากการวิเคราะห์ข้อมูลรายได้ในปี 2023 พบว่ามีความหลากหลายในระดับรายได้ และมีบางรายการที่ไม่มีการใช้งานบริการ HVAC. ควรทำการวิเคราะห์ลูกค้าเพื่อหาเหตุผลและพัฒนาบริการให้ตรงกับความต้องการของลูกค้ามากขึ้น.","success":true,"sql_query":"SELECT year, total_revenue FROM v_sales WHERE year IN ('2023','2024') LIMIT 1000;","results_count":457,"tenant_id":"company-a","user_id":"default","processing_time":39.597843647003174,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }

@@ -350,6 +350,272 @@ class PromptManager:
                 ORDER BY year, total_revenue DESC
                 LIMIT 100;
             """).strip(),
+            
+            # Total Revenue All Years - รายได้รวมทั้งหมด (ไม่กรองปี)
+            'total_revenue_all': dedent("""
+                SELECT SUM(total_revenue) AS total_income
+                FROM v_sales;
+            """).strip(),
+            
+            # Total Revenue Specific Year - รายได้รวมของปีเฉพาะ
+            'total_revenue_year': dedent("""
+                SELECT SUM(total_revenue) AS total_income
+                FROM v_sales
+                WHERE year = '2024';
+            """).strip(),
+            
+            # Revenue by Year - รายได้แต่ละปี
+            'revenue_by_year': dedent("""
+                SELECT year,
+                       SUM(total_revenue) AS annual_revenue
+                FROM v_sales
+                GROUP BY year
+                ORDER BY year;
+            """).strip(),
+            
+            # Compare Revenue Two Years - เปรียบเทียบรายได้ 2 ปี
+            'compare_revenue_years': dedent("""
+                SELECT 
+                    SUM(CASE WHEN year = '2023' THEN total_revenue ELSE 0 END) AS revenue_2023,
+                    SUM(CASE WHEN year = '2024' THEN total_revenue ELSE 0 END) AS revenue_2024,
+                    SUM(CASE WHEN year = '2024' THEN total_revenue ELSE 0 END) - 
+                    SUM(CASE WHEN year = '2023' THEN total_revenue ELSE 0 END) AS difference
+                FROM v_sales
+                WHERE year IN ('2023', '2024');
+            """).strip(),
+            
+            # Count Total Customers - นับจำนวนลูกค้าทั้งหมด
+            'count_total_customers': dedent("""
+                SELECT COUNT(DISTINCT customer_name) AS total_customers
+                FROM v_sales
+                WHERE year = '2024';
+            """).strip(),
+            
+            # Top Customers No Filter - ลูกค้าที่ใช้บริการมากที่สุด
+            'top_customers_no_filter': dedent("""
+                SELECT customer_name,
+                       COUNT(*) AS transaction_count,
+                       SUM(total_revenue) AS total_revenue
+                FROM v_sales
+                WHERE year = '2024'
+                GROUP BY customer_name
+                ORDER BY transaction_count DESC
+                LIMIT 10;
+            """).strip(),
+            
+            # Average Revenue Per Transaction - รายได้เฉลี่ยต่องาน
+            'average_revenue_per_transaction': dedent("""
+                SELECT 
+                    AVG(total_revenue) AS average_revenue_per_transaction,
+                    COUNT(*) AS total_transactions
+                FROM v_sales
+                WHERE year = '2024';
+            """).strip(),
+            
+            # High Value Transactions - งานที่มีมูลค่าสูง
+            'high_value_transactions': dedent("""
+                SELECT customer_name,
+                       job_no,
+                       description,
+                       total_revenue
+                FROM v_sales
+                WHERE total_revenue > 1000000
+                  AND year = '2024'
+                ORDER BY total_revenue DESC
+                LIMIT 20;
+            """).strip(),
+            
+            # Revenue by Service Type - รายได้แยกตามประเภทงาน
+            'revenue_by_service_type': dedent("""
+                SELECT 
+                    SUM(overhaul_num) AS overhaul_revenue,
+                    SUM(replacement_num) AS replacement_revenue,
+                    SUM(service_num) AS service_revenue,
+                    SUM(parts_num) AS parts_revenue,
+                    SUM(product_num) AS product_revenue,
+                    SUM(solution_num) AS solution_revenue,
+                    SUM(total_revenue) AS total_revenue
+                FROM v_sales
+                WHERE year = '2024';
+            """).strip(),
+            
+            # Max Revenue by Year - รายได้สูงสุดแต่ละปี
+            'max_revenue_by_year': dedent("""
+                SELECT year,
+                       MAX(total_revenue) AS max_revenue,
+                       customer_name
+                FROM v_sales
+                WHERE total_revenue = (
+                    SELECT MAX(total_revenue) 
+                    FROM v_sales AS s2 
+                    WHERE s2.year = v_sales.year
+                )
+                GROUP BY year, customer_name
+                ORDER BY year;
+            """).strip(),
+            
+            # Min/Max Value Work - งานที่มีมูลค่าต่ำสุด/สูงสุด
+            'min_value_work': dedent("""
+                SELECT customer_name, 
+                       job_no, 
+                       description, 
+                       total_revenue
+                FROM v_sales
+                WHERE total_revenue > 0
+                ORDER BY total_revenue ASC
+                LIMIT 1;
+            """).strip(),
+            
+            'max_value_work': dedent("""
+                SELECT customer_name, 
+                       job_no, 
+                       description, 
+                       total_revenue
+                FROM v_sales
+                WHERE total_revenue > 0
+                ORDER BY total_revenue DESC
+                LIMIT 1;
+            """).strip(),
+            
+            # Min/Max Duration Work - งานที่ใช้เวลาน้อยสุด/มากสุด  
+            'min_duration_work': dedent("""
+                SELECT date, 
+                       customer, 
+                       detail, 
+                       duration
+                FROM v_work_force
+                WHERE duration IS NOT NULL
+                ORDER BY duration ASC
+                LIMIT 1;
+            """).strip(),
+            
+            'max_duration_work': dedent("""
+                SELECT date, 
+                       customer, 
+                       detail, 
+                       duration
+                FROM v_work_force
+                WHERE duration IS NOT NULL
+                ORDER BY duration DESC
+                LIMIT 1;
+            """).strip(),
+            
+            # Count Works by Year - จำนวนงานแต่ละปี
+            'count_works_by_year': dedent("""
+                SELECT 
+                    EXTRACT(YEAR FROM date::date) AS year,
+                    COUNT(*) AS total_works
+                FROM v_work_force
+                WHERE date::date >= '2024-01-01'
+                GROUP BY EXTRACT(YEAR FROM date::date)
+                ORDER BY year;
+            """).strip(),
+            
+            # Year with Min/Max Revenue - ปีที่มีรายได้ต่ำสุด/สูงสุด
+            'year_min_revenue': dedent("""
+                SELECT year,
+                       SUM(total_revenue) AS annual_revenue
+                FROM v_sales
+                GROUP BY year
+                ORDER BY annual_revenue ASC
+                LIMIT 1;
+            """).strip(),
+            
+            'year_max_revenue': dedent("""
+                SELECT year,
+                       SUM(total_revenue) AS annual_revenue
+                FROM v_sales
+                GROUP BY year
+                ORDER BY annual_revenue DESC
+                LIMIT 1;
+            """).strip(),
+            
+            # Compare all years revenue - เปรียบเทียบรายได้ทุกปี
+            'all_years_revenue_comparison': dedent("""
+                SELECT year,
+                       SUM(total_revenue) AS annual_revenue,
+                       RANK() OVER (ORDER BY SUM(total_revenue) DESC) AS revenue_rank
+                FROM v_sales
+                GROUP BY year
+                ORDER BY annual_revenue DESC;
+            """).strip(),
+            
+            # Average values - ค่าเฉลี่ย
+            'average_work_value': dedent("""
+                SELECT AVG(total_revenue) AS average_revenue,
+                       MIN(total_revenue) AS min_revenue,
+                       MAX(total_revenue) AS max_revenue,
+                       COUNT(*) AS total_count
+                FROM v_sales
+                WHERE total_revenue > 0;
+            """).strip(),
+
+            
+            # Customer New in Year - ลูกค้าใหม่ในปีนั้นๆ
+            'new_customers_in_year': dedent("""
+                SELECT DISTINCT customer_name
+                FROM v_sales
+                WHERE year = '2024'
+                  AND customer_name NOT IN (
+                      SELECT DISTINCT customer_name
+                      FROM v_sales
+                      WHERE year < '2024'
+                  )
+                ORDER BY customer_name
+                LIMIT 100;
+            """).strip(),
+            
+            # Customers Using Overhaul - ลูกค้าที่ใช้บริการ overhaul
+            'customers_using_overhaul': dedent("""
+                SELECT customer_name,
+                       SUM(overhaul_num) AS total_overhaul,
+                       COUNT(*) AS transaction_count
+                FROM v_sales
+                WHERE year = '2024'
+                  AND overhaul_num > 0
+                GROUP BY customer_name
+                ORDER BY total_overhaul DESC
+                LIMIT 20;
+            """).strip(),
+            
+            # Customers with continuous years - ลูกค้าที่ใช้บริการต่อเนื่อง
+            'customers_continuous_years': dedent("""
+                SELECT customer_name,
+                       COUNT(DISTINCT year) AS years_count,
+                       MIN(year) AS first_year,
+                       MAX(year) AS last_year,
+                       SUM(total_revenue) AS total_revenue
+                FROM v_sales
+                GROUP BY customer_name
+                HAVING COUNT(DISTINCT year) >= 3
+                ORDER BY years_count DESC, total_revenue DESC
+                LIMIT 20;
+            """).strip(),
+            
+            # Top Service Customers - ลูกค้าที่ใช้ service มากที่สุด
+            'top_service_customers': dedent("""
+                SELECT customer_name,
+                       SUM(service_num) AS total_service,
+                       COUNT(*) AS transaction_count,
+                       SUM(total_revenue) AS total_revenue
+                FROM v_sales
+                WHERE service_num > 0
+                GROUP BY customer_name
+                ORDER BY total_service DESC
+                LIMIT 10;
+            """).strip(),
+            
+            # Most Frequent Customers - ลูกค้าที่ใช้บริการบ่อยที่สุด
+            'most_frequent_customers': dedent("""
+                SELECT customer_name,
+                       COUNT(*) AS transaction_count,
+                       COUNT(DISTINCT year) AS years_active,
+                       SUM(total_revenue) AS total_revenue
+                FROM v_sales
+                GROUP BY customer_name
+                ORDER BY transaction_count DESC
+                LIMIT 10;
+            """).strip(),
 
             # Repair History - ประวัติการซ่อม
             'repair_history': dedent("""
@@ -425,8 +691,23 @@ class PromptManager:
                 ORDER BY year;
             """).strip(),
 
-            # Overhaul Sales - ยอดขาย overhaul
+            # Overhaul Sales All Years - ยอดขาย overhaul ทั้งหมด (ไม่กรองปี)
+            'overhaul_sales_all': dedent("""
+                SELECT SUM(overhaul_num) AS total_overhaul
+                FROM v_sales;
+            """).strip(),
+            
+            # Overhaul Sales by Year - ยอดขาย overhaul แยกตามปี
             'overhaul_sales': dedent("""
+                SELECT year AS year_label,
+                       SUM(overhaul_num) AS overhaul
+                FROM v_sales
+                GROUP BY year
+                ORDER BY year;
+            """).strip(),
+            
+            # Overhaul Sales Specific Years - ยอดขาย overhaul ปีเฉพาะ
+            'overhaul_sales_specific': dedent("""
                 SELECT year AS year_label,
                        SUM(overhaul_num) AS overhaul
                 FROM v_sales
@@ -684,7 +965,7 @@ class PromptManager:
         }
     
     def _get_system_prompt(self) -> str:
-        """Enhanced system prompt - เน้นย้ำว่ามี table เดียว"""
+        """Enhanced system prompt - เน้นย้ำว่ามี table เดียว และกฎการกรองปี"""
         # Check if schema is loaded dynamically
         if self.VIEW_COLUMNS:
             table_list = ', '.join(self.VIEW_COLUMNS.keys())
@@ -710,6 +991,54 @@ class PromptManager:
         - v_sales2022, v_sales2023, v_sales2024, v_sales2025
         - sales_2023, sales_2024, sales_2025
         - Any year-specific table variants
+        
+        📌 CRITICAL RULES FOR YEAR FILTERING:
+        1. If the question does NOT mention any specific year:
+           → DO NOT add WHERE year clause
+           → Query should include ALL years in the database
+           → Example: "รายได้รวมทั้งหมด" = ALL years, NO WHERE year
+        
+        2. If the question mentions specific year(s):
+           → Add WHERE year IN ('year1', 'year2', ...)
+           → Use ONLY the years explicitly mentioned
+           → Example: "รายได้ปี 2024" = WHERE year = '2024'
+        
+        3. Common patterns to recognize:
+           - "ทั้งหมด/รวม" without year = ALL years (NO WHERE clause)
+           - "แต่ละปี" = GROUP BY year (NO WHERE clause)
+           - "ปี X" = WHERE year = 'X'
+           - "เปรียบเทียบปี X กับ Y" = WHERE year IN ('X','Y')
+        
+        📌 CRITICAL SQL RULES:
+        1. When using aggregate functions (MIN, MAX, AVG, SUM, COUNT):
+           - Either use them WITHOUT other columns
+           - OR include ALL non-aggregate columns in GROUP BY clause
+           - NEVER mix aggregate and non-aggregate columns without GROUP BY
+        
+        2. To find records with min/max values:
+           - Use ORDER BY column ASC/DESC with LIMIT 1
+           - NOT MIN(column) with other fields
+           - Example: ORDER BY total_revenue ASC LIMIT 1 (for minimum)
+        
+        3. For year-related min/max queries:
+           - "ปีไหนมีรายได้ต่ำสุด" = GROUP BY year first, then ORDER BY SUM(total_revenue) ASC LIMIT 1
+           - "ปีไหนมีรายได้สูงสุด" = GROUP BY year first, then ORDER BY SUM(total_revenue) DESC LIMIT 1
+           - NOT SELECT MIN(year) with ORDER BY total_revenue (this is WRONG!)
+        
+        4. IMPORTANT DATA TYPE NOTES:
+           - Column 'year' in v_sales is TEXT type, not numeric
+           - To do arithmetic with year: CAST(year AS INTEGER) or year::int
+           - DO NOT use: MAX(year) - MIN(year) without casting
+           - CORRECT: MAX(year::int) - MIN(year::int)
+           - For counting distinct years: COUNT(DISTINCT year) works fine
+        
+        5. Common SQL patterns:
+           - Find year with min revenue: GROUP BY year ORDER BY SUM(total_revenue) ASC LIMIT 1
+           - Find year with max revenue: GROUP BY year ORDER BY SUM(total_revenue) DESC LIMIT 1
+           - Count years active: COUNT(DISTINCT year)
+           - Year range: MAX(year::int) - MIN(year::int) + 1
+           - Find minimum record: ORDER BY column ASC LIMIT 1
+           - Find maximum record: ORDER BY column DESC LIMIT 1
         
         ALWAYS use the EXACT structure from the provided example!
         """)
@@ -913,31 +1242,56 @@ class PromptManager:
             has_exact_example = self._has_exact_matching_example(question, example_name)
             
             if has_exact_example:
-                # ULTRA STRICT MODE FOR EXACT MATCHES
-                prompt = dedent(f"""
-                You are a SQL query generator. Output ONLY the SQL query with no explanation.
-                
-                CURRENT DATABASE SCHEMA:
-                ----------------------------------------
-                {schema_prompt}
-                ----------------------------------------
-                
-                EXAMPLE SQL TO COPY:
-                ----------------------------------------
-                {example}
-                ----------------------------------------
-                
-                COPY RULES:
-                1. COPY the SELECT clause structure EXACTLY
-                2. COPY the FROM clause EXACTLY  
-                3. COPY the WHERE clause pattern, only change the search value
-                4. COPY the GROUP BY if present
-                5. COPY the ORDER BY if present
-                
-                YOUR TASK: {question}
-                
-                SQL:
-                """).strip()
+                # ULTRA STRICT MODE FOR EXACT MATCHES - but handle no-year cases
+                if not entities.get('years') and 'ทั้งหมด' in question:
+                    # Special case: "ทั้งหมด" without year means NO WHERE clause
+                    prompt = dedent(f"""
+                    You are a SQL query generator. Output ONLY the SQL query with no explanation.
+                    
+                    CURRENT DATABASE SCHEMA:
+                    ----------------------------------------
+                    {schema_prompt}
+                    ----------------------------------------
+                    
+                    EXAMPLE SQL:
+                    ----------------------------------------
+                    {example}
+                    ----------------------------------------
+                    
+                    IMPORTANT: The word "ทั้งหมด" (all) means query ALL data without year filter.
+                    DO NOT add WHERE year clause when "ทั้งหมด" is present without specific years.
+                    
+                    YOUR TASK: {question}
+                    
+                    SQL:
+                    """).strip()
+                else:
+                    # Regular exact match mode
+                    prompt = dedent(f"""
+                    You are a SQL query generator. Output ONLY the SQL query with no explanation.
+                    
+                    CURRENT DATABASE SCHEMA:
+                    ----------------------------------------
+                    {schema_prompt}
+                    ----------------------------------------
+                    
+                    EXAMPLE SQL TO COPY:
+                    ----------------------------------------
+                    {example}
+                    ----------------------------------------
+                    
+                    COPY RULES:
+                    1. COPY the SELECT clause structure EXACTLY
+                    2. COPY the FROM clause EXACTLY  
+                    3. If example has no WHERE clause, DO NOT add WHERE clause
+                    4. If example has WHERE clause, COPY it exactly (including year values)
+                    5. COPY the GROUP BY if present
+                    6. COPY the ORDER BY if present
+                    
+                    YOUR TASK: {question}
+                    
+                    SQL:
+                    """).strip()
             
             else:
                 # STRICT SCHEMA MODE FOR NON-EXACT MATCHES
@@ -1059,9 +1413,11 @@ class PromptManager:
             'customer_years_count': ['ซื้อขายมากี่ปี', 'กี่ปีแล้ว', 'how many years'],
             'customer_history': ['ประวัติลูกค้า', 'ประวัติการซื้อขาย', 'customer history'],
             'work_monthly': ['งานที่วางแผน', 'แผนงาน', 'work plan'],
+            'overhaul_sales_all': ['ยอดขาย overhaul ทั้งหมด', 'overhaul ทั้งหมด', 'total overhaul'],
             'overhaul_sales': ['ยอดขาย overhaul', 'overhaul sales'],
             'sales_analysis': ['วิเคราะห์การขาย', 'sales analysis'],
             'spare_parts_price': ['ราคาอะไหล่', 'spare parts price'],
+            'total_revenue_all': ['รายได้รวมทั้งหมด', 'รายได้ทั้งหมด', 'total revenue all'],
         }
         
         # Check if current example has exact match patterns
@@ -1070,7 +1426,11 @@ class PromptManager:
             for pattern in patterns:
                 if pattern in question_lower:
                     logger.info(f"Found exact match pattern '{pattern}' for example '{example_name}'")
-                    return True
+                    # Special handling for "ทั้งหมด" queries - they should use no-filter examples
+                    if 'ทั้งหมด' in pattern and 'ทั้งหมด' in question_lower:
+                        return True
+                    elif 'ทั้งหมด' not in pattern:
+                        return True
         
         return False
     
@@ -1144,12 +1504,140 @@ class PromptManager:
         """).strip()
     
     def _select_best_example(self, question: str, intent: str, entities: Dict) -> str:
-        """Select most relevant example"""
+        """Select most relevant example - Enhanced with more specific patterns and no-year handling"""
         question_lower = question.lower()
         
         logger.debug(f"Selecting example for intent: {intent}, question: {question_lower[:50]}...")
+        logger.debug(f"Entities: {entities}")
         
-        # PRIORITY 1: Work plan with months
+        # PRIORITY 1: Very specific patterns for common questions
+        
+        # Total revenue questions - distinguish between with/without year
+        if ('รายได้รวม' in question_lower or 'รายได้ทั้งหมด' in question_lower or 
+            'total revenue' in question_lower.replace(' ', '')):
+            # Check if years are specified
+            if not entities.get('years'):
+                logger.info("Selected: total_revenue_all (รายได้รวมทั้งหมด - ไม่ระบุปี)")
+                return self.SQL_EXAMPLES.get('total_revenue_all', self.SQL_EXAMPLES['sales_analysis'])
+            else:
+                logger.info("Selected: total_revenue_year (รายได้รวม - ระบุปี)")
+                return self.SQL_EXAMPLES.get('total_revenue_year', self.SQL_EXAMPLES['sales_analysis'])
+        
+        # Year with min/max revenue queries
+        if ('ปีไหน' in question_lower or 'ปีใด' in question_lower or 'which year' in question_lower):
+            if ('รายได้ต่ำสุด' in question_lower or 'รายได้น้อยสุด' in question_lower or 
+                'lowest revenue' in question_lower or 'minimum revenue' in question_lower):
+                logger.info("Selected: year_min_revenue (ปีที่มีรายได้ต่ำสุด)")
+                return self.SQL_EXAMPLES.get('year_min_revenue', self.SQL_EXAMPLES['revenue_by_year'])
+            elif ('รายได้สูงสุด' in question_lower or 'รายได้มากสุด' in question_lower or 
+                  'highest revenue' in question_lower or 'maximum revenue' in question_lower):
+                logger.info("Selected: year_max_revenue (ปีที่มีรายได้สูงสุด)")
+                return self.SQL_EXAMPLES.get('year_max_revenue', self.SQL_EXAMPLES['revenue_by_year'])
+        
+        # Revenue by each year (no filter, just GROUP BY)
+        if ('รายได้แต่ละปี' in question_lower or 'รายได้เฉลี่ยต่อปี' in question_lower or
+            'revenue by year' in question_lower or 'annual revenue' in question_lower):
+            logger.info("Selected: revenue_by_year (รายได้แต่ละปี)")
+            return self.SQL_EXAMPLES.get('revenue_by_year', self.SQL_EXAMPLES['sales_analysis'])
+        
+        # Compare revenue between specific years
+        if ('เปรียบเทียบ' in question_lower or 'compare' in question_lower) and len(entities.get('years', [])) >= 2:
+            logger.info("Selected: compare_revenue_years (เปรียบเทียบรายได้)")
+            return self.SQL_EXAMPLES.get('compare_revenue_years', self.SQL_EXAMPLES['sales_analysis'])
+        
+        # Count customers
+        if ('มีลูกค้า' in question_lower and 'กี่ราย' in question_lower) or 'จำนวนลูกค้า' in question_lower:
+            logger.info("Selected: count_total_customers (นับจำนวนลูกค้า)")
+            return self.SQL_EXAMPLES.get('count_total_customers', self.SQL_EXAMPLES['top_customers'])
+        
+        # Customer service-related queries - Handle before wrong customer detection
+        if ('ลูกค้าที่ใช้บริการ' in question_lower or 'ลูกค้าใช้บริการ' in question_lower or
+            'customer service' in question_lower or 'use service' in question_lower):
+            
+            # Check for specific criteria
+            if ('ต่อเนื่อง' in question_lower or 'ทุกปี' in question_lower or 
+                'continuous' in question_lower or 'every year' in question_lower):
+                logger.info("Selected: customers_continuous_years (ลูกค้าใช้บริการต่อเนื่อง)")
+                return self.SQL_EXAMPLES.get('customers_continuous_years', self.SQL_EXAMPLES['top_customers'])
+            
+            elif ('service' in question_lower or 'บริการ' in question_lower) and ('มาก' in question_lower or 'สูง' in question_lower):
+                logger.info("Selected: top_service_customers (ลูกค้าใช้ service มาก)")
+                return self.SQL_EXAMPLES.get('top_service_customers', self.SQL_EXAMPLES['top_customers'])
+            
+            elif ('บ่อย' in question_lower or 'frequent' in question_lower or 
+                  'หลายครั้ง' in question_lower or 'many times' in question_lower):
+                logger.info("Selected: most_frequent_customers (ลูกค้าใช้บริการบ่อย)")
+                return self.SQL_EXAMPLES.get('most_frequent_customers', self.SQL_EXAMPLES['top_customers'])
+            
+            # Default for general "ลูกค้าที่ใช้บริการ"
+            else:
+                logger.info("Selected: top_customers_no_filter (ลูกค้าที่ใช้บริการทั่วไป)")
+                return self.SQL_EXAMPLES.get('top_customers_no_filter', self.SQL_EXAMPLES['top_customers'])
+        
+        # Average revenue per transaction
+        if 'รายได้เฉลี่ยต่องาน' in question_lower or 'average revenue per' in question_lower:
+            logger.info("Selected: average_revenue_per_transaction (รายได้เฉลี่ยต่องาน)")
+            return self.SQL_EXAMPLES.get('average_revenue_per_transaction', self.SQL_EXAMPLES['sales_analysis'])
+        
+        # Min/Max value queries
+        if ('งานที่มีมูลค่า' in question_lower or 'งานที่มีรายได้' in question_lower or 
+            'value' in question_lower or 'revenue' in question_lower):
+            if 'ต่ำสุด' in question_lower or 'น้อยสุด' in question_lower or 'min' in question_lower:
+                logger.info("Selected: min_value_work (งานมูลค่าต่ำสุด)")
+                return self.SQL_EXAMPLES.get('min_value_work', self.SQL_EXAMPLES['sales_analysis'])
+            elif 'สูงสุด' in question_lower or 'มากสุด' in question_lower or 'max' in question_lower:
+                logger.info("Selected: max_value_work (งานมูลค่าสูงสุด)")
+                return self.SQL_EXAMPLES.get('max_value_work', self.SQL_EXAMPLES['sales_analysis'])
+        
+        # Duration queries
+        if ('ใช้เวลา' in question_lower or 'duration' in question_lower):
+            if 'น้อยสุด' in question_lower or 'สั้นสุด' in question_lower or 'min' in question_lower:
+                logger.info("Selected: min_duration_work (งานใช้เวลาน้อยสุด)")
+                return self.SQL_EXAMPLES.get('min_duration_work', self.SQL_EXAMPLES['work_monthly'])
+            elif 'นานสุด' in question_lower or 'มากสุด' in question_lower or 'max' in question_lower:
+                logger.info("Selected: max_duration_work (งานใช้เวลานานสุด)")
+                return self.SQL_EXAMPLES.get('max_duration_work', self.SQL_EXAMPLES['work_monthly'])
+        
+        # Revenue by service type - check for year
+        if ('ยอดขายแยกตาม' in question_lower or 'รายได้แต่ละประเภท' in question_lower or 
+            'สัดส่วนรายได้' in question_lower or 'แยกตามประเภทงาน' in question_lower):
+            if entities.get('years'):
+                logger.info("Selected: revenue_by_service_type (รายได้แยกตามประเภท - มีปี)")
+            else:
+                logger.info("Selected: revenue_by_service_type for all years (รายได้แยกตามประเภท - ทุกปี)")
+            return self.SQL_EXAMPLES.get('revenue_by_service_type', self.SQL_EXAMPLES['sales_analysis'])
+        
+        # Growth analysis
+        if 'การเติบโต' in question_lower or 'growth' in question_lower:
+            logger.info("Selected: sales_yoy_growth (การเติบโต)")
+            return self.SQL_EXAMPLES.get('sales_yoy_growth', self.SQL_EXAMPLES['sales_analysis'])
+        
+        # New customers in year
+        if 'ลูกค้าใหม่' in question_lower and entities.get('years'):
+            logger.info("Selected: new_customers_in_year (ลูกค้าใหม่)")
+            return self.SQL_EXAMPLES.get('new_customers_in_year', self.SQL_EXAMPLES['top_customers'])
+        
+        # Overhaul queries - Handle with/without year specification
+        if 'overhaul' in question_lower:
+            # If asking for "ทั้งหมด" (all) without year - get total across all years
+            if ('ทั้งหมด' in question_lower or 'รวม' in question_lower) and not entities.get('years'):
+                logger.info("Selected: overhaul_sales_all (overhaul ทั้งหมด - ไม่กรองปี)")
+                return self.SQL_EXAMPLES.get('overhaul_sales_all', self.SQL_EXAMPLES['overhaul_sales'])
+            # If has specific years
+            elif entities.get('years'):
+                logger.info("Selected: overhaul_sales_specific (overhaul ปีเฉพาะ)")
+                return self.SQL_EXAMPLES.get('overhaul_sales_specific', self.SQL_EXAMPLES['overhaul_sales'])
+            # Default to showing by year (GROUP BY without WHERE)
+            else:
+                logger.info("Selected: overhaul_sales (overhaul แยกตามปี)")
+                return self.SQL_EXAMPLES.get('overhaul_sales', self.SQL_EXAMPLES['overhaul_sales'])
+        
+        # Count works
+        if ('มีงาน' in question_lower and 'กี่งาน' in question_lower) or 'จำนวนงาน' in question_lower:
+            logger.info("Selected: count_works_by_year (จำนวนงาน)")
+            return self.SQL_EXAMPLES.get('count_works_by_year', self.SQL_EXAMPLES['work_monthly'])
+        
+        # PRIORITY 2: Work plan with months
         if intent == 'work_plan' and entities.get('months'):
             logger.info("Selected: work_monthly (work_plan with months)")
             return self.SQL_EXAMPLES['work_monthly']
@@ -1247,7 +1735,7 @@ class PromptManager:
         return self.SQL_EXAMPLES['sales_analysis']
     
     def _build_sql_hints(self, entities: Dict, intent: str) -> str:
-        """Build SQL hints with table specification"""
+        """Build SQL hints with table specification and year filtering rules"""
         hints = []
         
         # Get target table
@@ -1259,9 +1747,14 @@ class PromptManager:
             hints.append("Format: WHERE date::date BETWEEN 'YYYY-MM-DD' AND 'YYYY-MM-DD'")
             hints.append("SELECT: date, customer, detail (do NOT use COUNT)")
         elif target_table == 'v_sales':
-            hints.append("Filter by year column")
+            # Check if years are specified
+            if entities.get('years'):
+                hints.append("Filter by year column using specified years only")
+            else:
+                hints.append("⚠️ NO YEAR FILTER - Query ALL years in database")
+                hints.append("DO NOT add WHERE year clause unless years are explicitly mentioned")
         
-        # Year hints
+        # Year hints - only if years are specified
         if entities.get('years'):
             years = entities['years']
             logger.debug(f"Building SQL hints for years: {years}")
@@ -1278,6 +1771,11 @@ class PromptManager:
                 hint = f"WHERE year IN ('{year_str}')"
                 hints.append(hint)
                 logger.info(f"Generated year hint: {hint}")
+        else:
+            # No years specified - make it explicit
+            if target_table == 'v_sales' and intent in ['sales', 'sales_analysis', 'revenue', 'top_customers']:
+                hints.append("📌 NO YEAR SPECIFIED = Query ALL available years")
+                hints.append("Example: SELECT SUM(total_revenue) FROM v_sales; -- No WHERE year")
         
         # Date hints
         if entities.get('dates'):
@@ -1304,10 +1802,24 @@ class PromptManager:
         # Customer hints
         if entities.get('customers'):
             customer = entities['customers'][0]
-            if target_table == 'v_sales':
-                hints.append(f"WHERE customer_name LIKE '%{customer}%'")
+            # Filter out Thai words that shouldn't be customer names
+            excluded_words = [
+                'ที่', 'ทั้งหมด', 'กี่ราย', 'ที่ใช้บริการ', 'ที่ใช้บริ', 
+                'มากที่สุด', 'บ่อยที่สุด', 'น้อยที่สุด', 'สูงสุด', 'ต่ำสุด',
+                'ทุกราย', 'แต่ละราย', 'หลายราย', 'บางราย'
+            ]
+            
+            # Check if the customer string is actually a Thai phrase
+            is_thai_phrase = any(word in customer for word in excluded_words)
+            
+            if not is_thai_phrase and len(customer) > 2:  # Real customer names are usually longer than 2 chars
+                if target_table == 'v_sales':
+                    hints.append(f"WHERE customer_name LIKE '%{customer}%'")
+                else:
+                    hints.append(f"WHERE customer LIKE '%{customer}%'")
             else:
-                hints.append(f"WHERE customer LIKE '%{customer}%'")
+                logger.warning(f"Ignoring invalid customer filter: '{customer}'")
+                hints.append("# Note: Do not filter by customer name unless explicitly mentioned")
         
         # Product hints
         if entities.get('products'):

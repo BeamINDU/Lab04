@@ -1,0 +1,2 @@
+timestamp,question_number,category,question,status,response_time,response_size,http_code
+2025-09-17 12:21:13,1,รายได้,"รายได้รวมทั้งหมดเท่าไหร่",SUCCESS,18721,1123,200

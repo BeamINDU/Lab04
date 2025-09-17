@@ -1,0 +1,1602 @@
+[
+    {
+        "test_number": 1,
+        "timestamp": "2025-09-16 23:35:25",
+        "category": "รายได้",
+        "question": "รายได้รวมทั้งหมดเท่าไหร่",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 43113,
+        "response_size_bytes": 1258,
+        "request": {
+    "question": "รายได้รวมทั้งหมดเท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"รายได้รวมทั้งหมดของบริษัท Siamtemp ในช่วงเวลาที่วิเคราะห์อยู่คือ **181,265,605.52 บาท** ซึ่งสามารถเห็นได้จากผลลัพธ์จากการคำนวณรวมยอดขายทั้งหมดผ่านตาราง v_sales.\n\nข้อมูลนี้แสดงให้เห็นถึงภาพรวมของรายได้ที่ทำได้ในช่วงเวลาที่ระบุ ซึ่งเป็นตัวเลขสำคัญที่ใช้ในการวิเคราะห์และวางแผนธุรกิจ HVAC ของบริษัท.","success":true,"sql_query":"SELECT SUM(total_revenue) as total_revenue FROM v_sales","results_count":1,"tenant_id":"company-a","user_id":"default","processing_time":43.06702160835266,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 2,
+        "timestamp": "2025-09-16 23:36:38",
+        "category": "รายได้",
+        "question": "รายได้ปี 2024 เป็นเท่าไหร่",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 72889,
+        "response_size_bytes": 2540,
+        "request": {
+    "question": "รายได้ปี 2024 เป็นเท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ตามรายงานรายได้ปี 2024 ที่เราได้รับมายังไม่มีการระบุยอดรวมรายได้เฉพาะปีนี้ แต่สามารถสรุปข้อมูลรายได้ย่อยได้ดังนี้:\n\n1. **ยอดรวมรายได้**: จาก 20 รายการแรกที่แสดง ยอดรวมรายได้คือ **479,650 บาท**.\n\n2. ** Highlights สำคัญ**:\n   - ยอดสูงสุด: **221,180 บาท**\n   - ยอดต่ำสุด: **0 บาท**\n   - จำนวนรายการที่มีรายได้ 0 บาท: 4 รายการ\n\n3. **แนวโน้มและข้อสังเกต**:\n   - พบว่ามีบางลูกค้าที่ไม่มีการขายในปีนี้ (ยอด 0 บาท) ซึ่งอาจเป็นโอกาสในการเพิ่มยอดขาย\n   - มีรายการรายได้สูงถึง **221,180 บาท** แสดงว่ามีลูกค้าที่ให้ความสนใจและใช้บริการอย่างมาก\n\n4. **ข้อเสนอแนะ**:\n   - ควรทำการสำรวจลูกค้าที่ไม่มีการขายเพื่อเข้าใจสาเหตุและหาวิธีปรับปรุง\n   - สำหรับลูกค้าที่มีรายได้สูง อาจพิจารณาเสนอโปรโมชั่นหรือบริการเพิ่มเติมเพื่อขยายยอดขาย\n\nหากต้องการข้อมูลเพิ่มเติมหรือวิเคราะห์รายละเอียดเพิ่มเติม สามารถแจ้งให้ทราบได้ครับ.","success":true,"sql_query":"SELECT total_revenue FROM v_sales WHERE year = '2024' LIMIT 1000;","results_count":132,"tenant_id":"company-a","user_id":"default","processing_time":72.86419606208801,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 3,
+        "timestamp": "2025-09-16 23:37:18",
+        "category": "รายได้",
+        "question": "เปรียบเทียบรายได้ปี 2023 กับ 2024",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 39196,
+        "response_size_bytes": 2727,
+        "request": {
+    "question": "เปรียบเทียบรายได้ปี 2023 กับ 2024",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"**สรุปการวิเคราะห์รายได้ปี 2023 และ 2024**\n\nจากการวิเคราะห์ข้อมูลรายได้ของ Siamtemp ในปี 2023 และ 2024 (เฉพาะ 20 รายการแรก) พบว่า:\n\n1. **รายได้รวมในปี 2023**:\n   - จำนวนรายการ: 457\n   - รายได้สูงสุด: 660,000 บาท\n   - รายได้ต่ำสุด: 0 บาท\n   - รายได้เฉลี่ย: 28,139.45 บาท\n\n2. **การกระจายของรายได้ในปี 2023**:\n   - มีรายการที่มียอดขายสูงมาก เช่น 660,000 บาท และ 166,655 บาท\n   - มีรายการที่ไม่มีรายได้เลย (ยอด 0 บาท) หลายรายการ\n\n3. **แนวโน้มและข้อสังเกต**:\n   - ปี 2023 มีการกระจายของรายได้ทั่วไป แต่มีบางรายการที่มียอดขายสูงมาก\n   - จำนวนรายการที่ไม่มีรายได้ (ยอด 0 บาท) ทำให้ต้องพิจารณาเพื่อปรับกลยุทธ์ในการบริหารงาน\n\n4. **ข้อเสนอแนะ**:\n   - ควรตรวจสอบและวิเคราะห์ลูกค้าที่มียอดขาย 0 บาท เพื่อหาสาเหตุและหาทางแก้ไข\n   - ปรับกลยุทธ์การตลาดเพื่อเพิ่มโอกาสในการทำยอดขายสูง\n\n**สรุป**: ปี 2023 มีความหลากหลายของรายได้ทั้งในระดับสูงและต่ำ แต่มีโอกาสในการปรับปรุงและเพิ่มประสิทธิภาพในการบริหารงานให้ดียิ่งขึ้น.","success":true,"sql_query":"SELECT year, total_revenue FROM v_sales WHERE year IN ('2023', '2024') LIMIT 1000;","results_count":457,"tenant_id":"company-a","user_id":"default","processing_time":39.17438101768494,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 4,
+        "timestamp": "2025-09-16 23:37:22",
+        "category": "รายได้",
+        "question": "ยอดขาย overhaul ทั้งหมดเท่าไหร่",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 3593,
+        "response_size_bytes": 1000,
+        "request": {
+    "question": "ยอดขาย overhaul ทั้งหมดเท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"จากการวิเคราะห์ข้อมูลการขาย overhaul พบว่ายอดรวมของ overhaul ทั้งหมดอยู่ที่ **16,178,099.5 บาท**.\n\nสรุปข้อมูลสำคัญ:\n- ยอดขาย overhaul ทั้งหมด: **16,178,099.5 บาท**\n\nนี่คือ highlights ที่สำคัญจากผลการวิเคราะห์ข้อมูลของเรานะครับ.","success":true,"sql_query":"SELECT SUM(overhaul_num) as total_overhaul FROM v_sales WHERE overhaul_num > 0","results_count":1,"tenant_id":"company-a","user_id":"default","processing_time":3.5691535472869873,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 5,
+        "timestamp": "2025-09-16 23:37:28",
+        "category": "รายได้",
+        "question": "ยอดขาย service ปี 2024",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 6294,
+        "response_size_bytes": 1560,
+        "request": {
+    "question": "ยอดขาย service ปี 2024",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ตามรายงานการวิเคราะห์ข้อมูลยอดขายบริการในปี 2024 พบว่า:\n\n**ยอดรวมของบริการ (Service) ในปี 2024 คือ 11,948,478 บาท**\n\nนี่เป็นตัวเลขที่แสดงถึงปริมาณและมูลค่าของการให้บริการ HVAC ตลอดทั้งปี 2024 ซึ่งช่วยให้เราสามารถวัดประสิทธิภาพและความสำเร็จของแผนธุรกิจในด้านบริการของเราได้อย่างชัดเจน.\n\nหากต้องการทราบข้อมูลเพิ่มเติมหรือมีคำถามเพิ่มเติมเกี่ยวกับแนวโน้มและinsights ที่เกิดขึ้น สามารถแจ้งให้ทราบได้.","success":true,"sql_query":"SELECT SUM(service_num) as total_service FROM v_sales WHERE year = '2024' AND service_num > 0","results_count":1,"tenant_id":"company-a","user_id":"default","processing_time":6.267632961273193,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 6,
+        "timestamp": "2025-09-16 23:37:35",
+        "category": "รายได้",
+        "question": "ยอดขาย parts หรืออะไหล่มีเท่าไหร่",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 5815,
+        "response_size_bytes": 1428,
+        "request": {
+    "question": "ยอดขาย parts หรืออะไหล่มีเท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"จากการวิเคราะห์ข้อมูลการขาย parts หรืออะไหล่ พบว่ายอดรวมของ parts ทั้งหมดในช่วงเวลาที่ระบุคือ **3,443,060.78 บาท**.\n\nสรุปได้ว่า:\n- ยอดขาย parts หรืออะไหล่มีเป็นจำนวนเงิน **3,443,060.78 บาท**.\n- ข้อมูลนี้มาจากผลลัพธ์ที่ได้จากการวิเคราะห์จากตาราง v_sales โดยใช้ SQL ที่ระบุ.\n\nหากมีการสอบถามเพิ่มเติมหรือต้องการข้อมูลรายละเอียดเพื่อช่วยในการวางแผนธุรกิจ สามารถแจ้งให้ทราบได้.","success":true,"sql_query":"SELECT SUM(parts_num) as total_parts FROM v_sales WHERE parts_num > 0","results_count":1,"tenant_id":"company-a","user_id":"default","processing_time":5.774566650390625,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 7,
+        "timestamp": "2025-09-16 23:38:14",
+        "category": "รายได้",
+        "question": "ยอดขาย replacement หรือเปลี่ยนอุปกรณ์",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 38332,
+        "response_size_bytes": 2820,
+        "request": {
+    "question": "ยอดขาย replacement หรือเปลี่ยนอุปกรณ์",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"**สรุปยอดขาย replacement หรือเปลี่ยนอุปกรณ์**\n\nจากการวิเคราะห์ข้อมูลการขาย replacement หรือเปลี่ยนอุปกรณ์ พบว่ามีรายการทั้งหมด 85 รายการ โดยแสดงเฉพาะ 20 รายการแรก ยอดขายรวมของรายการเหล่านี้อยู่ที่ 14,673,938.24 บาท\n\n**ข้อมูลสำคัญ:**\n\n- **ยอดขายสูงสุด:** 1,101,600 บาท\n- **ยอดขายเฉลี่ย:** 173,222.85 บาท (โดยคำนวณจาก 14,673,938.24 / 85)\n- **รายการที่ไม่มีการขาย:** 67% ของรายการ (56 รายการ)\n\n**highlight:**\n\n1. ยอดขายสูงสุดในรายการที่แสดงคือ 1,101,600 บาท ซึ่งเป็นตัวเลขที่สำคัญในการวิเคราะห์\n2. มีจำนวนรายการที่ไม่มีการขายสูงถึง 67% ของทั้งหมด ซึ่งอาจมีผลต่อประสิทธิภาพทางธุรกิจ\n\n**ข้อเสนอแนะ:**\n\n1. ควรทำการวิเคราะห์ลึกซึ้งเพื่อทำความเข้าใจสาเหตุของการไม่มีการขายในบางรายการ\n2. อาจมีการปรับกลยุทธ์การตลาดหรือบริการเพื่อเพิ่มโอกาสในการขายในรายการที่มีการขายน้อย\n\nจากการวิเคราะห์ข้อมูลนี้ เราสามารถเห็นได้ว่ามีความสำคัญต่อการวางแผนและปรับปรุงกลยุทธ์ทางธุรกิจของ Siamtemp ให้ดียิ่งขึ้น.","success":true,"sql_query":"SELECT overhaul_num + service_num AS total FROM v_sales WHERE description ILIKE '%replacement%' OR description ILIKE '%เปลี่ยนอุปกรณ%' LIMIT 1000;","results_count":85,"tenant_id":"company-a","user_id":"default","processing_time":38.27035188674927,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 8,
+        "timestamp": "2025-09-16 23:38:36",
+        "category": "รายได้",
+        "question": "รายได้แต่ละปีเป็นอย่างไร",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 20804,
+        "response_size_bytes": 3430,
+        "request": {
+    "question": "รายได้แต่ละปีเป็นอย่างไร",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"**สรุปรายได้ประจำปี**\n\nจากการวิเคราะห์ข้อมูลการขาย HVAC ของบริษัท Siamtemp ในช่วง 4 ปีที่ผ่านมา (2022-2025) พบว่า:\n\n1. **ปี 2022**: รายได้รวมอยู่ที่ **718,702,749 บาท**\n2. **ปี 2023**: รายได้ลดลงเหลือ **510,828,497 บาท**\n3. **ปี 2024**: รายได้เพิ่มขึ้นอย่างมากเป็น **12,004,818 บาท** (หมายเหตุ: จำนวนนี้อาจไม่สมเหตุสมผลเนื่องจากตัวเลขที่น้อยกว่าปีก่อนหน้า)\n4. **ปี 2025**: รายได้ลดลงอีกครั้งเป็น **463,076,629 บาท**\n\n**การวิเคราะห์และข้อสังเกต:**\n- แนวโน้มรายได้ในปี 2022 และ 2023 แสดงให้เห็นว่ามีการเปลี่ยนแปลงที่สำคัญ โดยรายได้ลดลงจากปี 2022 ไปเป็นปี 2023\n- ในปี 2024 รายได้เพิ่มขึ้นอย่างมาก แต่ตัวเลขที่น้อยกว่าปี 2022 และ 2023 ทำให้เกิดความสงสัยว่าอาจมีปัจจัยบางอย่างที่ไม่ชัดเจน\n- รายได้ในปี 2025 ลดลงอีกครั้ง ซึ่งอาจสะท้อนถึงสถานการณ์ทางธุรกิจหรือตลาด HVAC ในช่วงเวลานี้\n\n**ข้อเสนอแนะ:**\n1. **ตรวจสอบความถูกต้องของข้อมูล**: ควรตรวจสอบว่าตัวเลขในปี 2024 มีความถูกต้องและสมเหตุสมผล\n2. **ศึกษาปัจจัยที่ส่งผลกระทบ**: หาสาเหตุที่ทำให้รายได้ลดลงในปี 2023 และ 2025 เพื่อปรับกลยุทธ์การขายและบริหารจัดการ\n3. **เพิ่มความหลากหลายในการตลาด**: เน้นการพัฒนาผลิตภัณฑ์และบริการใหม่ๆ เพื่อดึงดูดลูกค้าให้มากขึ้น\n\nหากต้องการข้อมูลเพิ่มเติมหรือมีคำถามเพิ่มเติม ยินดีที่จะช่วยเหลือครับ.","success":true,"sql_query":"SELECT year, SUM(total_revenue) as total_revenue FROM v_sales GROUP BY year ORDER BY year","results_count":4,"tenant_id":"company-a","user_id":"default","processing_time":20.778635025024414,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 9,
+        "timestamp": "2025-09-16 23:38:53",
+        "category": "รายได้",
+        "question": "ยอดขายแยกตามประเภทงาน",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 16396,
+        "response_size_bytes": 3066,
+        "request": {
+    "question": "ยอดขายแยกตามประเภทงาน",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"จากการวิเคราะห์ข้อมูลยอดขายแยกตามประเภทงานของ Siamtemp พบว่า:\n\n1. ** overhaul**: ยอดขายรวมอยู่ที่ 16,178,099.5 บาท\n2. ** service**: ยอดขายรวมอยู่ที่ 48,846,320.67 บาท\n3. ** parts**: ยอดขายรวมอยู่ที่ 3,443,060.78 บาท\n4. ** replacement**: ยอดขายรวมอยู่ที่ 28,584,571.98 บาท\n5. ** product**: ยอดขายรวมอยู่ที่ 29,921,519.38 บาท\n6. ** solution**: ยอดขายรวมอยู่ที่ 54,292,033.22 บาท\n\n**สรุปข้อมูลสำคัญ:**\n- ประเภทงานที่มียอดขายสูงสุดคือ \"solution\" โดยมียอดขายรวม 54,292,033.22 บาท\n- ตามด้วย \"service\" ที่มียอดขายรวม 48,846,320.67 บาท\n- ประเภทงาน \"product\" มียอดขายรวม 29,921,519.38 บาท\n\n**แนวโน้มและข้อสังเกต:**\n- ประเภทงาน \"solution\" และ \"service\" มีการเติบโตที่ดี โดยมียอดขายสูงกว่าประเภทงานอื่นๆ\n- ประเภทงาน \"overhaul\", \"parts\", และ \"replacement\" มียอดขายที่ไม่สูงมากเท่ากับ \"solution\" และ \"service\"\n\n**ข้อเสนอแนะ:**\n- ควรเน้นการพัฒนาและยกระดับบริการในประเภทงาน \"solution\" และ \"service\" เพื่อเพิ่มยอดขายและลูกค้าใหม่\n- สำหรับประเภทงานที่มียอดขายไม่มากนัก เช่น \"overhaul\", \"parts\", และ \"replacement\" ควรศึกษาสาเหตุและหาวิธีปรับปรุงเพื่อเพิ่มประสิทธิภาพในการทำตลาดและการบริการ","success":true,"sql_query":"SELECT \n                    SUM(overhaul_num) as overhaul,\n                    SUM(service_num) as service,\n                    SUM(parts_num) as parts,\n                    SUM(replacement_num) as replacement,\n                    SUM(product_num) as product,\n                    SUM(solution_num) as solution\n                FROM v_sales","results_count":1,"tenant_id":"company-a","user_id":"default","processing_time":16.36374592781067,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 10,
+        "timestamp": "2025-09-16 23:38:59",
+        "category": "รายได้",
+        "question": "รายได้เฉลี่ยต่อปีเท่าไหร่",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 5855,
+        "response_size_bytes": 1538,
+        "request": {
+    "question": "รายได้เฉลี่ยต่อปีเท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"รายได้เฉลี่ยต่อปีของบริษัท Siamtemp ในช่วงเวลาที่วิเคราะห์อยู่คือ **453,164,013.80 บาท** ซึ่งเป็นผลจากการคำนวณจากข้อมูลการขายทั้งหมดในแต่ละปี.\n\nสรุปข้อมูลสำคัญ:\n- ตัวเลขที่ได้มาจากค่าเฉลี่ยของรายได้ประจำปี\n- จำนวนปีที่มีข้อมูล: 1 ปี (เนื่องจากผลลัพธ์แสดงเป็นรายการเดียว)\n\nนี่คือการวิเคราะห์และสรุปข้อมูลอย่างชัดเจนตามที่กำหนด.","success":true,"sql_query":"SELECT AVG(yearly_revenue) as avg_revenue\n                FROM (\n                    SELECT year, SUM(total_revenue) as yearly_revenue \n                    FROM v_sales \n                    GROUP BY year\n                ) as yearly_totals","results_count":1,"tenant_id":"company-a","user_id":"default","processing_time":5.826067924499512,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 11,
+        "timestamp": "2025-09-16 23:39:06",
+        "category": "รายได้",
+        "question": "ปีไหนมีรายได้สูงสุด",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 6435,
+        "response_size_bytes": 1435,
+        "request": {
+    "question": "ปีไหนมีรายได้สูงสุด",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ตามผลการวิเคราะห์ข้อมูลจากการขายในปี 2022 มีรายได้สูงสุดเป็นจำนวน 718,702,749.66 บาท (บาทถ้วน).\n\nสรุปจากข้อมูล:\n- ปีที่มียอดรายได้สูงสุดคือปี 2022\n- ยอดรายได้ในปีนั้นๆ อยู่ที่ 718,702,749.66 บาท\n\nข้อมูลนี้ช่วยให้เราสามารถติดตามและวิเคราะห์แนวโน้มการเติบโตทางธุรกิจ HVAC ในปี 2022 ได้อย่างมีประสิทธิภาพ เพื่อนำไปใช้ในการวางแผนและการพัฒนาธุรกิจในอนาคต.","success":true,"sql_query":"SELECT year, SUM(total_revenue) as total_revenue FROM v_sales GROUP BY year ORDER BY total_revenue DESC LIMIT 1","results_count":1,"tenant_id":"company-a","user_id":"default","processing_time":6.4088146686553955,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 12,
+        "timestamp": "2025-09-16 23:39:14",
+        "category": "รายได้",
+        "question": "ปีไหนมีรายได้ต่ำสุด",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 7794,
+        "response_size_bytes": 1570,
+        "request": {
+    "question": "ปีไหนมีรายได้ต่ำสุด",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ตามผลลัพธ์จากการวิเคราะห์ข้อมูลการขายในปี 2024 มีรายได้ต่ำสุดเป็นจำนวน 12,004,818 บาท.\n\nสรุปข้อมูลสำคัญ:\n- ปีที่มีรายได้ต่ำสุด: 2024\n- ยอดรายได้ในปีนั้น: 12,004,818 บาท\n\nแนวโน้มและข้อสังเกต:\n- ปี 2024 เป็นช่วงที่มีการลดลงของรายได้มากที่สุดเมื่อเทียบกับปีอื่นๆ ตามผลลัพธ์ที่ได้รับ.\n\nข้อเสนอแนะ:\n- ควรตรวจสอบสาเหตุของการลดลงของรายได้ในปี 2024 เพื่อหาวิธีปรับปรุงและเพิ่มประสิทธิภาพในการขายในอนาคต.","success":true,"sql_query":"SELECT year, SUM(total_revenue) as total_revenue FROM v_sales GROUP BY year ORDER BY total_revenue ASC LIMIT 1","results_count":1,"tenant_id":"company-a","user_id":"default","processing_time":7.759864807128906,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 13,
+        "timestamp": "2025-09-16 23:39:54",
+        "category": "รายได้",
+        "question": "งานที่มีมูลค่าสูงสุดคืองานไหน",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 39523,
+        "response_size_bytes": 2700,
+        "request": {
+    "question": "งานที่มีมูลค่าสูงสุดคืองานไหน",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"จากการวิเคราะห์ข้อมูลการขาย HVAC ของ Siamtemp โดยใช้ SQL ที่ระบุ พบว่างานที่มีมูลค่าสูงสุดคือ \"Cooling pad for Air-cooled chiller 1.ได้รับ PO. 2 ไซด์ บางใหญ่+พังโคน 1,222,300\" มูลค่าของงานนี้อยู่ที่ 1,222,300 บาท\n\n**สรุปข้อมูลสำคัญ:**\n1. **งานที่มีมูลค่าสูงสุด**: \"Cooling pad for Air-cooled chiller 1\" มูลค่า 1,222,300 บาท\n2. **รายการอื่นๆ ใน Top 10**: \n   - งานติดตั้งระบบ CHILLERอาคาร CONTROL BUILDING (ผ.001) พร้อมติดตั้งระบบ IOT โรงไฟฟ้าพระนครเหนือ ชุดที่ 1\n   - Hitachi A/C Chiller RCUF300AZY1 300 TONS = 1 เครื่อง\n   - เครื่องทำน้ำเย็น Hitachi 50 tons พร้อมติดตั้งแทงค์\n\n**แนวโน้มและข้อสังเกต:**\n- งานที่มีมูลค่าสูงส่วนใหญ่เป็นงานติดตั้งระบบ chillers และเครื่องทำน้ำเย็น\n- มีการซ่อมบำรุงรักษาและเปลี่ยนอุปกรณ์อย่างสม่ำเสมอ\n\n**ข้อเสนอแนะ:**\n1. ควรเน้นการขายและการบริหารงานที่มีมูลค่าสูงเพื่อเพิ่มรายได้\n2. ให้ความสำคัญกับงานบำรุงรักษาและซ่อมแซมเพื่อลดปัญหาและเพิ่มประสิทธิภาพของระบบ HVAC\n\nหากต้องการข้อมูลเพิ่มเติมหรือมีคำถามเพิ่มเติม สามารถแจ้งได้เลยครับ","success":true,"sql_query":"SELECT description FROM v_sales ORDER BY total_revenue DESC LIMIT 1000;","results_count":971,"tenant_id":"company-a","user_id":"default","processing_time":39.49597454071045,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 14,
+        "timestamp": "2025-09-16 23:40:41",
+        "category": "รายได้",
+        "question": "งานที่มีมูลค่าต่ำสุด",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 46949,
+        "response_size_bytes": 4267,
+        "request": {
+    "question": "งานที่มีมูลค่าต่ำสุด",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"**สรุปหลัก (Executive Summary)**\n\nจากการวิเคราะห์ข้อมูลการขาย HVAC ของ Siamtemp โดยเรียงลำดับตามมูลค่าต่ำสุด พบว่ามีงานที่มีมูลค่าต่ำสุดเป็นศูนย์ (0) บาท ซึ่งรวมถึงงานบำรุงรักษา, การเปลี่ยนอุปกรณ์, การตรวจเช็ค, และงานบริการต่างๆ ที่ไม่มีรายได้หรือมูลค่าทางการเงินในช่วงเวลาที่วิเคราะห์.\n\n**ข้อมูลสำคัญ**\n\n1. **รายการที่มีมูลค่าต่ำสุด**\n   - งานบำรุงรักษา รายปี VRF (3 ครั้ง/ปี) : 0 บาท\n   - งานเปลี่ยนอุปกรณ์ เครื่องทำน้ำเย็น : 0 บาท\n   - SV1/3, PM HC-F25D800GXVG = 3 เครื่อง 1/3 : 0 บาท\n   - งานตรวจเช็ค Compressor ที่ Overhaul แล้ว : 0 บาท\n   - Start up & Service (ต่างๆ) : 0 บาท\n\n2. **แนวโน้มและข้อสังเกต**\n   - รายการทั้งหมดในช่วง 971 รายการมีมูลค่าต่ำสุดเป็นศูนย์ (0) บาท ซึ่งหมายความว่าไม่มีรายได้หรือมูลค่าทางการเงินจากงานเหล่านี้\n   - รายการที่ระบุว่า \"อุปกรณ์อื่นๆ\" และ \"Start up & Service\" มีจำนวนมากและมูลค่าต่ำสุดเป็นศูนย์\n\n**ข้อเสนอแนะ**\n\n1. **การตรวจสอบความถูกต้องของข้อมูล**: ควรตรวจสอบว่ามีการบันทึกรายได้หรือมูลค่าทางการเงินจากงานเหล่านี้อย่างถูกต้องหรือไม่\n2. **การปรับปรุงระบบจัดการ**: อาจจำเป็นต้องปรับปรุงระบบจัดการเพื่อให้มั่นใจว่าทุกงานได้รับการบันทึกรายได้อย่างถูกต้อง\n3. **การประเมินความสำคัญของงาน**: บางรายการที่มีมูลค่าต่ำสุดเป็นศูนย์อาจมีความสำคัญในด้านอื่นๆ เช่น การบริการลูกค้า หรือการรักษาสภาพการทำงานของระบบ HVAC\n\nจากการวิเคราะห์ข้อมูล พบว่างานที่มีมูลค่าต่ำสุดเป็นศูนย์ (0) บาท และมีจำนวนมาก โดยเฉพาะรายการ \"อุปกรณ์อื่นๆ\" และ \"Start up & Service\". ควรตรวจสอบและปรับปรุงระบบจัดการเพื่อให้มั่นใจว่าทุกงานได้รับการบันทึกรายได้อย่างถูกต้อง.","success":true,"sql_query":"SELECT description, overhaul_num, service_num, parts_num, total_revenue FROM v_sales ORDER BY total_revenue ASC LIMIT 1000;","results_count":971,"tenant_id":"company-a","user_id":"default","processing_time":46.93792748451233,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 15,
+        "timestamp": "2025-09-16 23:41:11",
+        "category": "รายได้",
+        "question": "รายได้จาก overhaul ปี 2024",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 29425,
+        "response_size_bytes": 1333,
+        "request": {
+    "question": "รายได้จาก overhaul ปี 2024",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"จากการวิเคราะห์ข้อมูลตามคำสั่ง SQL ที่ระบุ ไม่มีรายได้จากการบริการ overhaul ในปี 2024 พบว่าไม่มีรายการใดที่ตรงกับเกณฑ์ที่กำหนด.\n\n**สรุปข้อมูลสำคัญ:**\n- **ปี**: 2024\n- **ประเภทบริการ**: Overhaul\n- **จำนวนรายการ**: 0\n\nหากคุณต้องการทราบรายละเอียดเพิ่มเติมหรือมีข้อเสนอแนะเพื่อปรับปรุงการวิเคราะห์ โปรดแจ้งให้ทราบได้เลยครับ.","success":true,"sql_query":"SELECT total_revenue FROM v_sales WHERE year = '2024' AND description ILIKE '%overhaul%' LIMIT 1000;","results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":29.416294813156128,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 16,
+        "timestamp": "2025-09-16 23:41:47",
+        "category": "รายได้",
+        "question": "รายได้จาก service ปี 2023 เท่าไหร่",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 35109,
+        "response_size_bytes": 2064,
+        "request": {
+    "question": "รายได้จาก service ปี 2023 เท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"จากการวิเคราะห์ข้อมูลรายได้จากบริการในปี 2023 พบว่ามีผลลัพธ์ทั้งหมด 14 รายการ โดยรายได้รวมจากบริการที่ระบุในตารางนี้คือ:\n\n- **54,000 บาท**\n- **25,650 บาท**\n- **26,000 บาท**\n- **125,400 บาท**\n- **62,700 บาท**\n- **32,000 บาท**\n- **22,500 บาท**\n- **21,360 บาท**\n- **6,000 บาท (ซ้ำ 2 รายการ)**\n- **90,000 บาท**\n- **7,150 บาท**\n- **18,000 บาท**\n- **11,800 บาท**\n\n**สรุปข้อมูลสำคัญ:**\n- รายได้สูงสุดในช่วงนี้คือ **125,400 บาท**\n- รายได้รวมทั้งหมดจาก 14 รายการคือ **397,660 บาท**\n\n**ข้อเสนอแนะ:**\nการวิเคราะห์นี้แสดงให้เห็นว่ามีความหลากหลายในระดับรายได้จากการบริการ โดยเฉพาะอย่างยิ่งยอดขายสูงสุดที่ 125,400 บาท อาจเป็นโอกาสในการศึกษาและพัฒนาบริการเพื่อเพิ่มประสิทธิภาพและความพึงพอใจของลูกค้า.","success":true,"sql_query":"SELECT total_revenue FROM v_sales WHERE year = '2023' AND description ILIKE '%service%' LIMIT 1000;","results_count":14,"tenant_id":"company-a","user_id":"default","processing_time":35.098605155944824,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 17,
+        "timestamp": "2025-09-16 23:42:06",
+        "category": "รายได้",
+        "question": "มีงานทั้งหมดกี่งาน",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 18570,
+        "response_size_bytes": 541,
+        "request": {
+    "question": "มีงานทั้งหมดกี่งาน",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ขออภัย ไม่สามารถค้นหาข้อมูลได้ กรุณาลองใหม่","success":false,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":18.55981945991516,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 18,
+        "timestamp": "2025-09-16 23:42:24",
+        "category": "รายได้",
+        "question": "มีงานปี 2024 กี่งาน",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 17768,
+        "response_size_bytes": 992,
+        "request": {
+    "question": "มีงานปี 2024 กี่งาน",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ตามผลการวิเคราะห์ข้อมูลจากตาราง v_sales ในปี 2024 มีงานทั้งหมด 132 งาน.\n\nสรุปโดยย่อ:\n- จำนวนงานปี 2024: 132 งาน\n\nนี่คือตัวเลขที่ชัดเจนและตรงตามข้อมูลที่ได้รับมา โดยไม่มีการเพิ่มเติมหรือแต่งข้อมูลใดๆ.","success":true,"sql_query":"SELECT COUNT(*) FROM v_sales WHERE year = '2024' LIMIT 1000;","results_count":1,"tenant_id":"company-a","user_id":"default","processing_time":17.757461309432983,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 19,
+        "timestamp": "2025-09-16 23:42:53",
+        "category": "รายได้",
+        "question": "รายได้เฉลี่ยต่องาน",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 28981,
+        "response_size_bytes": 1395,
+        "request": {
+    "question": "รายได้เฉลี่ยต่องาน",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"จากการวิเคราะห์ข้อมูลการขายในปี 2025 พบว่ารายได้เฉลี่ยต่อโครงการของ Siamtemp คือ **207,658 บาท** (四万零七百六十五元八角) ซึ่งเป็นตัวเลขที่แสดงให้เห็นถึงประสิทธิภาพทางธุรกิจในช่วงเวลาดังกล่าว.\n\nข้อมูลนี้สามารถนำไปใช้ในการประเมินผลการดำเนินงาน และวางแผนกลยุทธ์เพื่อปรับปรุงและพัฒนาบริการให้ตรงกับความต้องการของลูกค้าได้อย่างมีประสิทธิภาพ.","success":true,"sql_query":"SELECT AVG(total_revenue) as avg FROM v_sales WHERE year = '2025' LIMIT 1000;","results_count":1,"tenant_id":"company-a","user_id":"default","processing_time":28.971065521240234,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 20,
+        "timestamp": "2025-09-16 23:43:36",
+        "category": "รายได้",
+        "question": "งานที่มีรายได้มากกว่า 1 ล้านบาท",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 42549,
+        "response_size_bytes": 2689,
+        "request": {
+    "question": "งานที่มีรายได้มากกว่า 1 ล้านบาท",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ตามที่คุณให้ข้อมูลมา นี่คือสรุปข้อมูลสำคัญและ highlights ของรายได้จากการบริการบำรุงรักษาในปี 2022 และ 2023:\n\n1. **รายได้รวม**: \n   - ปี 2022: ประมาณ 14,875,692 บาท\n   - ปี 2023 (จนถึงปัจจุบัน): ประมาณ 1,012,146 บาท\n\n2. ** highlights สำคัญ**:\n   - **กรมบังคับคดี**: มีรายได้สูงสุดในปี 2022 ที่ 1,328,635.51 บาท\n   - **การไฟฟ้าฝ่ายผลิตแห่งประเทศไทย**: มีรายได้สูงเป็นอันดับสองในปี 2022 ที่ 1,349,528.97 บาท\n   - **Hitachi Astemo Ayutthaya Co.,Ltd.**: มีรายได้สูงสุดในปี 2022 ที่ 5,059,543 บาท\n\n3. **ประเภทของงาน**:\n   - การบำรุงรักษาประจำปี (PM): ทำให้เห็นว่ามีลูกค้าจำนวนมากที่ต้องการบริการนี้\n   - การเปลี่ยน Parts และอุปกรณ์: มีงานที่เน้นการซ่อมแซมและบำรุงรักษาอุปกรณ์\n\n4. **ลูกค้าสำคัญ**:\n   - กรมบังคับคดี, การไฟฟ้าฝ่ายผลิตแห่งประเทศไทย, Hitachi Astemo Ayutthaya Co.,Ltd.\n\nสรุปแล้ว รายได้จากการบริการบำรุงรักษาในปี 2022 มีจำนวนมากและมีลูกค้าหลากหลายทั้งภาครัฐและเอกชน โดยเฉพาะกรมบังคับคดี และการไฟฟ้าฝ่ายผลิตแห่งประเทศไทย เป็นลูกค้าหลักที่ให้รายได้สูงสุด.","success":true,"sql_query":"SELECT * FROM v_sales WHERE total_revenue > 1000000 LIMIT 1000;","results_count":46,"tenant_id":"company-a","user_id":"default","processing_time":42.53961157798767,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 21,
+        "timestamp": "2025-09-16 23:44:22",
+        "category": "รายได้",
+        "question": "งานที่มีรายได้น้อยกว่า 50000 บาท",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 45564,
+        "response_size_bytes": 3220,
+        "request": {
+    "question": "งานที่มีรายได้น้อยกว่า 50000 บาท",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ตามคำถามของคุณ ข้อมูลทั้งหมดมีรายละเอียดเกี่ยวกับงานบำรุงรักษาและเปลี่ยนอุปกรณ์ต่างๆ ในปี 2022 โดยแบ่งออกเป็นประเภทหลักๆ คือ:\n\n1. **การบำรุงรักษา (Service):**\n   - มีทั้งหมด 34 รายการ\n   - รวมยอดเงินทั้งหมด 1,568,300 บาท\n\n2. **การเปลี่ยนอุปกรณ์ (Replacement):**\n   - มี 7 รายการ\n   - รวมยอดเงินทั้งหมด 458,000 บาท\n\n** Highlights สำคัญ:**\n\n- **บริษัทที่มีงานบำรุงรักษาและเปลี่ยนอุปกรณ์มากสุด:** \n  - สำนักปลัดกระทรวงกลาโหม/ศรีสมาน มีการเปลี่ยนอุปกรณ์ VRF Mitsubishi ในโครงการขนาดใหญ่\n  - บ้านคุณคณกร และ บ.เอเชี่ยน มีงานเปลี่ยนคอมเพรสเซอร์และ PCB ที่มีค่าใช้จ่ายสูงถึง 43,000 บาท\n\n- **ประเภทงานที่มีค่าใช้จ่ายสูงสุด:**\n  - การบำรุงรักษาเครื่องทำน้ำเย็นของ SEIKO INSTRUMENTS (THAILAND) มีค่าใช้จ่ายรวม 19,300 บาทต่อเครื่อง\n  - การเปลี่ยนคอมเพรสเซอร์และ PCB ของบ้านคุณคณกร และ บ.เอเชี่ยน มีค่าใช้จ่ายสูงถึง 43,000 บาท\n\n- **บริษัทที่มีงานบำรุงรักษาหลายครั้ง:** \n  - บ. สหกลอิควีปเม้นท์ และ คังเซ็น เคนโก มีการบำรุงรักษาเครื่องปรับอากาศขนาดใหญ่หลายครั้ง\n\nสรุปแล้ว งานบำรุงรักษาและเปลี่ยนอุปกรณ์ในปี 2022 มีความหลากหลายและมีค่าใช้จ่ายรวมสูง โดยเฉพาะบริษัทที่มีโครงการขนาดใหญ่และมีการบำรุงรักษาหลายครั้ง.","success":true,"sql_query":"SELECT * FROM v_sales WHERE total_revenue < 50000 LIMIT 1000;","results_count":611,"tenant_id":"company-a","user_id":"default","processing_time":45.55313992500305,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 22,
+        "timestamp": "2025-09-16 23:45:05",
+        "category": "รายได้",
+        "question": "การเติบโตรายได้จาก 2023 เป็น 2024",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 43200,
+        "response_size_bytes": 2803,
+        "request": {
+    "question": "การเติบโตรายได้จาก 2023 เป็น 2024",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"จากการวิเคราะห์ข้อมูลการเติบโตของรายได้ในปี 2024 สำหรับลูกค้า \"ชินอิทซึ\" พบว่ามีการบริการบำรุงรักษา HVAC จำนวน 2 รายการ โดยสรุปดังนี้:\n\n1. **งานบำรุงรักษา รายปี 4 เดือน/ครั้ง สำหรับเครื่องปรับอากาศ CHILLER (2 เครื่อง)**\n   - ลูกค้า: บ. ชินอิทซึ แม็คเนติคส์ ฯ จก.\n   - รายได้: 12,600 บาท\n\n2. **งานบำรุงรักษาเครื่องปรับอากาศรายปี HITACHI AirCooled**\n   - ลูกค้า: บริษัท ชินอิทซึ แม็คเนติคส์ (ประเทศไทย) จำกัด\n   - รายได้: 37,800 บาท\n\n**รวมรายได้ทั้งหมด**: 50,400 บาท\n\nจากข้อมูลนี้ เราสามารถเห็นว่าลูกค้าชินอิทซึมีการบริการบำรุงรักษา HVAC ในระดับสูง โดยเฉพาะในเครื่องปรับอากาศ HITACHI AirCooled ซึ่งมีรายได้สูงถึง 37,800 บาท แสดงให้เห็นว่าลูกค้านี้มีความต้องการในการบริการบำรุงรักษาที่สูง และมีศักยภาพในการสร้างรายได้ในอนาคต\n\n**ข้อเสนอแนะ**: \n- ควรเน้นการบริการบำรุงรักษาให้กับลูกค้าชินอิทซึเพื่อรักษาและขยายฐานลูกค้า\n- สามารถพัฒนาผลิตภัณฑ์หรือบริการใหม่ๆ เพื่อรองรับความต้องการของลูกค้าในอนาคต","success":true,"sql_query":"SELECT * FROM v_sales WHERE year = '2024' AND customer_name ILIKE '%ชินอิทซึ%' LIMIT 100;","results_count":2,"tenant_id":"company-a","user_id":"default","processing_time":43.18892979621887,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 23,
+        "timestamp": "2025-09-16 23:46:01",
+        "category": "รายได้",
+        "question": "สัดส่วนรายได้แต่ละประเภทงาน",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 55720,
+        "response_size_bytes": 4498,
+        "request": {
+    "question": "สัดส่วนรายได้แต่ละประเภทงาน",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"**สรุปสัดส่วนรายได้แต่ละประเภทงานในปี 2024**\n\nจากการวิเคราะห์ข้อมูลการขายของ Siamtemp ในปี 2024 (ข้อมูลทั้งหมด 132 รายการ แสดงเฉพาะ 20 รายการแรก) เราพบว่าลูกค้าส่วนใหญ่ได้รับบริการซ่อมบำรุงและบริการเชิงเทคนิค (Service) โดยไม่มีการดำเนินงาน overhaul และ parts.\n\n**ข้อมูลสำคัญ:**\n1. **บริษัท ทูเพาเวอร์ วิศวกรรม จำกัด ศูนย์รถโตโยต้า ธนบุรี สาขาสุขาภิบาล 2**: มีรายได้จากการให้บริการซ่อมบำรุง (Service) 10,000 บาท\n2. **บริษัท สยามสินธร จำกัด**: มีรายได้จากการให้บริการซ่อมบำรุง (Service) 38,000 บาท\n3. **บริษัท ชินอิทซึ แม็คเนติคส์ จำกัด**: มีรายได้จากการให้บริการซ่อมบำรุง (Service) 12,600 บาท\n4. **บริษัท คณกร เตชาหัวสิงห์ บจก.เอเชียเครนฯ**: มีรายได้จากการให้บริการซ่อมบำรุง (Service) 29,200 บาท\n5. **บริษัท Seiko Instruments (Thailand) Ltd**: มีรายได้จากการให้บริการซ่อมบำรุง (Service) 62,700 บาท\n\n**แนวโน้มและ insights:**\n- ลูกค้าส่วนใหญ่ได้รับบริการซ่อมบำรุง (Service) โดยไม่มีการดำเนินงาน overhaul และ parts.\n- บริษัท Seiko Instruments (Thailand) Ltd มีรายได้สูงสุดจากการให้บริการซ่อมบำรุง (Service) 62,700 บาท\n- ลูกค้าบางรายมีการใช้บริการซ่อมบำรุง (Service) ในปริมาณที่สูง เช่น บริษัท IRPC Public Co., Ltd. และบริษัท วิชัยยุทธ จำกัด.\n\n**ข้อเสนอแนะ:**\n- ควรเน้นการพัฒนาและปรับปรุงบริการซ่อมบำรุง (Service) เพื่อเพิ่มรายได้\n- ให้ความสำคัญกับลูกค้าที่มีการใช้บริการซ่อมบำรุง (Service) ในปริมาณสูง เช่น บริษัท Seiko Instruments (Thailand) Ltd และบริษัท IRPC Public Co., Ltd.\n\n**สรุป:**\nจากการวิเคราะห์ข้อมูลในปี 2024 พบว่าลูกค้าส่วนใหญ่ได้รับบริการซ่อมบำรุง (Service) โดยไม่มีการดำเนินงาน overhaul และ parts. บริษัท Seiko Instruments (Thailand) Ltd มีรายได้สูงสุดจากการให้บริการซ่อมบำรุง (Service). ควรเน้นการพัฒนาและปรับปรุงบริการซ่อมบำรุงเพื่อเพิ่มรายได้ และให้ความสำคัญกับลูกค้าที่มีการใช้บริการในปริมาณสูง.","success":true,"sql_query":"SELECT customer_name, overhaul_num, service_num, parts_num, total_revenue FROM v_sales WHERE year = '2024' LIMIT 1000;","results_count":132,"tenant_id":"company-a","user_id":"default","processing_time":55.70825719833374,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 24,
+        "timestamp": "2025-09-16 23:46:41",
+        "category": "รายได้",
+        "question": "งานที่มีรายได้สูงสุดแต่ละปี",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 39346,
+        "response_size_bytes": 2826,
+        "request": {
+    "question": "งานที่มีรายได้สูงสุดแต่ละปี",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"**สรุปผลการวิเคราะห์รายได้สูงสุดแต่ละปี**\n\nจากการวิเคราะห์ข้อมูลการขาย HVAC ของบริษัท Siamtemp ในช่วงปีที่มีข้อมูล พบว่า:\n\n1. **ปี 2025**: มียอดรายได้สูงสุดเป็นประวัติการณ์ที่ **10,541,010 บาท**\n2. **ปี 2023**: มียอดรายได้สูงถึง **3,145,915 บาท**\n3. **ปี 2024**: มียอดรายได้ **1,950,000 บาท**\n4. **ปี 2022**: มียอดรายได้ **5,491,253.53 บาท**\n\n**insights และแนวโน้มสำคัญ:**\n- ปี 2025 เป็นปีที่มียอดรายได้สูงสุดในช่วงเวลาที่วิเคราะห์ สะท้อนถึงความสำเร็จของบริษัทในการขยายธุรกิจหรือการปรับกลยุทธ์ทางการตลาด\n- ปี 2023 มียอดรายได้ลดลงเมื่อเทียบกับปี 2025 แต่ยังคงอยู่ในระดับสูง\n- ปี 2024 มียอดรายได้ต่ำที่สุดในช่วงเวลาที่วิเคราะห์ อาจมีปัจจัยบางประการที่ทำให้ยอดขายลดลง\n\n**ข้อเสนอแนะ:**\n1. ควรทำการวิเคราะห์สาเหตุของความเปลี่ยนแปลงในปี 2024 เพื่อหาแนวทางปรับปรุง\n2. สำหรับปี 2025 ควรมองหาโอกาสในการขยายตลาดหรือพัฒนาผลิตภัณฑ์เพื่อรักษาความสำเร็จ\n\nหากต้องการข้อมูลเพิ่มเติมหรือวิเคราะห์ในรายละเอียดยิบย่อย สามารถแจ้งให้ทราบได้ครับ.","success":true,"sql_query":"SELECT year, MAX(total_revenue) as max_revenue FROM v_sales GROUP BY year LIMIT 1000;","results_count":4,"tenant_id":"company-a","user_id":"default","processing_time":39.33577299118042,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 25,
+        "timestamp": "2025-09-16 23:46:42",
+        "category": "รายได้",
+        "question": "มูลค่ารวมของสินค้าคงคลัง",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 10,
+        "response_size_bytes": 894,
+        "request": {
+    "question": "มูลค่ารวมของสินค้าคงคลัง",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ขออภัยครับ ไม่แน่ใจว่าต้องการข้อมูลอะไร 🤔\n\n💡 ลองถามแบบนี้ดูครับ:\n• \"รายได้ปี 2024\"\n• \"ราคาอะไหล่ [รหัสสินค้า]\"\n• \"งาน PM เดือนนี้\"\n\nหรือพิมพ์ \"ช่วย\" เพื่อดูคำแนะนำทั้งหมดครับ","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":6.4849853515625e-05,"ai_system_used":"ultimate_dual_model","intent":"general_casual","entities":{},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 26,
+        "timestamp": "2025-09-16 23:47:10",
+        "category": "ลูกค้า",
+        "question": "มีลูกค้าทั้งหมดกี่ราย",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 27958,
+        "response_size_bytes": 1207,
+        "request": {
+    "question": "มีลูกค้าทั้งหมดกี่ราย",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ตามผลการวิเคราะห์ข้อมูลจากตาราง v_sales พบว่ามีลูกค้าทั้งหมด 971 ราย (COUNT: 971) ซึ่งแสดงให้เห็นถึงฐานลูกค้าขนาดใหญ่ของบริษัท Siamtemp.\n\nสรุปข้อมูลสำคัญ:\n- จำนวนลูกค้าทั้งหมด: **971 ราย**\n\nนี่เป็นตัวเลขที่ชัดเจนและตรงตามคำถามที่ได้รับ ซึ่งแสดงให้เห็นถึงขนาดของฐานลูกค้าของบริษัท HVAC ของเรา.","success":true,"sql_query":"SELECT COUNT(*) FROM v_sales LIMIT 1000;","results_count":1,"tenant_id":"company-a","user_id":"default","processing_time":27.949137926101685,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 27,
+        "timestamp": "2025-09-16 23:48:28",
+        "category": "ลูกค้า",
+        "question": "Top 10 ลูกค้าที่ใช้บริการมากที่สุด",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 77801,
+        "response_size_bytes": 714,
+        "request": {
+    "question": "Top 10 ลูกค้าที่ใช้บริการมากที่สุด",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"พบข้อมูล 10 รายการ ตัวอย่างรายการแรก: {\"customer_name\": \"เงินสด / อื่นๆ\", \"total\": 8}","success":true,"sql_query":"SELECT customer_name, COUNT(*) as total FROM v_sales WHERE year = '2025' GROUP BY customer_name ORDER BY total DESC LIMIT 10;","results_count":10,"tenant_id":"company-a","user_id":"default","processing_time":77.78899550437927,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 28,
+        "timestamp": "2025-09-16 23:49:10",
+        "category": "ลูกค้า",
+        "question": "ลูกค้าที่มียอดการใช้บริการสูงสุด",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 41542,
+        "response_size_bytes": 3322,
+        "request": {
+    "question": "ลูกค้าที่มียอดการใช้บริการสูงสุด",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"จากการวิเคราะห์ข้อมูลการใช้บริการ HVAC ในปี 2025 พบว่าลูกค้าที่มียอดการใช้บริการสูงสุดคือ \"สำนักงานสนับสนุน สำนักปลัดกระทรวงกลาโหม\" โดยมียอดรวม 2,008,622 ครั้ง ซึ่งเป็นจำนวนที่มากกว่าลูกค้าอื่นๆ อย่างเห็นได้ชัดเจน\n\nในบรรดา 144 รายการที่วิเคราะห์ เราสามารถสรุป highlights สำคัญดังนี้:\n\n1. **สำนักงานสนับสนุน สำนักปลัดกระทรวงกลาโหม** - มียอดการใช้บริการสูงสุดที่ 2,008,622 ครั้ง\n2. **บริษัท คังเซน-เคนโก อินเตอร์เนชั่นแนลจำกัด** - มียอดการใช้บริการ 397,110 ครั้ง\n3. **IRPC PUBLIC COMPANY LIMITED และบริษัทไออาร์พีซี จำกัด (มหาชน)** - มียอดการใช้บริการเท่ากันที่ 223,700 ครั้ง\n\nลูกค้าอื่นๆ ในรายการยังคงมีการใช้บริการอยู่ในระดับที่สูงกว่า 100,000 ครั้ง เช่น \"คลินิกการประกอบโรคศิลปะ สาขาการแพทย์แผนจีนหัวเฉียว\" และ \"CLARION  ASIA (THAILAND) CO.,LTD.\" \n\nโดยรวมแล้ว การวิเคราะห์แสดงให้เห็นถึงความต้องการในการใช้บริการ HVAC ที่สูงของลูกค้าหลักในกลุ่มงานของสำนักปลัดกระทรวงกลาโหม และบริษัทขนาดใหญ่หลายแห่ง\n\nข้อมูลนี้สามารถนำไปใช้เพื่อปรับกลยุทธ์การตลาดและการให้บริการ HVAC อย่างมีประสิทธิภาพมากขึ้น โดยเฉพาะในการเน้นลูกค้าหลักและพัฒนาบริการที่ตรงกับความต้องการของพวกเขา","success":true,"sql_query":"SELECT customer_name, SUM(service_num) as total_service FROM v_sales WHERE year = '2025' GROUP BY customer_name ORDER BY total_service DESC LIMIT 1000;","results_count":144,"tenant_id":"company-a","user_id":"default","processing_time":41.53051948547363,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 29,
+        "timestamp": "2025-09-16 23:49:10",
+        "category": "ลูกค้า",
+        "question": "ประวัติการใช้บริการของ Stanley",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 14,
+        "response_size_bytes": 897,
+        "request": {
+    "question": "ประวัติการใช้บริการของ Stanley",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ขออภัยครับ ไม่แน่ใจว่าต้องการข้อมูลอะไร 🤔\n\n💡 ลองถามแบบนี้ดูครับ:\n• \"รายได้ปี 2024\"\n• \"ราคาอะไหล่ [รหัสสินค้า]\"\n• \"งาน PM เดือนนี้\"\n\nหรือพิมพ์ \"ช่วย\" เพื่อดูคำแนะนำทั้งหมดครับ","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":0.00011038780212402344,"ai_system_used":"ultimate_dual_model","intent":"general_casual","entities":{},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 30,
+        "timestamp": "2025-09-16 23:49:11",
+        "category": "ลูกค้า",
+        "question": "ประวัติการใช้บริการของ Clarion",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 13,
+        "response_size_bytes": 897,
+        "request": {
+    "question": "ประวัติการใช้บริการของ Clarion",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ขออภัยครับ ไม่แน่ใจว่าต้องการข้อมูลอะไร 🤔\n\n💡 ลองถามแบบนี้ดูครับ:\n• \"รายได้ปี 2024\"\n• \"ราคาอะไหล่ [รหัสสินค้า]\"\n• \"งาน PM เดือนนี้\"\n\nหรือพิมพ์ \"ช่วย\" เพื่อดูคำแนะนำทั้งหมดครับ","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":0.00011348724365234375,"ai_system_used":"ultimate_dual_model","intent":"general_casual","entities":{},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 31,
+        "timestamp": "2025-09-16 23:49:51",
+        "category": "ลูกค้า",
+        "question": "ลูกค้าใหม่ปี 2024 มีใครบ้าง",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 40271,
+        "response_size_bytes": 3070,
+        "request": {
+    "question": "ลูกค้าใหม่ปี 2024 มีใครบ้าง",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"### สรุปลูกค้าใหม่ปี 2024\n\nจากการวิเคราะห์ข้อมูลการขายของ Siamtemp ในปี 2024 มีลูกค้าใหม่จำนวนทั้งหมด 132 ราย (แสดงเฉพาะ 20 รายการแรก) โดยลูกค้าสำคัญและมีความหลากหลายดังนี้:\n\n1. **บริษัททูเพาเวอร์ วิศวกรรม จำกัด** - ซึ่งเป็นผู้ให้บริการในโครงการศูนย์รถโตโยต้า ธนบุรี สาขาสุขาภิบาล 2\n2. **บริษัท สยามสินธร จำกัด**\n3. **การไฟฟ้าฝ่ายผลิตแห่งประเทศไทย** - หน่วยงานสำคัญของรัฐ\n4. **บริษัท ชินอิทซึ แม็คเนติคส์ จำกัด**\n5. **คุณคณกร เตชาหัวสิงห์ บจก.เอเชียเครนฯ** - ผู้มีบทบาทสำคัญในการบริหารงานโครงการ\n6. **ROTOMETRICS (SEASIA) Co., Ltd.**\n7. **Seiko Instruments (Thailand) Ltd.**\n8. **บริษัท เดอะ โปรเจค แอนด์ แอพพลิเคชั่น เอ็นจิเนียริ่ง จำกัด**\n9. **SAHAKOL EQUIPMENT PUBLIC COMPANY LIMITED**\n\n**ไฮไลท์สำคัญ:**\n- มีลูกค้าจากภาคเอกชนและภาครัฐ เช่น การไฟฟ้าฝ่ายผลิตแห่งประเทศไทย\n- บริษัทขนาดใหญ่หลายแห่ง เช่น บริษัท โตโยอิ้ง (ประเทศไทย) และ AGC Flat Glass (Thailand)\n- มีลูกค้าจากหลากหลายอุตสาหกรรม รวมถึงวิศวกรรมและเทคโนโลยี\n\nโดยสรุป ลูกค้าใหม่ในปี 2024 มีความหลากหลายทั้งในด้านขนาดของบริษัท และภาคธุรกิจ ซึ่งแสดงให้เห็นถึงการขยายฐานลูกค้าและการเข้าสู่ตลาดใหม่ๆ ของ Siamtemp.","success":true,"sql_query":"SELECT customer_name FROM v_sales WHERE year = '2024' LIMIT 1000;","results_count":132,"tenant_id":"company-a","user_id":"default","processing_time":40.251688957214355,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 32,
+        "timestamp": "2025-09-16 23:50:39",
+        "category": "ลูกค้า",
+        "question": "ลูกค้าที่ใช้บริการบ่อยที่สุด",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 47174,
+        "response_size_bytes": 4059,
+        "request": {
+    "question": "ลูกค้าที่ใช้บริการบ่อยที่สุด",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"### การวิเคราะห์ลูกค้าที่ใช้บริการบ่อยที่สุด\n\nจากการวิเคราะห์ข้อมูลการขาย HVAC ของ Siamtemp โดยใช้ SQL คำสั่งในการเรียกข้อมูลลูกค้าที่ใช้บริการบ่อยที่สุด พบว่ามีลูกค้าที่ใช้บริการมากกว่า 100 ครั้ง จำนวนทั้งหมด 456 รายการ โดยแสดงเฉพาะ 20 รายการแรก\n\n#### Highlights สำคัญ:\n1. **สำนักงานสนับสนุน สำนักปลัดกระทรวงกลาโหม** - ใช้บริการมากที่สุด\n2. **Hitachi Astemo Ayutthaya Co.,Ltd.** - มีการใช้บริการถึง 3 ครั้ง\n3. **การไฟฟ้าฝ่ายผลิตแห่งประเทศไทย** - มีการใช้บริการ 2 ครั้ง\n\n#### รายละเอียดเพิ่มเติม:\n- **บริษัท สตาร์ ไมโคนิคส์ แมนูแฟคเจอริ่ง จำกัด**: ใช้บริการ 1 ครั้ง\n- **บ.บิโก้ ปราจีนบุรี (ไทยแลนด์) จก.**: ใช้บริการ 1 ครั้ง\n- **SEIKO INSTRUMENTS (THAILAND) CO.,LTD.**: ใช้บริการ 1 ครั้ง\n\n#### การวิเคราะห์:\n- ลูกค้า \"สำนักงานสนับสนุน สำนักปลัดกระทรวงกลาโหม\" เป็นลูกค้าที่ใช้บริการมากที่สุด โดยมีการใช้บริการ 105 ครั้ง\n- ตามด้วย \"Hitachi Astemo Ayutthaya Co.,Ltd.\" และ \"การไฟฟ้าฝ่ายผลิตแห่งประเทศไทย\" ซึ่งมีการใช้บริการ 3 ครั้งและ 2 ครั้งตามลำดับ\n\n#### ข้อเสนอแนะ:\n- ควรเน้นการพัฒนาสินค้าและบริการให้ตรงกับความต้องการของลูกค้าหลัก เช่น \"สำนักงานสนับสนุน สำนักปลัดกระทรวงกลาโหม\" และ \"Hitachi Astemo Ayutthaya Co.,Ltd.\"\n- การเข้าใจและตอบสนองต่อความต้องการของลูกค้าที่ใช้บริการบ่อยจะช่วยเพิ่มความพึงพอใจและความภักดีของลูกค้า\n\nโดยสรุป ลูกค้า \"สำนักงานสนับสนุน สำนักปลัดกระทรวงกลาโหม\" เป็นลูกค้าที่ใช้บริการ HVAC มากที่สุด โดยมีการใช้บริการ 105 ครั้ง ซึ่งเป็นโอกาสสำคัญในการพัฒนาและปรับปรุงบริการให้ตรงกับความต้องการของลูกค้าหลัก.","success":true,"sql_query":"SELECT customer_name FROM v_sales GROUP BY customer_name ORDER BY COUNT(*) DESC LIMIT 1000;","results_count":456,"tenant_id":"company-a","user_id":"default","processing_time":47.13806438446045,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 33,
+        "timestamp": "2025-09-16 23:51:24",
+        "category": "ลูกค้า",
+        "question": "ลูกค้าที่ใช้บริการ overhaul",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 45146,
+        "response_size_bytes": 3678,
+        "request": {
+    "question": "ลูกค้าที่ใช้บริการ overhaul",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"### การวิเคราะห์ลูกค้าที่ใช้บริการ Overhaul\n\nจากการวิเคราะห์ข้อมูลการขายของ Siamtemp ในปี 2022 และ 2023 พบว่ามีลูกค้าหลายรายที่ไม่มีการใช้บริการ overhaul แต่ก็มีบางรายที่มีการใช้บริการ overhaul อย่างมาก\n\n#### สรุปข้อมูลสำคัญ\n1. **จำนวนลูกค้าทั้งหมด**: 40 รายการ\n2. **ลูกค้าที่ไม่มีการใช้บริการ overhaul (Overhaul_num = 0)**: 38 ราย (95%)\n3. **ลูกค้าที่มีการใช้บริการ overhaul (Overhaul_num > 0)**: 2 ราย\n   - **ลูกค้าการไฟฟ้าฝ่ายผลิตแห่งประเทศไทย**: มีการใช้บริการ overhaul จำนวน 230,000 บาทในปี 2022\n   - **ลูกค้าบ. บิโก้ ปราจีนบุรี (ไทยแลนด์) จก.**: มีการใช้บริการ overhaul จำนวน 150,000 บาทในปี 2023\n\n#### Highlights\n- **ลูกค้าการไฟฟ้าฝ่ายผลิตแห่งประเทศไทย** เป็นลูกค้าที่มีการใช้บริการ overhaul ในปริมาณสูงสุด โดยมียอดรวม 230,000 บาทในปี 2022\n- **ลูกค้าบ. บิโก้ ปราจีนบุรี (ไทยแลนด์) จก.** มีการใช้บริการ overhaul ในปี 2023 จำนวน 150,000 บาท\n\n#### ข้อเสนอแนะ\n- **เพิ่มความเข้มแข็งในการขาย**: เน้นการสื่อสารและนำเสนอคุณค่าของบริการ overhaul ให้กับลูกค้าที่ยังไม่มีการใช้บริการ\n- **พัฒนาผลิตภัณฑ์และบริการ**: สำหรับลูกค้าที่มีการใช้บริการ overhaul ในปริมาณสูง อาจมีโอกาสในการพัฒนาผลิตภัณฑ์และบริการเพื่อตอบสนองความต้องการของลูกค้า\n\nจากการวิเคราะห์ข้อมูลนี้ เราสามารถเห็นได้ว่าการขาย overhaul ยังคงเป็นส่วนสำคัญของการทำธุรกิจ HVAC แต่ยังมีโอกาสในการพัฒนาและเพิ่มความแข็งแกร่งให้กับลูกค้าที่ยังไม่มีการใช้บริการนี้.","success":true,"sql_query":"SELECT customer_name, year, overhaul_num FROM v_sales WHERE description ILIKE '%overhaul%' LIMIT 1000;","results_count":40,"tenant_id":"company-a","user_id":"default","processing_time":45.09645366668701,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 34,
+        "timestamp": "2025-09-16 23:51:56",
+        "category": "ลูกค้า",
+        "question": "ลูกค้าภาครัฐมีใครบ้าง",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 31536,
+        "response_size_bytes": 2163,
+        "request": {
+    "question": "ลูกค้าภาครัฐมีใครบ้าง",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ตามผลการค้นหาข้อมูลจากการวิเคราะห์ฐานข้อมูลของ Siamtemp ไม่มีลูกค้าในส่วนของภาครัฐที่มีการทำธุรกรรมหรือใช้บริการ HVAC ในช่วงเวลาที่ระบุมา.\n\nหากต้องการทราบรายละเอียดเพิ่มเติมหรือขยายขอบเขตการค้นหา สามารถแจ้งให้ทราบได้ เพื่อให้เราทำการวิเคราะห์ข้อมูลอย่างครอบคลุมมากขึ้น\n\nในกรณีที่ต้องการทำความเข้าใจถึงเหตุผลของผลลัพธ์นี้ อาจมีหลายปัจจัย เช่น:\n- บริษัทของเราไม่มีการขายหรือให้บริการ HVAC แก่ลูกค้าภาครัฐในช่วงเวลาที่ระบุ\n- ข้อมูลที่มีอยู่อาจไม่ครอบคลุมถึงลูกค้าภาคส่วนนี้\n\nหากต้องการข้อมูลเพิ่มเติมหรือมีคำถามเพิ่มเติม กรุณาแจ้งให้ทราบ เพื่อให้เราสามารถช่วยเหลือได้อย่างทันท่วงที","success":true,"sql_query":"SELECT customer_name FROM v_sales WHERE description ILIKE '%ภาครัฐ%' LIMIT 1000;","results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":31.52408766746521,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 35,
+        "timestamp": "2025-09-16 23:51:56",
+        "category": "ลูกค้า",
+        "question": "ลูกค้าเอกชนที่ใหญ่ที่สุด",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 10,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ลูกค้าเอกชนที่ใหญ่ที่สุด",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 36,
+        "timestamp": "2025-09-16 23:51:57",
+        "category": "ลูกค้า",
+        "question": "ข้อมูลลูกค้า Toyota",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 13,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ข้อมูลลูกค้า Toyota",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 37,
+        "timestamp": "2025-09-16 23:51:57",
+        "category": "ลูกค้า",
+        "question": "ข้อมูลลูกค้า Denso",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 8,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ข้อมูลลูกค้า Denso",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 38,
+        "timestamp": "2025-09-16 23:51:58",
+        "category": "ลูกค้า",
+        "question": "ลูกค้าที่เคยใช้บริการแต่ไม่ได้ใช้ปี 2024",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 8,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ลูกค้าที่เคยใช้บริการแต่ไม่ได้ใช้ปี 2024",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 39,
+        "timestamp": "2025-09-16 23:51:58",
+        "category": "ลูกค้า",
+        "question": "ลูกค้าที่ใช้บริการต่อเนื่องทุกปี",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ลูกค้าที่ใช้บริการต่อเนื่องทุกปี",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 40,
+        "timestamp": "2025-09-16 23:51:58",
+        "category": "ลูกค้า",
+        "question": "จำนวนลูกค้าที่ใช้บริการแต่ละปี",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 8,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "จำนวนลูกค้าที่ใช้บริการแต่ละปี",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 41,
+        "timestamp": "2025-09-16 23:51:59",
+        "category": "ลูกค้า",
+        "question": "ลูกค้าที่เกี่ยวข้องกับ Hitachi",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ลูกค้าที่เกี่ยวข้องกับ Hitachi",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 42,
+        "timestamp": "2025-09-16 23:51:59",
+        "category": "ลูกค้า",
+        "question": "ลูกค้าโรงพยาบาลมีใครบ้าง",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ลูกค้าโรงพยาบาลมีใครบ้าง",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 43,
+        "timestamp": "2025-09-16 23:51:59",
+        "category": "ลูกค้า",
+        "question": "ลูกค้าที่จ่ายมากกว่า 500000 บาท",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 9,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ลูกค้าที่จ่ายมากกว่า 500000 บาท",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 44,
+        "timestamp": "2025-09-16 23:52:00",
+        "category": "ลูกค้า",
+        "question": "รายได้เฉลี่ยต่อลูกค้า",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 10,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "รายได้เฉลี่ยต่อลูกค้า",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 45,
+        "timestamp": "2025-09-16 23:52:00",
+        "category": "ลูกค้า",
+        "question": "ลูกค้าที่ใช้บริการเฉพาะซื้ออะไหล่",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 8,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ลูกค้าที่ใช้บริการเฉพาะซื้ออะไหล่",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 46,
+        "timestamp": "2025-09-16 23:52:01",
+        "category": "ลูกค้า",
+        "question": "ข้อมูลลูกค้า Master Glove",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 8,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ข้อมูลลูกค้า Master Glove",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 47,
+        "timestamp": "2025-09-16 23:52:01",
+        "category": "ลูกค้า",
+        "question": "ข้อมูลลูกค้า IRPC",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 9,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ข้อมูลลูกค้า IRPC",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 48,
+        "timestamp": "2025-09-16 23:52:02",
+        "category": "ลูกค้า",
+        "question": "ลูกค้าต่างชาติมีใครบ้าง",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ลูกค้าต่างชาติมีใครบ้าง",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 49,
+        "timestamp": "2025-09-16 23:52:02",
+        "category": "ลูกค้า",
+        "question": "ลูกค้าที่มีงานเกี่ยวกับ Chiller",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ลูกค้าที่มีงานเกี่ยวกับ Chiller",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 50,
+        "timestamp": "2025-09-16 23:52:03",
+        "category": "ลูกค้า",
+        "question": "เปรียบเทียบรายได้จากลูกค้าใหม่กับลูกค้าเก่า",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "เปรียบเทียบรายได้จากลูกค้าใหม่กับลูกค้าเก่า",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 51,
+        "timestamp": "2025-09-16 23:52:03",
+        "category": "อะไหล่",
+        "question": "มีอะไหล่ทั้งหมดกี่รายการ",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "มีอะไหล่ทั้งหมดกี่รายการ",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 52,
+        "timestamp": "2025-09-16 23:52:04",
+        "category": "อะไหล่",
+        "question": "อะไหล่ที่มีสต็อกคงเหลือ",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "อะไหล่ที่มีสต็อกคงเหลือ",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 53,
+        "timestamp": "2025-09-16 23:52:04",
+        "category": "อะไหล่",
+        "question": "อะไหล่ที่หมดสต็อก",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "อะไหล่ที่หมดสต็อก",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 54,
+        "timestamp": "2025-09-16 23:52:04",
+        "category": "อะไหล่",
+        "question": "อะไหล่ที่มีราคาแพงที่สุด",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 9,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "อะไหล่ที่มีราคาแพงที่สุด",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 55,
+        "timestamp": "2025-09-16 23:52:05",
+        "category": "อะไหล่",
+        "question": "อะไหล่ที่มีราคาถูกที่สุด",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "อะไหล่ที่มีราคาถูกที่สุด",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 56,
+        "timestamp": "2025-09-16 23:52:05",
+        "category": "อะไหล่",
+        "question": "อะไหล่ที่มีสต็อกน้อยกว่า 5 ชิ้น",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "อะไหล่ที่มีสต็อกน้อยกว่า 5 ชิ้น",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 57,
+        "timestamp": "2025-09-16 23:52:05",
+        "category": "อะไหล่",
+        "question": "อะไหล่ในคลัง A",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "อะไหล่ในคลัง A",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 58,
+        "timestamp": "2025-09-16 23:52:06",
+        "category": "อะไหล่",
+        "question": "อะไหล่ที่มีรหัส EKAC",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "อะไหล่ที่มีรหัส EKAC",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 59,
+        "timestamp": "2025-09-16 23:52:06",
+        "category": "อะไหล่",
+        "question": "อะไหล่ที่มีมูลค่ารวมสูงสุด",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "อะไหล่ที่มีมูลค่ารวมสูงสุด",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 60,
+        "timestamp": "2025-09-16 23:52:06",
+        "category": "อะไหล่",
+        "question": "ราคาเฉลี่ยของอะไหล่",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ราคาเฉลี่ยของอะไหล่",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 61,
+        "timestamp": "2025-09-16 23:52:07",
+        "category": "อะไหล่",
+        "question": "จำนวนอะไหล่ทั้งหมดที่มีในสต็อก",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "จำนวนอะไหล่ทั้งหมดที่มีในสต็อก",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 62,
+        "timestamp": "2025-09-16 23:52:07",
+        "category": "อะไหล่",
+        "question": "อะไหล่สำหรับ compressor",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "อะไหล่สำหรับ compressor",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 63,
+        "timestamp": "2025-09-16 23:52:07",
+        "category": "อะไหล่",
+        "question": "อะไหล่ filter มีอะไรบ้าง",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "อะไหล่ filter มีอะไรบ้าง",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 64,
+        "timestamp": "2025-09-16 23:52:08",
+        "category": "อะไหล่",
+        "question": "อะไหล่ที่ต้องสั่งเติม",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "อะไหล่ที่ต้องสั่งเติม",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 65,
+        "timestamp": "2025-09-16 23:52:08",
+        "category": "อะไหล่",
+        "question": "มูลค่าสต็อกรวมทั้งหมด",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "มูลค่าสต็อกรวมทั้งหมด",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 66,
+        "timestamp": "2025-09-16 23:52:09",
+        "category": "อะไหล่",
+        "question": "อะไหล่ที่ไม่มีการตั้งราคา",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "อะไหล่ที่ไม่มีการตั้งราคา",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 67,
+        "timestamp": "2025-09-16 23:52:09",
+        "category": "อะไหล่",
+        "question": "คลังไหนมีอะไหล่มากที่สุด",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 12,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "คลังไหนมีอะไหล่มากที่สุด",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 68,
+        "timestamp": "2025-09-16 23:52:09",
+        "category": "อะไหล่",
+        "question": "ข้อมูลอะไหล่รหัส EKAC460",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ข้อมูลอะไหล่รหัส EKAC460",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 69,
+        "timestamp": "2025-09-16 23:52:10",
+        "category": "อะไหล่",
+        "question": "อะไหล่ที่ขายเป็น SET",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 8,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "อะไหล่ที่ขายเป็น SET",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 70,
+        "timestamp": "2025-09-16 23:52:10",
+        "category": "อะไหล่",
+        "question": "สินค้าที่เพิ่งรับเข้าล่าสุด",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "สินค้าที่เพิ่งรับเข้าล่าสุด",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 71,
+        "timestamp": "2025-09-16 23:52:10",
+        "category": "งานบริการ",
+        "question": "มีงานทั้งหมดกี่งานในระบบ",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "มีงานทั้งหมดกี่งานในระบบ",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 72,
+        "timestamp": "2025-09-16 23:52:11",
+        "category": "งานบริการ",
+        "question": "งานเดือนกันยายน 2024",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 10,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งานเดือนกันยายน 2024",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 73,
+        "timestamp": "2025-09-16 23:52:11",
+        "category": "งานบริการ",
+        "question": "งานบำรุงรักษา PM ทั้งหมด",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งานบำรุงรักษา PM ทั้งหมด",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 74,
+        "timestamp": "2025-09-16 23:52:11",
+        "category": "งานบริการ",
+        "question": "งาน overhaul ที่ทำ",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 13,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งาน overhaul ที่ทำ",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 75,
+        "timestamp": "2025-09-16 23:52:12",
+        "category": "งานบริการ",
+        "question": "งานเปลี่ยนอุปกรณ์",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 8,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งานเปลี่ยนอุปกรณ์",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 76,
+        "timestamp": "2025-09-16 23:52:12",
+        "category": "งานบริการ",
+        "question": "งานที่ทำสำเร็จ",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งานที่ทำสำเร็จ",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 77,
+        "timestamp": "2025-09-16 23:52:13",
+        "category": "งานบริการ",
+        "question": "งานที่ไม่สำเร็จ",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 8,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งานที่ไม่สำเร็จ",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 78,
+        "timestamp": "2025-09-16 23:52:13",
+        "category": "งานบริการ",
+        "question": "งานของทีม A",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งานของทีม A",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 79,
+        "timestamp": "2025-09-16 23:52:13",
+        "category": "งานบริการ",
+        "question": "งานวันนี้มีอะไรบ้าง",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 8,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งานวันนี้มีอะไรบ้าง",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 80,
+        "timestamp": "2025-09-16 23:52:14",
+        "category": "งานบริการ",
+        "question": "งานสัปดาห์นี้",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 8,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งานสัปดาห์นี้",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 81,
+        "timestamp": "2025-09-16 23:52:14",
+        "category": "งานบริการ",
+        "question": "อัตราความสำเร็จของงาน",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "อัตราความสำเร็จของงาน",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 82,
+        "timestamp": "2025-09-16 23:52:14",
+        "category": "งานบริการ",
+        "question": "งานที่เสร็จตรงเวลา ไม่เกิน 2 วัน",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งานที่เสร็จตรงเวลา ไม่เกิน 2 วัน",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 83,
+        "timestamp": "2025-09-16 23:52:15",
+        "category": "งานบริการ",
+        "question": "งานที่ทำเกินเวลา",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งานที่ทำเกินเวลา",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 84,
+        "timestamp": "2025-09-16 23:52:15",
+        "category": "งานบริการ",
+        "question": "งานทั้งหมดของลูกค้า Stanley",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งานทั้งหมดของลูกค้า Stanley",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 85,
+        "timestamp": "2025-09-16 23:52:15",
+        "category": "งานบริการ",
+        "question": "งาน start up เริ่มต้นระบบ",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 8,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งาน start up เริ่มต้นระบบ",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 86,
+        "timestamp": "2025-09-16 23:52:16",
+        "category": "งานบริการ",
+        "question": "งานสนับสนุนทั่วไป",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งานสนับสนุนทั่วไป",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 87,
+        "timestamp": "2025-09-16 23:52:16",
+        "category": "งานบริการ",
+        "question": "งาน CPA",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 8,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งาน CPA",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 88,
+        "timestamp": "2025-09-16 23:52:16",
+        "category": "งานบริการ",
+        "question": "สถิติงานของแต่ละทีม",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "สถิติงานของแต่ละทีม",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 89,
+        "timestamp": "2025-09-16 23:52:17",
+        "category": "งานบริการ",
+        "question": "ระยะเวลาการทำงานแต่ละงาน",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ระยะเวลาการทำงานแต่ละงาน",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 90,
+        "timestamp": "2025-09-16 23:52:17",
+        "category": "งานบริการ",
+        "question": "งาน 10 งานล่าสุด",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งาน 10 งานล่าสุด",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 91,
+        "timestamp": "2025-09-16 23:52:17",
+        "category": "วิเคราะห์",
+        "question": "สรุปผลประกอบการแต่ละปี",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "สรุปผลประกอบการแต่ละปี",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 92,
+        "timestamp": "2025-09-16 23:52:18",
+        "category": "วิเคราะห์",
+        "question": "เทรนด์การเติบโตของธุรกิจ",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 8,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "เทรนด์การเติบโตของธุรกิจ",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 93,
+        "timestamp": "2025-09-16 23:52:18",
+        "category": "วิเคราะห์",
+        "question": "ประเภทงานที่ลูกค้านิยมใช้บริการมากที่สุด",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ประเภทงานที่ลูกค้านิยมใช้บริการมากที่สุด",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 94,
+        "timestamp": "2025-09-16 23:52:18",
+        "category": "วิเคราะห์",
+        "question": "ลูกค้าที่มีศักยภาพสูง ใช้บริการบ่อยและจ่ายเยอะ",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 9,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ลูกค้าที่มีศักยภาพสูง ใช้บริการบ่อยและจ่ายเยอะ",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 95,
+        "timestamp": "2025-09-16 23:52:19",
+        "category": "วิเคราะห์",
+        "question": "การกระจายรายได้ตามขนาดงาน",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 10,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "การกระจายรายได้ตามขนาดงาน",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 96,
+        "timestamp": "2025-09-16 23:52:19",
+        "category": "วิเคราะห์",
+        "question": "ประสิทธิภาพการทำงานของแต่ละทีม",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 13,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ประสิทธิภาพการทำงานของแต่ละทีม",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 97,
+        "timestamp": "2025-09-16 23:52:20",
+        "category": "วิเคราะห์",
+        "question": "แนวโน้มยอดขายรายเดือนปี 2024",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 32,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "แนวโน้มยอดขายรายเดือนปี 2024",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 98,
+        "timestamp": "2025-09-16 23:52:20",
+        "category": "วิเคราะห์",
+        "question": "ผลตอบแทนจากการลงทุนในแต่ละประเภทบริการ",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 15,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ผลตอบแทนจากการลงทุนในแต่ละประเภทบริการ",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 99,
+        "timestamp": "2025-09-16 23:52:21",
+        "category": "วิเคราะห์",
+        "question": "คาดการณ์รายได้ปี 2025 จากเทรนด์",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 54,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "คาดการณ์รายได้ปี 2025 จากเทรนด์",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 100,
+        "timestamp": "2025-09-16 23:52:22",
+        "category": "วิเคราะห์",
+        "question": "รายงานสถานะธุรกิจโดยรวม",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 36,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "รายงานสถานะธุรกิจโดยรวม",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+
+]

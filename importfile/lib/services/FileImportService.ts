@@ -1112,11 +1112,26 @@ export class FileImportService {
     const tableColumns = await this.getTableColumns(schema, tableName);
     const headers = Object.keys(data[0]);
     
+    // *** แก้ไข: ใช้ filter condition เดียวกัน ***
+    const insertableColumns = tableColumns.filter(col => {
+      if (col.column_name === 'id') return false;
+      if (col.is_identity === 'YES') return false;
+      if (col.column_default && col.column_default.includes('nextval')) return false;
+      return true;
+    });
+    
     console.log(`Table columns: ${tableColumns.map(c => c.column_name).join(', ')}`);
+    console.log(`Insertable columns: ${insertableColumns.map(c => c.column_name).join(', ')}`);
     console.log(`Data headers: ${headers.join(', ')}`);
+
+    // ตรวจสอบว่ามี insertable columns
+    if (insertableColumns.length === 0) {
+      throw new Error('No insertable columns found in table');
+    }
 
     for (let i = 0; i < data.length; i += batchSize) {
       const batch = data.slice(i, Math.min(i + batchSize, data.length));
+      // *** ส่ง tableColumns ทั้งหมด ให้ insertBatch กรองเอง ***
       const batchResult = await this.insertBatch(schema, tableName, batch, tableColumns, skipErrors, i);
       
       result.successRows += batchResult.successRows;
@@ -1126,7 +1141,7 @@ export class FileImportService {
       console.log(`Progress: ${Math.min(i + batchSize, data.length)}/${data.length} rows processed`);
     }
 
-    result.success = result.errorRows === 0;
+    result.success = result.errorRows === 0 || (result.successRows > 0 && skipErrors);
     return result;
   }
 
@@ -1146,25 +1161,66 @@ export class FileImportService {
       errors: [] as any[]
     };
 
+    // กรอง id column ออก
+    const insertableColumns = tableColumns.filter(col => {
+      if (col.column_name === 'id') return false;
+      if (col.is_identity === 'YES') return false;
+      if (col.column_default && col.column_default.includes('nextval')) return false;
+      return true;
+    });
+
+    console.log(`Insertable columns count: ${insertableColumns.length}`);
+    console.log(`Insertable column names: ${insertableColumns.map(c => c.column_name).join(', ')}`);
+
     for (let i = 0; i < batch.length; i++) {
       const row = batch[i];
       const rowNumber = offset + i + 1;
 
       try {
-        const insertData = this.prepareRowForInsertion(row, tableColumns);
+        const insertData = this.prepareRowForInsertion(row, insertableColumns);
         
         const columns = Object.keys(insertData);
-        const placeholders = columns.map((_, index) => `$${index + 1}`).join(', ');
+        
+        // ตรวจสอบว่ามี columns ที่จะ insert
+        if (columns.length === 0) {
+          console.warn(`Row ${rowNumber}: No data to insert (all fields are empty or null)`);
+          result.errorRows++;
+          result.errors.push({
+            row: rowNumber,
+            error: 'No data to insert - all fields are empty or no matching columns',
+            data: row
+          });
+          continue;
+        }
+        
         const values = columns.map(col => insertData[col]);
+        const placeholders = columns.map((_, index) => `$${index + 1}`).join(', ');
         
-        const query = `INSERT INTO "${schema}"."${tableName}" (${columns.map(c => `"${c}"`).join(', ')}) VALUES (${placeholders})`;
+        // *** ลบ ON CONFLICT DO NOTHING ออก เพื่อให้ append ได้จริง ***
+        const query = `
+          INSERT INTO "${schema}"."${tableName}" 
+          (${columns.map(c => `"${c}"`).join(', ')}) 
+          VALUES (${placeholders})
+          RETURNING id
+        `;
         
-        await this.dbService.pool.query(query, values);
-        result.successRows++;
+        const insertResult = await this.dbService.pool.query(query, values);
+        
+        if (insertResult.rows && insertResult.rows.length > 0) {
+          result.successRows++;
+          console.log(`Row ${rowNumber}: Inserted successfully with id ${insertResult.rows[0].id}`);
+        }
         
       } catch (error) {
         result.errorRows++;
         const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        
+        // ถ้าเป็น duplicate key error จริง จะแสดง error message ชัดเจน
+        if (errorMsg.includes('duplicate key')) {
+          console.warn(`Row ${rowNumber}: Duplicate key - ${errorMsg}`);
+        } else {
+          console.warn(`Row ${rowNumber} skipped: ${errorMsg}`);
+        }
         
         if (!skipErrors) {
           throw new Error(`Row ${rowNumber}: ${errorMsg}`);
@@ -1175,8 +1231,6 @@ export class FileImportService {
           error: errorMsg,
           data: row
         });
-        
-        console.warn(`Row ${rowNumber} skipped: ${errorMsg}`);
       }
     }
 
@@ -1189,7 +1243,9 @@ export class FileImportService {
     for (const column of tableColumns) {
       const columnName = column.column_name;
       
-      if (column.is_identity === 'YES' || column.column_default?.includes('nextval')) {
+      if (columnName === 'id' || 
+          column.is_identity === 'YES' || 
+          column.column_default?.includes('nextval')) {
         continue;
       }
       

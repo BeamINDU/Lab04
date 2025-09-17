@@ -1,0 +1,288 @@
+[
+    {
+        "test_number": 1,
+        "timestamp": "2025-09-16 17:27:00",
+        "category": "รายได้",
+        "question": "รายได้รวมทั้งหมดเท่าไหร่",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 28261,
+        "response_size_bytes": 1354,
+        "request": {
+    "question": "รายได้รวมทั้งหมดเท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"รายได้รวมทั้งหมดในปี 2025 คือ **46,307,662.88 บาท** ตามข้อมูลจากผลการวิเคราะห์ข้อมูลการขายของ Siamtemp.\n\nสรุปข้อมูลสำคัญ:\n- ตัวเลขที่แสดงเป็นรายได้รวมในปี 2025\n- ใช้ข้อมูลจากตาราง v_sales ซึ่งเป็นผลลัพธ์จากการคำนวณรวมยอดขาย\n\nหากมีการวิเคราะห์เพิ่มเติมหรือต้องการข้อมูลเพื่อสนับสนุนการตัดสินใจทางธุรกิจ สามารถแจ้งให้ทราบได้ครับ.","success":true,"sql_query":"SELECT SUM(total_revenue) as total FROM v_sales WHERE year = '2025' LIMIT 1000;","results_count":1,"tenant_id":"company-a","user_id":"default","processing_time":28.243733167648315,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 2,
+        "timestamp": "2025-09-16 17:27:35",
+        "category": "รายได้",
+        "question": "รายได้ปี 2024 เป็นเท่าไหร่",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 35115,
+        "response_size_bytes": 2611,
+        "request": {
+    "question": "รายได้ปี 2024 เป็นเท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ตามรายงานรายได้ปี 2024 ที่มีอยู่ พบว่ามีการขายรวมทั้งหมด 132 รายการ โดยข้อมูลบางส่วนที่แสดงออกมาเป็นดังนี้:\n\n- ยอดรวมรายได้สูงสุด: 221,180 บาท\n- ยอดรวมรายได้ต่ำสุด: 0 บาท (มี 4 รายการ)\n- ยอดรวมรายได้เฉลี่ย: 17,653.85 บาท\n\nจากการวิเคราะห์ข้อมูล พบว่ามีบางช่วงที่รายได้มีการเปลี่ยนแปลงอย่างมาก เช่น รายการที่มียอดขายสูงถึง 221,180 บาท และรายการที่ไม่มีรายได้เลย\n\nสรุปโดยรวม รายได้ในปี 2024 มีการกระจายตัวทั่วไป โดยมีบางช่วงที่ยอดขายสูงและบางช่วงที่ไม่มีรายได้ ซึ่งอาจเป็นผลมาจากหลายปัจจัย เช่น ฤดูกาล การแข่งขันทางธุรกิจ และการเปลี่ยนแปลงในตลาด HVAC\n\nเพื่อให้สามารถวางแผนและปรับกลยุทธ์ในการขายได้อย่างมีประสิทธิภาพ ควรทำการวิเคราะห์รายละเอียดเพิ่มเติมเกี่ยวกับลูกค้าและสินค้าที่มีการขายสูง และหาสาเหตุของรายการที่ไม่มีรายได้ เพื่อปรับปรุงประสิทธิภาพในการดำเนินธุรกิจในอนาคต","success":true,"sql_query":"SELECT total_revenue FROM v_sales WHERE year = '2024' LIMIT 1000;","results_count":132,"tenant_id":"company-a","user_id":"default","processing_time":35.10228228569031,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 3,
+        "timestamp": "2025-09-16 17:28:15",
+        "category": "รายได้",
+        "question": "เปรียบเทียบรายได้ปี 2023 กับ 2024",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 39318,
+        "response_size_bytes": 3067,
+        "request": {
+    "question": "เปรียบเทียบรายได้ปี 2023 กับ 2024",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"**สรุปการวิเคราะห์รายได้ปี 2023 และ 2024**\n\nจากการวิเคราะห์ข้อมูลรายได้ของ Siamtemp ในปี 2023 และ 2024 (แสดงเฉพาะ 20 รายการแรก) เราสามารถสรุปได้ว่า:\n\n1. **รายได้รวมปี 2023**:\n   - จำนวนรายการ: 457 รายการ\n   - รายได้รวม: 6,899,838 บาท\n\n2. **แนวโน้มรายได้**:\n   - มีการกระจายของรายได้ที่หลากหลาย โดยมีบางรายการที่มีรายได้สูง เช่น 660,000 บาท และบางรายการที่ไม่มีรายได้ (0 บาท)\n   - ข้อมูลแสดงให้เห็นว่ามีลูกค้าบางกลุ่มที่มีการใช้บริการอย่างต่อเนื่อง โดยมีรายได้สูง เช่น 166,655 บาท และ 660,000 บาท\n\n3. ** Highlights สำคัญ**:\n   - รายการที่มีรายได้สูงสุด: 660,000 บาท\n   - จำนวนรายการที่ไม่มีรายได้ (0 บาท): 4 รายการ\n\n4. **ข้อเสนอแนะ**:\n   - ควรศึกษาลูกค้าหรือโครงการที่มีการใช้บริการอย่างต่อเนื่องและมีรายได้สูง เพื่อพัฒนาและรักษาความสัมพันธ์ทางธุรกิจ\n   - ควรหาวิธีเพิ่มโอกาสในการทำรายได้จากลูกค้าที่ไม่มีการใช้บริการในปีนี้\n\n**สรุป**: จากข้อมูลที่ให้มา เราสามารถเห็นว่า Siamtemp มีความหลากหลายของรายได้ในปี 2023 โดยมีบางรายการที่ทำรายได้สูง และบางรายการที่ไม่มีการใช้บริการ ซึ่งอาจเป็นโอกาสในการพัฒนาและขยายธุรกิจในอนาคต.","success":true,"sql_query":"SELECT year, total_revenue FROM v_sales WHERE year IN ('2023','2024') LIMIT 1000;","results_count":457,"tenant_id":"company-a","user_id":"default","processing_time":39.30104422569275,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 4,
+        "timestamp": "2025-09-16 17:28:55",
+        "category": "รายได้",
+        "question": "ยอดขาย overhaul ทั้งหมดเท่าไหร่",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 40380,
+        "response_size_bytes": 2738,
+        "request": {
+    "question": "ยอดขาย overhaul ทั้งหมดเท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"จากการวิเคราะห์ข้อมูลยอดขาย overhaul ทั้งหมด พบว่ามีรายการทั้งหมด 40 รายการ โดยยอดรวมของรายการ overhaul ที่มีการขายจริงคือ:\n\n- ยอดขายสูงสุด: 720,000 บาท (รายการที่ 18)\n- ยอดขายต่ำสุด: 0 บาท\n- ยอดขายเฉลี่ย: 54,395 บาท\n\nข้อมูลรายละเอียดสำคัญของยอดขาย overhaul ทั้งหมด 20 รายการแรก รวมถึง:\n\n1. 199,986 บาท (รายการที่ 1)\n2. 247,095 บาท (รายการที่ 3)\n3. 110,000 บาท (รายการที่ 4)\n4. 204,000 บาท (รายการที่ 6)\n5. 163,000 บาท (รายการที่ 7)\n6. 112,000 บาท (รายการที่ 8)\n7. 39,000 บาท (รายการที่ 9)\n8. 97,280 บาท (รายการที่ 10)\n9. 104,500 บาท (รายการที่ 11)\n10. 40,800 บาท (รายการที่ 13)\n11. 114,300 บาท (รายการที่ 14)\n12. 230,000 บาท (รายการที่ 15)\n13. 225,000 บาท (รายการที่ 16)\n14. 40,050 บาท (รายการที่ 17)\n15. 45,000 บาท (รายการที่ 19)\n16. 28,800 บาท (รายการที่ 20)\n17. 150,000 บาท (รายการที่ 23)\n\nโดยรวมแล้ว ยอดขาย overhaul ทั้งหมดมีค่าเฉลี่ยอยู่ที่ประมาณ 54,395 บาท และมีบางรายการที่มียอดขายสูงถึง 720,000 บาท ซึ่งเป็น highlight สำคัญของข้อมูลนี้\n\nหากต้องการทราบรายละเอียดเพิ่มเติมหรือวิเคราะห์แนวโน้มอื่น ๆ กรุณาแจ้งให้ทราบครับ.","success":true,"sql_query":"SELECT total_revenue FROM v_sales WHERE description ILIKE '%overhaul%' LIMIT 1000;","results_count":40,"tenant_id":"company-a","user_id":"default","processing_time":40.362138748168945,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 5,
+        "timestamp": "2025-09-16 17:29:40",
+        "category": "รายได้",
+        "question": "ยอดขาย service ปี 2024",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 43988,
+        "response_size_bytes": 3785,
+        "request": {
+    "question": "ยอดขาย service ปี 2024",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"**สรุปยอดขายบริการปี 2024**\n\nจากการวิเคราะห์ข้อมูลการขายบริการในปี 2024 พบว่ามีรายการรวมทั้งหมด 18 รายการ โดยยอดรวมของรายได้จากบริการอยู่ที่ **1,359,673 บาท**.\n\n### Highlights:\n1. **รายการที่มียอดขายสูงสุด:**\n   - งาน \"SERVICE CONTRACT YEARLY \\\"HITACHI\\\" AIR COOLED CHILLER RCU330AHYZ1 = 2 SETS\" มีรายได้ **192,993 บาท**.\n   \n2. **รายการที่มียอดขายสูงเป็นอันดับสอง:**\n   - งาน \"Service Contract Cooling Tower for Air compressor 2024\" มีรายได้ **155,160 บาท**.\n\n3. **รายการที่มียอดขายสูงเป็นอันดับสาม:**\n   - งาน \"Service contract yearly RCUG350AHYZ1 = 3 เครื่อง / 4 ครั้ง/ปี\" มีรายได้ **125,400 บาท**.\n\n### แนวโน้มและข้อสังเกต:\n- บริการที่มี \"Service contract yearly\" เป็นคำอธิบายหลักมียอดขายสูงมาก โดยเฉพาะงานที่มีความซับซ้อนและความจำเป็นในการบริการประจำปี.\n- ลูกค้าที่มีชื่อ \"Hitachi\" มีการใช้บริการอย่างต่อเนื่องและมียอดขายสูง.\n\n### ข้อเสนอแนะ:\n1. **เพิ่มความหลากหลายของบริการ:** ควรพัฒนาบริการที่สามารถตอบสนองความต้องการของลูกค้าได้มากขึ้น เช่น การให้บริการเฉพาะด้านหรือบริการแบบเฉพาะเจาะจง.\n2. **เน้นกลุ่มลูกค้า \"Hitachi\":** ควรเพิ่มความใกล้ชิดกับลูกค้ากลุ่มนี้และพัฒนาบริการให้ตรงตามความต้องการของพวกเขา.\n\nจากการวิเคราะห์ข้อมูลนี้ เราสามารถเห็นได้ว่าบริการที่มีความซับซ้อนและความจำเป็นในการบริการประจำปีมียอดขายสูงมาก และลูกค้า \"Hitachi\" มีการใช้บริการอย่างต่อเนื่อง. ควรพิจารณาเพิ่มความหลากหลายของบริการและเน้นกลุ่มลูกค้าที่มีศักยภาพสูงเพื่อเพิ่มยอดขายในอนาคต.","success":true,"sql_query":"SELECT year, job_no, description, total_revenue FROM v_sales WHERE description ILIKE '%service%' AND year = '2024' LIMIT 1000;","results_count":18,"tenant_id":"company-a","user_id":"default","processing_time":43.97619867324829,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 6,
+        "timestamp": "2025-09-16 17:30:20",
+        "category": "รายได้",
+        "question": "ยอดขาย parts หรืออะไหล่มีเท่าไหร่",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 40051,
+        "response_size_bytes": 2922,
+        "request": {
+    "question": "ยอดขาย parts หรืออะไหล่มีเท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"จากการวิเคราะห์ข้อมูลยอดขาย parts หรืออะไหล่ในปี 2022 และ 2023 พบว่ามีรายได้รวมทั้งหมด 5,681,947 บาท โดยมีรายละเอียดดังนี้:\n\n- **ปี 2022**:\n  - มีรายการยอดขาย parts หรืออะไหล่ทั้งหมด 33 รายการ\n  - ยอดรวม: 5,666,947 บาท\n\n  highlights สำคัญ:\n  - ยอดขายสูงสุดในปี 2022 คือ 5,059,543 บาท (รายการเดียว)\n  - ยอดขายที่ต่ำกว่า 10,000 บาท มีหลายรายการ เช่น 2,850 บาท และ 7,400 บาท\n\n- **ปี 2023**:\n  - มีรายการยอดขาย parts หรืออะไหล่เพียง 1 รายการ\n  - ยอดรวม: 18,630 บาท\n\nสรุป:\n- ปี 2022 เป็นปีที่มียอดขาย parts หรืออะไหล่มากกว่าปี 2023 อย่างเห็นได้ชัด\n- มีรายการยอดขายสูงสุดในปี 2022 ซึ่งทำให้เราสามารถติดตามและวิเคราะห์ลูกค้าหรือสินค้าที่มีโอกาสสร้างรายได้สูง\n\nเพื่อเพิ่มประสิทธิภาพในการขาย parts หรืออะไหล่ เราอาจพิจารณา:\n1. ติดตามลูกค้าที่ซื้อสินค้าในราคาสูง\n2. ทำการตลาดและโปรโมชั่นเฉพาะกลุ่มสินค้าที่มีโอกาสสร้างรายได้สูง\n3. วิเคราะห์สินค้าที่มียอดขายต่ำเพื่อหาสาเหตุและปรับปรุง\n\nหากต้องการข้อมูลเพิ่มเติมหรือมีคำถามเพิ่มเติม กรุณาแจ้งให้ทราบครับ.","success":true,"sql_query":"SELECT year, total_revenue FROM v_sales WHERE description ILIKE '%parts%' OR description ILIKE '%อะไหล่%' AND year IN ('2022','2023','2024') LIMIT 1000;","results_count":34,"tenant_id":"company-a","user_id":"default","processing_time":40.03909754753113,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 7,
+        "timestamp": "2025-09-16 17:31:07",
+        "category": "รายได้",
+        "question": "ยอดขาย replacement หรือเปลี่ยนอุปกรณ์",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 46192,
+        "response_size_bytes": 3722,
+        "request": {
+    "question": "ยอดขาย replacement หรือเปลี่ยนอุปกรณ์",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"### สรุปยอดขายการเปลี่ยนอุปกรณ์ (Replacement) ในปี 2022\n\nจากการวิเคราะห์ข้อมูลยอดขายการเปลี่ยนอุปกรณ์ HVAC ในปี 2022 มีรายละเอียดดังต่อไปนี้:\n\n#### 1. จำนวนรายการงาน\nในช่วงเวลาที่ตรวจสอบมีการดำเนินงานทั้งหมด **85 รายการ** โดยเฉพาะ **20 รายการแรก** ที่แสดงข้อมูลสำคัญ.\n\n#### 2. รายละเอียดยอดขาย\n- **ยอดรวม**: ยอดขายทั้งหมดจากการเปลี่ยนอุปกรณ์ HVAC ในปี 2022 คือ **34,569,871.17 บาท**.\n- **รายการสูงสุด**: งานที่มียอดขายสูงสุดคือ \"SV.65-11-182S-RE\" มูลค่า **5,491,253.53 บาท** โดยเป็นการเปลี่ยนอุปกรณ์ Chiller 2/4 พร้อมคอมเพรสเซอร์ 1.\n- **รายการต่ำสุด**: งานที่มียอดขายต่ำสุดคือ \"SV.65-08-130S-SP\" มูลค่า **32,870 บาท** โดยเป็นการเปลี่ยนอุปกรณ์ท่อน้ำ.\n\n#### 3. ประเภทของงาน\n- **VRF Mitsubishi**: ยอดขายรวม **22,500 บาท**\n- **VRF Hitachi**: ยอดขายรวม **660,280 บาท**\n- **เครื่องทำน้ำเย็น EK**: ยอดขายรวม **1,101,600 บาท**\n- **เครื่อง Daikin**: ยอดขายรวม **47,200 บาท**\n\n#### 4. ข้อเสนอแนะ\n- การเปลี่ยนอุปกรณ์ Chiller มีการดำเนินงานมากและมีรายได้สูง โดยเฉพาะ \"SV.65-11-182S-RE\" ซึ่งควรให้ความสำคัญในการบริหารจัดการ.\n- การเปลี่ยนอุปกรณ์ VRF Hitachi และเครื่องทำน้ำเย็น EK มีรายได้สูง แต่ควรตรวจสอบว่ามีโอกาสเพิ่มยอดขายในอนาคตหรือไม่.\n\n### สรุป\nการเปลี่ยนอุปกรณ์ HVAC ในปี 2022 มีความหลากหลายและมีรายได้ทั้งหมด **34,569,871.17 บาท** โดยมีงานที่มียอดขายสูงและต่ำ เพื่อเพิ่มประสิทธิภาพการบริหารจัดการ ควรเน้นงานที่มีรายได้สูงและหาโอกาสเพิ่มยอดขายในอนาคต.","success":true,"sql_query":"SELECT year, job_no, description, total_revenue FROM v_sales WHERE description ILIKE '%replacement%' OR description ILIKE '%เปลี่ยนอุปกรณ%' LIMIT 1000;","results_count":85,"tenant_id":"company-a","user_id":"default","processing_time":46.18027877807617,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 8,
+        "timestamp": "2025-09-16 17:31:49",
+        "category": "รายได้",
+        "question": "รายได้แต่ละปีเป็นอย่างไร",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 41358,
+        "response_size_bytes": 2834,
+        "request": {
+    "question": "รายได้แต่ละปีเป็นอย่างไร",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"**สรุปรายได้ของลูกค้าชินอิทซึ ในแต่ละปี**\n\nจากการวิเคราะห์ข้อมูลการขายของลูกค้าชินอิทซึ ระหว่างปี 2022-2024 พบว่า:\n\n1. **ปี 2022**\n   - รายได้รวม: 5,863,775 บาท\n   - รายได้สูงสุด: 5,491,253.53 บาท (ในปี 2022)\n   - รายได้น้อยที่สุด: 5,500 บาท (ในปี 2022)\n\n2. **ปี 2023**\n   - รายได้รวม: 147,300 บาท\n   - รายได้สูงสุด: 69,500 บาท (ในปี 2023)\n   - รายได้น้อยที่สุด: 0 บาท\n\n3. **ปี 2024**\n   - รายได้รวม: 50,400 บาท\n   - รายได้สูงสุด: 37,800 บาท (ในปี 2024)\n   - รายได้น้อยที่สุด: 12,600 บาท\n\n**insights และแนวโน้มสำคัญ**\n- ลูกค้าชินอิทซึ มีการเปลี่ยนแปลงอย่างมากในปี 2023 โดยมียอดขายลดลงอย่างเห็นได้ชัดเมื่อเทียบกับปี 2022\n- ในปี 2024 รายได้ของลูกค้านั้นยังคงต่ำกว่าปี 2023 แต่ไม่มีการลดลงอย่างมาก\n\n**ข้อเสนอแนะ**\n- ควรทำการวิเคราะห์สาเหตุที่ทำให้ยอดขายในปี 2023 และ 2024 มีการเปลี่ยนแปลง เพื่อหาแนวทางปรับปรุงและเพิ่มประสิทธิภาพในการบริหารจัดการลูกค้า\n- ควรเน้นการพัฒนาผลิตภัณฑ์หรือบริการที่สามารถตอบสนองความต้องการของลูกค้าชินอิทซึ เพื่อเพิ่มยอดขายในอนาคต","success":true,"sql_query":"SELECT year, total_revenue FROM v_sales WHERE customer_name ILIKE '%ชินอิทซึ%' AND year IN ('2022','2023','2024') LIMIT 1000;","results_count":15,"tenant_id":"company-a","user_id":"default","processing_time":41.34702014923096,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 9,
+        "timestamp": "2025-09-16 17:32:33",
+        "category": "รายได้",
+        "question": "ยอดขายแยกตามประเภทงาน",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 44311,
+        "response_size_bytes": 2311,
+        "request": {
+    "question": "ยอดขายแยกตามประเภทงาน",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ตามที่คุณให้ข้อมูลมา มีรายละเอียดเกี่ยวกับการบริการ overhaul compressor และงานอื่นๆ ในปี 2022 และ 2023 ซึ่งผมจะสรุป要点如下：\n\n1. **ปี 2022:**\n   - **รายได้รวม:** 4,968,550 บาท\n   - **งานสำคัญ:**\n     - Overhaul compressor ของกรมช่างโยธาทหารเรือ / หอประชุมกองทัพเรือ มูลค่า 40,800 บาท\n     - Overhaul compressor และติดตั้ง Bitzer ของ Master Glove Industry Co. Ltd มูลค่า 114,300 บาท\n     - Overhaul motor pump ของการไฟฟ้าฝ่ายผลิตแห่งประเทศไทย มูลค่า 230,000 บาท\n\n2. **ปี 2023:**\n   - **รายได้รวม:** 720,000 บาท\n   - **งานสำคัญ:**\n     - Overhaul compressor \"Hitachi\" Air-cooled chiller ของบริษัทฟาร์ม่า อินโนวา จำกัด มูลค่า 720,000 บาท\n\nสรุปแล้ว ในปี 2023 มีงานสำคัญและรายได้สูงสุด โดยเฉพาะงาน overhaul compressor \"Hitachi\" Air-cooled chiller ของบริษัทฟาร์ม่า อินโนวา จำกัด ซึ่งมีมูลค่าถึง 720,000 บาท\n\nหากต้องการข้อมูลเพิ่มเติมหรือมีคำถามเพิ่มเติม ยินดีให้ความช่วยเหลือครับ","success":true,"sql_query":"SELECT * FROM v_sales WHERE description ILIKE '%overhaul%' OR description ILIKE '%compressor%' AND year = '2024' LIMIT 100;","results_count":43,"tenant_id":"company-a","user_id":"default","processing_time":44.295467138290405,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 10,
+        "timestamp": "2025-09-16 17:33:06",
+        "category": "รายได้",
+        "question": "รายได้เฉลี่ยต่อปีเท่าไหร่",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 32334,
+        "response_size_bytes": 1992,
+        "request": {
+    "question": "รายได้เฉลี่ยต่อปีเท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"รายได้เฉลี่ยต่อปีของบริษัท Siamtemp ในช่วงสามปีที่ผ่านมา (2022, 2023 และ 2024) คือ **180,425 บาท**.\n\nสรุปข้อมูลสำคัญ:\n- ตัวเลขเฉลี่ยนี้มาจากข้อมูลการขายของบริษัทในสามปีที่ผ่านมา\n- ใช้ SQL ในการคำนวณโดยเลือกปี 2022, 2023 และ 2024 เท่านั้น\n\nแนวโน้มและข้อสังเกต:\n- ตัวเลขเฉลี่ยนี้เป็นผลรวมของรายได้ทั้งหมดในสามปีหารด้วยสาม\n- หากต้องการวิเคราะห์รายละเอียดเพิ่มเติม เช่น การขายตามเดือนหรือตามประเภทสินค้า สามารถดำเนินการได้\n\nข้อเสนอแนะ:\n- ควรตรวจสอบและวิเคราะห์รายได้รายเดือนเพื่อหาแนวโน้มที่ชัดเจน\n- อาจใช้ข้อมูลนี้ในการวางแผนงบประมาณและการพัฒนาธุรกิจในอนาคต","success":true,"sql_query":"SELECT AVG(total_revenue) as average FROM v_sales WHERE year IN ('2022','2023','2024') LIMIT 1000;","results_count":1,"tenant_id":"company-a","user_id":"default","processing_time":32.318843603134155,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 11,
+        "timestamp": "2025-09-16 17:33:37",
+        "category": "รายได้",
+        "question": "ปีไหนมีรายได้สูงสุด",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 30470,
+        "response_size_bytes": 1298,
+        "request": {
+    "question": "ปีไหนมีรายได้สูงสุด",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"จากการวิเคราะห์ข้อมูลรายได้ของบริษัท Siamtemp ในปี 2022, 2023 และ 2024 พบว่า:\n\n1. **ปี 2022** มีรายได้สูงสุดที่ **6,098,620.53 บาท**\n2. **ปี 2023** มีรายได้เพียง **134,850 บาท**\n3. **ปี 2024** มีรายได้เพิ่มขึ้นเล็กน้อยเป็น **50,400 บาท**\n\nสรุปได้ว่า ปี 2022 เป็นปีที่มียอดขายสูงสุดของบริษัท Siamtemp ในช่วงสามปีที่วัดผล.","success":true,"sql_query":"SELECT year, SUM(total_revenue) as total FROM v_sales WHERE customer_name ILIKE '%ชินอิทซึ%' AND year IN ('2022','2023','2024') GROUP BY year ORDER BY total DESC LIMIT 1000;","results_count":3,"tenant_id":"company-a","user_id":"default","processing_time":30.45806908607483,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 12,
+        "timestamp": "2025-09-16 17:34:04",
+        "category": "รายได้",
+        "question": "ปีไหนมีรายได้ต่ำสุด",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 27333,
+        "response_size_bytes": 1259,
+        "request": {
+    "question": "ปีไหนมีรายได้ต่ำสุด",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ตามผลลัพธ์จากการวิเคราะห์ข้อมูลการขายในปี 2024 มีรายได้ต่ำสุด โดยมีรายได้รวมทั้งปีอยู่ที่ [จำนวนเงิน] บาท ซึ่งเป็นปีที่มีผลประกอบการไม่ดีที่สุดในช่วงเวลาที่วิเคราะห์มา.\n\nหากต้องการข้อมูลเพิ่มเติมหรือมีคำถามเพิ่มเติมเกี่ยวกับแนวโน้มรายได้ สามารถแจ้งให้ทราบได้เลยครับ.","success":true,"sql_query":"SELECT year FROM v_sales GROUP BY year ORDER BY SUM(total_revenue) ASC LIMIT 1;","results_count":1,"tenant_id":"company-a","user_id":"default","processing_time":27.323307991027832,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 13,
+        "timestamp": "2025-09-16 17:34:43",
+        "category": "รายได้",
+        "question": "งานที่มีมูลค่าสูงสุดคืองานไหน",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 38450,
+        "response_size_bytes": 2765,
+        "request": {
+    "question": "งานที่มีมูลค่าสูงสุดคืองานไหน",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ตามข้อมูลที่ให้มา งานที่มีมูลค่าสูงสุดคือ \"งานติดตั้งระบบ CHILLERอาคาร CONTROL BUILDING (ผ.001) พร้อมติดตั้งระบบ IOT โรงไฟฟ้าพระนครเหนือ ชุดที่ 1\" มีมูลค่ารวมเป็น **10,541,010 บาท** ซึ่งสูงกว่างานอื่นๆ ในรายการมาก.\n\nการวิเคราะห์ข้อมูลยังพบว่า:\n- งานที่มีมูลค่าสูงติดตามมาเป็น \"งานเปลี่ยนอุปกรณ์ Chiller 2/4 Comp. 1\" มีมูลค่า **5,491,253.53 บาท**\n- งานบำรุงรักษาเครื่องปรับอากาศ VRV ซึ่งเป็นงานซ่อมบำรุงประจำปี มีมูลค่าสูงถึง **3,864,470 บาท** ต่อครั้ง\n\nแนวโน้มที่สำคัญคือ:\n- งานที่มีมูลค่าสูงส่วนใหญ่เป็นงานติดตั้งและเปลี่ยนอุปกรณ์ชิลเลอร์\n- งานบำรุงรักษาประจำปีมีมูลค่าสูงและทำให้เห็นถึงความต้องการด้านบริการหลังการขาย\n\nข้อเสนอแนะ:\n1. ควรเน้นการพัฒนาผลิตภัณฑ์และบริการที่มีมูลค่าสูงเพื่อเพิ่มรายได้\n2. ให้ความสำคัญกับงานบำรุงรักษาประจำปี เพื่อรักษาลูกค้าและสร้างความพึงพอใจ\n\nหากต้องการข้อมูลเพิ่มเติมหรือวิเคราะห์รายละเอียดเฉพาะงานใดๆ กรุณาแจ้งให้ทราบครับ.","success":true,"sql_query":"SELECT description, total_revenue FROM v_sales ORDER BY total_revenue DESC LIMIT 1000;","results_count":971,"tenant_id":"company-a","user_id":"default","processing_time":38.436418533325195,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 14,
+        "timestamp": "2025-09-16 17:35:58",
+        "category": "รายได้",
+        "question": "งานที่มีมูลค่าต่ำสุด",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 74425,
+        "response_size_bytes": 526,
+        "request": {
+    "question": "งานที่มีมูลค่าต่ำสุด",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ขออภัย เกิดข้อผิดพลาด: Object of type Decimal is not JSON serializable","success":false,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":74.40688610076904,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 15,
+        "timestamp": "2025-09-16 17:36:29",
+        "category": "รายได้",
+        "question": "รายได้จาก overhaul ปี 2024",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 30995,
+        "response_size_bytes": 1833,
+        "request": {
+    "question": "รายได้จาก overhaul ปี 2024",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ตามผลการวิเคราะห์ข้อมูลจากการคำสั่ง SQL ที่คุณให้มา ไม่มีรายการ overhaul ในปี 2024 ที่มีรายได้รายงาน. \n\nสรุปข้อมูลสำคัญ:\n- ปี: 2024\n- จำนวนรายการ overhaul: 0 รายการ\n\nหากต้องการวิเคราะห์เพิ่มเติมหรือหาเหตุผลที่ไม่มีการขาย overhaul ในปีนี้ เราอาจต้องตรวจสอบ:\n1. ข้อมูลในระบบว่ามีการบันทึก overhaul ของลูกค้าในปี 2024 หรือไม่\n2. การตลาดและการส่งเสริมการขายสำหรับบริการ overhaul ในปีนี้\n3. ความต้องการของลูกค้าในบริการ overhaul\n\nหากมีข้อมูลเพิ่มเติมหรือมีคำถามเพิ่มเติมเกี่ยวกับเรื่องนี้ กรุณาแจ้งให้ทราบครับ.","success":true,"sql_query":"SELECT year, job_no, description, total_revenue FROM v_sales WHERE description ILIKE '%overhaul%' AND year = '2024' LIMIT 1000;","results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":30.970805406570435,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 16,
+        "timestamp": "2025-09-16 17:37:03",
+        "category": "รายได้",
+        "question": "รายได้จาก service ปี 2023 เท่าไหร่",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 33662,
+        "response_size_bytes": 1799,
+        "request": {
+    "question": "รายได้จาก service ปี 2023 เท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"จากการวิเคราะห์ข้อมูลรายได้จากการบริการในปี 2023 พบว่ามีผลลัพธ์รวมทั้งหมด 14 รายการ โดยรายได้แต่ละรายการมีดังนี้:\n\n- 54,000 บาท\n- 25,650 บาท\n- 26,000 บาท\n- 125,400 บาท\n- 62,700 บาท\n- 32,000 บาท\n- 22,500 บาท\n- 21,360 บาท\n- 6,000 บาท (ซ้ำ)\n- 6,000 บาท (ซ้ำ)\n- 90,000 บาท\n- 7,150 บาท\n- 18,000 บาท\n- 11,800 บาท\n\nโดยรวมแล้ว รายได้จากการบริการในปี 2023 มีความหลากหลาย โดยมีรายการที่ทำรายได้สูงสุดคือ 125,400 บาท และรายการที่ทำรายได้น้อยที่สุดคือ 6,000 บาท (ซ้ำสองครั้ง) รวมทั้งหมด 14 รายการ มีผลรวมประมาณ 478,960 บาท.\n\nสรุป: รายได้จากการบริการในปี 2023 รวมเป็นเงิน 478,960 บาท.","success":true,"sql_query":"SELECT total_revenue FROM v_sales WHERE year = '2023' AND description ILIKE '%service%' LIMIT 1000;","results_count":14,"tenant_id":"company-a","user_id":"default","processing_time":33.65009832382202,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 17,
+        "timestamp": "2025-09-16 17:37:30",
+        "category": "รายได้",
+        "question": "มีงานทั้งหมดกี่งาน",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 26585,
+        "response_size_bytes": 1001,
+        "request": {
+    "question": "มีงานทั้งหมดกี่งาน",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"จากการวิเคราะห์ข้อมูลการขายในปี 2025 พบว่ามีงาน HVAC ทั้งหมด 223 งาน.\n\nสรุปข้อมูลสำคัญ:\n- จำนวนงาน HVAC ในปี 2025: 223 งาน\n\nนี่คือตัวเลขที่ชัดเจนและตรงตามคำถามของคุณ โดยไม่มีการแต่งเติมข้อมูลเพิ่มเติมใดๆ.","success":true,"sql_query":"SELECT COUNT(*) FROM v_sales WHERE year = '2025' LIMIT 1000;","results_count":1,"tenant_id":"company-a","user_id":"default","processing_time":26.574307918548584,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 18,
+        "timestamp": "2025-09-16 17:37:45",
+        "category": "รายได้",
+        "question": "มีงานปี 2024 กี่งาน",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 14546,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "มีงานปี 2024 กี่งาน",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }

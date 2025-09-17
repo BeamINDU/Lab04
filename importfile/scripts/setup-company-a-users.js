@@ -17,6 +17,13 @@ async function createCompanyAUsers() {
       role: 'ADMIN'
     },
     {
+      email: 'Admin Siamtemp',
+      name: 'Admin Siamtemp',
+      password: SiamPOC001_,
+      companyId: 'company-a-id',
+      role: 'ADMIN'
+    },
+    {
       email: 'manager.a@siamtemp.com',
       name: 'Manager Company A',
       password: hashedPassword,

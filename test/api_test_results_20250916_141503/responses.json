@@ -1,0 +1,80 @@
+[
+    {
+        "test_number": 1,
+        "timestamp": "2025-09-16 14:15:30",
+        "category": "รายได้",
+        "question": "รายได้รวมทั้งหมดเท่าไหร่",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 26827,
+        "response_size_bytes": 940,
+        "request": {
+    "question": "รายได้รวมทั้งหมดเท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"เรามีข้อมูลรายได้รวมสำหรับปี 2024 แล้ว! ตามข้อมูลที่เราได้รับจากฐานข้อมูล v_sales รายได้รวมทั้งหมดสำหรับปี 2024 คือ **12,004,818** บาท นี่คือผลลัพธ์หลักของการคำนวณรายได้สำหรับปี 2024","success":true,"sql_query":"SELECT SUM(total_revenue) FROM v_sales WHERE year = '2024' LIMIT 1000;","results_count":1,"tenant_id":"company-a","user_id":"default","processing_time":26.809023141860962,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 2,
+        "timestamp": "2025-09-16 14:15:36",
+        "category": "รายได้",
+        "question": "รายได้ปี 2024 เป็นเท่าไหร่",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 4967,
+        "response_size_bytes": 1267,
+        "request": {
+    "question": "รายได้ปี 2024 เป็นเท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"เรามีข้อมูลรายได้ปี 2024 แล้ว! ตามข้อมูลที่เราได้รับจากฐานข้อมูล เราได้ค้นหาและพบว่า รายได้ปี 2024 ของบริษัท Siamtemp คือ **12,004,818 บาท** นี่คือข้อมูลสำคัญที่เราพบ: * รายได้ปี 2024: 12,004,818 บาท * จำนวนผลลัพธ์: 1 รายการ เราหวังว่าข้อมูลนี้จะช่วยให้คุณมีข้อมูลที่จำเป็นสำหรับการตัดสินใจหรือการวางแผนในอนาคต","success":true,"sql_query":"SELECT SUM(total_revenue) FROM v_sales WHERE year = '2024' LIMIT 1000;","results_count":1,"tenant_id":"company-a","user_id":"default","processing_time":4.957610845565796,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 3,
+        "timestamp": "2025-09-16 14:16:04",
+        "category": "รายได้",
+        "question": "เปรียบเทียบรายได้ปี 2023 กับ 2024",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 28391,
+        "response_size_bytes": 1967,
+        "request": {
+    "question": "เปรียบเทียบรายได้ปี 2023 กับ 2024",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"การเปรียบเทียบรายได้ปี 2023 กับ 2024 จากข้อมูลที่ให้มาดูเหมือนจะแสดงถึงความแตกต่างในรายได้ของบริษัท Siamtemp ในช่วงสองปีนี้ **จำนวนผลลัพธ์ทั้งหมด:** มี **447 รายการ** ที่แสดงถึงรายได้ทั้งหมดในปี 2023 และ 2024 โดยมีข้อมูลที่ไม่มีค่าใช้จ่ายต่ำกว่า 0 บาท **รายได้ปี 2023:** - รวมเป็นจำนวนเงิน **1,738,180 บาท** **รายได้ปี 2024:** - รวมเป็นจำนวนเงิน **2,221,180 บาท** **ความแตกต่าง:** - รายได้ในปี 2024 มากกว่าปี 2023 ถึง **483,000 บาท** **ข้อสรุป:** - บริษัท Siamtemp มีรายได้ที่เพิ่มขึ้นอย่างมากในช่วงสองปีนี้ - ปี 2024 มีรายได้มากกว่าปี 2023 ถึง 27.5% - สิ่งนี้บ่งบอกถึงความมั่นคงและความเติบโตของธุรกิจในบริษัท","success":true,"sql_query":"SELECT year, total_revenue FROM v_sales WHERE year IN ('2023','2024') AND total_revenue > 0 LIMIT 1000;","results_count":447,"tenant_id":"company-a","user_id":"default","processing_time":28.37899398803711,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 4,
+        "timestamp": "2025-09-16 14:17:25",
+        "category": "รายได้",
+        "question": "ยอดขาย overhaul ทั้งหมดเท่าไหร่",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 80628,
+        "response_size_bytes": 592,
+        "request": {
+    "question": "ยอดขาย overhaul ทั้งหมดเท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"พบข้อมูล 1 รายการ: {\"total_revenue\": null}","success":true,"sql_query":"SELECT SUM(overhaul_num) as total_revenue FROM v_sales WHERE year = '2024' AND overhaul_num > 0 LIMIT 1000;","results_count":1,"tenant_id":"company-a","user_id":"default","processing_time":80.61641597747803,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 5,
+        "timestamp": "2025-09-16 14:18:26",
+        "category": "รายได้",
+        "question": "ยอดขาย service ปี 2024",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 60091,
+        "response_size_bytes": 493,
+        "request": {
+    "question": "ยอดขาย service ปี 2024",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ขออภัย ไม่สามารถสร้าง SQL ได้: ","success":false,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":60.08087682723999,"ai_system_used":"ultimate_dual_model","intent":null,"entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }

@@ -14,10 +14,7 @@ services:
       - OPENAI_API_KEY=dummy-key
       - WEBUI_NAME=Siamtemp AI Assistant
       - WEBUI_URL=http://localhost:3000
-      - ENABLE_SIGNUP=false
       - DEFAULT_MODELS=llama3.1:8b
-      - WEBUI_AUTH=false  # Disable auth for testing
-      
     volumes:
       - open_webui_data:/app/backend/data
     networks:

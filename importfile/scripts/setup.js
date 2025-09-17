@@ -17,7 +17,7 @@ async function main() {
       location: 'กรุงเทพมหานคร'
     },
     {
-      id: 'company-b-id', 
+      id: 'company-b-id',
       name: 'Siamtemp Regional Office',
       code: 'company_b',
       dbName: 'siamtemp_company_b',
@@ -27,7 +27,7 @@ async function main() {
     {
       id: 'company-c-id',
       name: 'Siamtemp International',
-      code: 'company_c', 
+      code: 'company_c',
       dbName: 'siamtemp_company_c',
       description: 'สำนักงานต่างประเทศ สยามเทค จำกัด',
       location: 'International'
@@ -44,28 +44,36 @@ async function main() {
     console.log(`✅ Company created: ${company.name}`);
   }
 
-  // Create admin users for each company
-  const hashedPassword = await bcrypt.hash('password123', 12);
-  
+  // Create hashed passwords
+  const hashedPassword123 = await bcrypt.hash('password123', 12);
+  const hashedSiamPOC = await bcrypt.hash('SiamPOC001_', 12);  // Hash รหัสผ่านของ Admin
+
   const users = [
     {
       email: 'admin.a@siamtemp.com',
       name: 'Admin Company A',
-      password: hashedPassword,
+      password: hashedPassword123,
       companyId: 'company-a-id',
       role: 'ADMIN'
     },
     {
-      email: 'admin.b@siamtemp.com', 
+      email: 'Admin@Siamtemp.com',  // Admin พิเศษ
+      name: 'Admin Siamtemp',
+      password: hashedSiamPOC,  // ใช้ hashed password ที่ถูกต้อง
+      companyId: 'company-a-id',
+      role: 'ADMIN'
+    },
+    {
+      email: 'admin.b@siamtemp.com',
       name: 'Admin Company B',
-      password: hashedPassword,
+      password: hashedPassword123,
       companyId: 'company-b-id',
       role: 'ADMIN'
     },
     {
       email: 'admin.c@siamtemp.com',
-      name: 'Admin Company C', 
-      password: hashedPassword,
+      name: 'Admin Company C',
+      password: hashedPassword123,
       companyId: 'company-c-id',
       role: 'ADMIN'
     },
@@ -73,14 +81,14 @@ async function main() {
     {
       email: 'manager.a@siamtemp.com',
       name: 'Manager Company A',
-      password: hashedPassword,
+      password: hashedPassword123,
       companyId: 'company-a-id',
       role: 'MANAGER'
     },
     {
       email: 'user.a@siamtemp.com',
       name: 'User Company A',
-      password: hashedPassword,
+      password: hashedPassword123,
       companyId: 'company-a-id',
       role: 'USER'
     }
@@ -88,21 +96,50 @@ async function main() {
 
   console.log('👥 Creating users...');
   for (const user of users) {
-    await prisma.user.upsert({
-      where: { email: user.email },
-      update: user,
-      create: user,
-    });
-    console.log(`✅ User created: ${user.email}`);
+    try {
+      await prisma.user.upsert({
+        where: { email: user.email },
+        update: {
+          name: user.name,
+          password: user.password,
+          companyId: user.companyId,
+          role: user.role
+        },
+        create: user,
+      });
+      console.log(`✅ User created/updated: ${user.email}`);
+    } catch (error) {
+      console.error(`❌ Failed to create user ${user.email}:`, error.message);
+    }
   }
 
   console.log('✨ Database setup completed!');
   console.log('\n🔑 Demo Login Credentials:');
+  console.log('Super Admin: Admin@Siamtemp.com / SiamPOC001_');
   console.log('Company A Admin: admin.a@siamtemp.com / password123');
-  console.log('Company B Admin: admin.b@siamtemp.com / password123'); 
+  console.log('Company B Admin: admin.b@siamtemp.com / password123');
   console.log('Company C Admin: admin.c@siamtemp.com / password123');
   console.log('Company A Manager: manager.a@siamtemp.com / password123');
   console.log('Company A User: user.a@siamtemp.com / password123');
+
+  // Verify users were created
+  console.log('\n📋 Verifying created users:');
+  const allUsers = await prisma.user.findMany({
+    select: {
+      email: true,
+      name: true,
+      role: true,
+      company: {
+        select: {
+          name: true
+        }
+      }
+    }
+  });
+
+  allUsers.forEach(user => {
+    console.log(`  - ${user.email} (${user.role}) - ${user.company?.name || 'No company'}`);
+  });
 }
 
 main()
