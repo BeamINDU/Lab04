@@ -1,0 +1,16 @@
+[
+    {
+        "test_number": 1,
+        "timestamp": "2025-09-19 09:45:09",
+        "category": "รายได้",
+        "question": "รายได้รวมทั้งหมดเท่าไหร่",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 30212,
+        "response_size_bytes": 1304,
+        "request": {
+    "question": "รายได้รวมทั้งหมดเท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"1. จำนวนรายการทั้งหมดที่พบ: 1 รายการ\n\n2. รายละเอียดของแต่ละรายการ:\n   - รวมรายได้: 181,265,605.52 บาท (มีเลขหลังจุดถึงสตางค์)\n\n3. ข้อสังเกตหรือการวิเคราะห์: \n   ไม่มีข้อมูลเพิ่มเติมเกี่ยวกับบริการหลักที่เกี่ยวข้องกับรายได้ในรายการนี้ ซึ่งระบุว่า \"primary_service\": \"none\" แสดงว่าไม่มีบริการหลักที่สามารถระบุได้.","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":30.143166065216064,"ai_system_used":"ultimate_dual_model","intent":"sales","entities":{"years":[],"months":[],"dates":[],"products":[],"customers":[],"amounts":[],"job_types":[],"brands":[]},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }

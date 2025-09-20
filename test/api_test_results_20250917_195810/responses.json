@@ -1,0 +1,592 @@
+[
+    {
+        "test_number": 1,
+        "timestamp": "2025-09-17 19:58:47",
+        "category": "รายได้",
+        "question": "รายได้รวมทั้งหมดเท่าไหร่",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 37326,
+        "response_size_bytes": 1172,
+        "request": {
+    "question": "รายได้รวมทั้งหมดเท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"1. จำนวนรายการทั้งหมดที่พบ: 1 รายการ\n\n2. รายละเอียดของแต่ละรายการ:\n   - รายได้รวมทั้งหมด: 181,265,605.52 บาท\n   - บริการหลัก: ไม่มี (none)\n\n3. ข้อสังเกตหรือการวิเคราะห์: \n   รายการเดียวในข้อมูลนี้ระบุรายได้รวมทั้งหมดเป็น 181,265,605.52 บาท โดยไม่มีบริการหลักที่ระบุไว้.","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":37.25656533241272,"ai_system_used":"ultimate_dual_model","intent":"sales","entities":{"years":[],"months":[],"dates":[],"products":[],"customers":[],"amounts":[],"job_types":[],"brands":[]},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 2,
+        "timestamp": "2025-09-17 19:59:13",
+        "category": "รายได้",
+        "question": "รายได้ปี 2024 เป็นเท่าไหร่",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 25619,
+        "response_size_bytes": 1294,
+        "request": {
+    "question": "รายได้ปี 2024 เป็นเท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"1. จำนวนรายการทั้งหมดที่พบ: 1 รายการ\n\n2. รายละเอียดของแต่ละรายการ:\n   - รวมรายได้ (Sum): 12,004,818 บาท\n   - บริการหลัก (Primary Service): ไม่มีข้อมูล\n\n3. ข้อสังเกตหรือการวิเคราะห์: \n   ข้อมูลที่มีให้เป็นรายได้รวมสำหรับปี 2024 ในจำนวน 12,004,818 บาท โดยไม่มีข้อมูลเพิ่มเติมเกี่ยวกับบริการหลักที่เกี่ยวข้องกับรายได้นี้.","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":25.609376430511475,"ai_system_used":"ultimate_dual_model","intent":"sales","entities":{"years":[2024],"months":[],"dates":[],"products":[],"customers":[],"amounts":[],"job_types":[],"brands":[]},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 3,
+        "timestamp": "2025-09-17 19:59:43",
+        "category": "รายได้",
+        "question": "เปรียบเทียบรายได้ปี 2023 กับ 2024",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 29946,
+        "response_size_bytes": 1318,
+        "request": {
+    "question": "เปรียบเทียบรายได้ปี 2023 กับ 2024",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"1. จำนวนรายการทั้งหมดที่พบ: 1 รายการ\n\n2. รายละเอียดของแต่ละรายการ:\n   - รายได้ปี 2023: 51,082,849.68 บาท\n   - รายได้ปี 2024: 12,004,818.00 บาท\n   - ต่างกัน: -39,078,031.68 บาท (ลดลง)\n\n3. ข้อสังเกตหรือการวิเคราะห์:\n   รายได้ในปี 2024 ลดลงอย่างมากเมื่อเทียบกับปี 2023 โดยมีความแตกต่างถึง -39,078,031.68 บาท ซึ่งหมายความว่ารายได้ลดลงกว่า 75% จากปี 2023 ไปปี 2024.","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":29.932936906814575,"ai_system_used":"ultimate_dual_model","intent":"sales","entities":{"years":[2023,2024],"months":[],"dates":[],"products":[],"customers":[],"amounts":[],"job_types":[],"brands":[]},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 4,
+        "timestamp": "2025-09-17 20:00:05",
+        "category": "รายได้",
+        "question": "ยอดขาย overhaul ทั้งหมดเท่าไหร่",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 21205,
+        "response_size_bytes": 1130,
+        "request": {
+    "question": "ยอดขาย overhaul ทั้งหมดเท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"1. จำนวนรายการทั้งหมดที่พบ: 1 รายการ\n\n2. รายละเอียดของแต่ละรายการ:\n   - ยอดขาย overhaul รวม: 16,178,099.5 บาท\n\n3. ข้อสังเกตหรือการวิเคราะห์: ไม่มีข้อมูลเพียงพอสำหรับการวิเคราะห์เพิ่มเติม เนื่องจากเป็นข้อมูลเฉพาะรายการเดียวเท่านั้น","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":21.193161010742188,"ai_system_used":"ultimate_dual_model","intent":"overhaul_report","entities":{"years":[],"months":[],"dates":[],"products":[],"customers":[],"amounts":[],"job_types":["overhaul"],"brands":[]},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 5,
+        "timestamp": "2025-09-17 20:00:30",
+        "category": "รายได้",
+        "question": "ยอดขาย service ปี 2024",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 25148,
+        "response_size_bytes": 1257,
+        "request": {
+    "question": "ยอดขาย service ปี 2024",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"1. จำนวนรายการทั้งหมดที่พบ: 1 รายการ\n\n2. รายละเอียดของแต่ละรายการ:\n   - รหัสบริการ: 11948478\n   - บริการหลัก: ไม่มี (none)\n\n3. ข้อสังเกตหรือการวิเคราะห์: \n   ข้อมูลที่มีอยู่ไม่เพียงพอสำหรับการวิเคราะห์ยอดขาย service ในปี 2024 เนื่องจากไม่มีข้อมูลเกี่ยวกับยอดขายหรือปริมาณบริการในปีนั้นๆ.","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":25.13560652732849,"ai_system_used":"ultimate_dual_model","intent":"sales","entities":{"years":[2024],"months":[],"dates":[],"products":[],"customers":[],"amounts":[],"job_types":["service"],"brands":[]},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 6,
+        "timestamp": "2025-09-17 20:00:56",
+        "category": "รายได้",
+        "question": "ยอดขาย parts หรืออะไหล่มีเท่าไหร่",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 25046,
+        "response_size_bytes": 1267,
+        "request": {
+    "question": "ยอดขาย parts หรืออะไหล่มีเท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"1. จำนวนรายการทั้งหมดที่พบ: 1 รายการ\n\n2. รายละเอียดของแต่ละรายการ:\n   - ยอดขาย parts/อะไหล่: 453 (หน่วยไม่ระบุ)\n   - สถานะสินค้า: Out of Stock\n   - ประเภทมูลค่า: Low Value\n\n3. ข้อสังเกตหรือการวิเคราะห์:\n   - ยอดขาย parts/อะไหล่มีทั้งหมด 453 หน่วย\n   - สินค้าอยู่ในสถานะ Out of Stock (ไม่มีจำหน่าย)\n   - มูลค่าของสินค้าน้อย (Low Value)","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":25.034699201583862,"ai_system_used":"ultimate_dual_model","intent":"spare_parts","entities":{"years":[],"months":[],"dates":[],"products":[],"customers":[],"amounts":[],"job_types":[],"brands":[]},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 7,
+        "timestamp": "2025-09-17 20:01:22",
+        "category": "รายได้",
+        "question": "ยอดขาย replacement หรือเปลี่ยนอุปกรณ์",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 25594,
+        "response_size_bytes": 1396,
+        "request": {
+    "question": "ยอดขาย replacement หรือเปลี่ยนอุปกรณ์",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"1. จำนวนรายการทั้งหมดที่พบ: 1 รายการ\n\n2. รายละเอียดของแต่ละรายการ:\n   - ยอดขาย replacement: 28,584,571.98 บาท\n   - บริการหลัก (primary service): ไม่มี\n\n3. ข้อสังเกตหรือการวิเคราะห์: \n   รายการนี้เป็นยอดขายสำหรับอุปกรณ์ replacement เท่านั้น โดยไม่มีการให้บริการหลักเพิ่มเติม ซึ่งอาจหมายความว่าลูกค้าสนใจเฉพาะในส่วนของอุปกรณ์ที่ต้องการเปลี่ยนแปลงเท่านั้น","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":25.58386254310608,"ai_system_used":"ultimate_dual_model","intent":"sales","entities":{"years":[],"months":[],"dates":[],"products":[],"customers":[],"amounts":[],"job_types":["replacement"],"brands":[]},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 8,
+        "timestamp": "2025-09-17 20:01:51",
+        "category": "รายได้",
+        "question": "รายได้แต่ละปีเป็นอย่างไร",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 28758,
+        "response_size_bytes": 1516,
+        "request": {
+    "question": "รายได้แต่ละปีเป็นอย่างไร",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"1. จำนวนรายการทั้งหมดที่พบ: 4 รายการ\n\n2. รายละเอียดของแต่ละรายการ:\n   - ปี 1: รายได้ 71,870,274.97 บาท (บริการหลักไม่ระบุ)\n   - ปี 2: รายได้ 51,082,849.68 บาท (บริการหลักไม่ระบุ)\n   - ปี 3: รายได้ 12,004,818.00 บาท (บริการหลักไม่ระบุ)\n   - ปี 4: รายได้ 46,307,662.88 บาท (บริการหลักไม่ระบุ)\n\n3. ข้อสังเกต:\n   - รายได้ในแต่ละปีมีความแตกต่างกันอย่างมาก\n   - ปีที่ 1 มีรายได้สูงสุดคือ 71,870,274.97 บาท\n   - ปีที่ 3 มีรายได้น้อยที่สุดคือ 12,004,818.00 บาท","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":28.745795011520386,"ai_system_used":"ultimate_dual_model","intent":"sales","entities":{"years":[],"months":[],"dates":[],"products":[],"customers":[],"amounts":[],"job_types":[],"brands":[]},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 9,
+        "timestamp": "2025-09-17 20:02:17",
+        "category": "รายได้",
+        "question": "ยอดขายแยกตามประเภทงาน",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 25569,
+        "response_size_bytes": 1485,
+        "request": {
+    "question": "ยอดขายแยกตามประเภทงาน",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"1. จำนวนรายการทั้งหมดที่พบ: 1 รายการ\n\n2. รายละเอียดของแต่ละรายการ:\n   - การซ่อมบำรุง (overhaul_revenue): 16,178,099.5 บาท\n   - การเปลี่ยนส่วนประกอบ (replacement_revenue): 28,584,571.98 บาท\n   - การบริการหลัก (service_revenue): 48,846,320.67 บาท\n   - การขายส่วนประกอบ (parts_revenue): 3,443,060.78 บาท\n   - ประเภทบริการหลัก: ไม่มี (primary_service: \"none\")\n\n3. ข้อสังเกตหรือการวิเคราะห์:\n   - ยอดขายรวมทั้งหมดของรายการนี้คือ 96,452,052.93 บาท\n   - การบริการหลักไม่มีระบุ (primary_service: \"none\")","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":25.557360887527466,"ai_system_used":"ultimate_dual_model","intent":"sales","entities":{"years":[],"months":[],"dates":[],"products":[],"customers":[],"amounts":[],"job_types":[],"brands":[]},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 10,
+        "timestamp": "2025-09-17 20:02:42",
+        "category": "รายได้",
+        "question": "รายได้เฉลี่ยต่อปีเท่าไหร่",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 25467,
+        "response_size_bytes": 1271,
+        "request": {
+    "question": "รายได้เฉลี่ยต่อปีเท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"1. จำนวนรายการทั้งหมดที่พบ: 1 รายการ\n\n2. รายละเอียดของแต่ละรายการ:\n   - รายได้เฉลี่ยต่อปี: 186,487.25 บาท\n   - บริการหลัก: ไม่มีข้อมูล\n\n3. ข้อสังเกตหรือการวิเคราะห์: \n   รายการเดียวที่มีอยู่เป็นรายได้เฉลี่ยต่อปีเท่ากับ 186,487.25 บาท โดยไม่มีข้อมูลเกี่ยวกับบริการหลักขององค์กรหรือธุรกิจนั้นๆ.","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":25.45648431777954,"ai_system_used":"ultimate_dual_model","intent":"sales","entities":{"years":[],"months":[],"dates":[],"products":[],"customers":[],"amounts":[],"job_types":[],"brands":[]},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 11,
+        "timestamp": "2025-09-17 20:02:56",
+        "category": "รายได้",
+        "question": "ปีไหนมีรายได้สูงสุด",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 12714,
+        "response_size_bytes": 557,
+        "request": {
+    "question": "ปีไหนมีรายได้สูงสุด",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ขออภัย เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่","success":false,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":12.704126596450806,"ai_system_used":"ultimate_dual_model","intent":"sales","entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 12,
+        "timestamp": "2025-09-17 20:03:09",
+        "category": "รายได้",
+        "question": "ปีไหนมีรายได้ต่ำสุด",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 13518,
+        "response_size_bytes": 1138,
+        "request": {
+    "question": "ปีไหนมีรายได้ต่ำสุด",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"1. จำนวนรายการทั้งหมดที่พบ: 1 รายการ\n\n2. รายละเอียดของแต่ละรายการ:\n   - ปีที่มีรายได้ต่ำสุด: 2022\n   - รายได้ในปีนี้: 0\n   - บริการหลัก: ไม่มี\n\n3. ข้อสังเกตหรือการวิเคราะห์:\n   ปี 2022 เป็นปีที่มีรายได้ต่ำสุดเป็นศูนย์ โดยไม่มีบริการหลักที่ระบุ","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":13.507568120956421,"ai_system_used":"ultimate_dual_model","intent":"sales","entities":{"years":[],"months":[],"dates":[],"products":[],"customers":[],"amounts":[],"job_types":[],"brands":[]},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 13,
+        "timestamp": "2025-09-17 20:03:21",
+        "category": "รายได้",
+        "question": "งานที่มีมูลค่าสูงสุดคืองานไหน",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 10967,
+        "response_size_bytes": 576,
+        "request": {
+    "question": "งานที่มีมูลค่าสูงสุดคืองานไหน",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ขออภัย เกิดข้อผิดพลาดในการเข้าถึงข้อมูล กรุณาลองใหม่","success":false,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":10.95516300201416,"ai_system_used":"ultimate_dual_model","intent":"work_force","entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 14,
+        "timestamp": "2025-09-17 20:03:23",
+        "category": "รายได้",
+        "question": "งานที่มีมูลค่าต่ำสุด",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 1742,
+        "response_size_bytes": 576,
+        "request": {
+    "question": "งานที่มีมูลค่าต่ำสุด",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ขออภัย เกิดข้อผิดพลาดในการเข้าถึงข้อมูล กรุณาลองใหม่","success":false,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":1.731820821762085,"ai_system_used":"ultimate_dual_model","intent":"work_force","entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 15,
+        "timestamp": "2025-09-17 20:03:39",
+        "category": "รายได้",
+        "question": "รายได้จาก overhaul ปี 2024",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 15920,
+        "response_size_bytes": 1106,
+        "request": {
+    "question": "รายได้จาก overhaul ปี 2024",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"1. จำนวนรายการทั้งหมดที่พบ: 1 รายการ\n\n2. รายละเอียดของแต่ละรายการ:\n   - รายได้จากการ overhaul ในปี 2024: 0 บาท\n   - บริการหลัก: ไม่มี (none)\n\n3. ข้อสังเกตหรือการวิเคราะห์: \n   ปี 2024 ยังไม่มีรายได้จากการ overhaul และไม่มีบริการหลักที่ระบุไว้","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":15.908303260803223,"ai_system_used":"ultimate_dual_model","intent":"sales","entities":{"years":[2024],"months":[],"dates":[],"products":[],"customers":[],"amounts":[],"job_types":["overhaul"],"brands":[]},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 16,
+        "timestamp": "2025-09-17 20:04:05",
+        "category": "รายได้",
+        "question": "รายได้จาก service ปี 2023 เท่าไหร่",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 25352,
+        "response_size_bytes": 1304,
+        "request": {
+    "question": "รายได้จาก service ปี 2023 เท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"1. จำนวนรายการทั้งหมดที่พบ: 1 รายการ\n\n2. รายละเอียดของแต่ละรายการ:\n   - รายได้จาก service ในปี 2023: 13,044,132 บาท\n   - บริการหลัก: ไม่มีข้อมูล (primary_service: \"none\")\n\n3. ข้อสังเกตหรือการวิเคราะห์: \n   - มีเพียงรายการเดียวที่ระบุรายได้จาก service ในปี 2023\n   - ไม่มีข้อมูลเกี่ยวกับบริการหลักที่ทำให้รายได้เพิ่มขึ้น","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":25.341543912887573,"ai_system_used":"ultimate_dual_model","intent":"sales","entities":{"years":[2023],"months":[],"dates":[],"products":[],"customers":[],"amounts":["2023 เท่าไหร่"],"job_types":["service"],"brands":[]},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 17,
+        "timestamp": "2025-09-17 20:04:27",
+        "category": "รายได้",
+        "question": "มีงานทั้งหมดกี่งาน",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 22322,
+        "response_size_bytes": 1195,
+        "request": {
+    "question": "มีงานทั้งหมดกี่งาน",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"1. จำนวนรายการทั้งหมดที่พบ: 1 รายการ\n\n2. รายละเอียดของแต่ละรายการ:\n   - ประเภทงาน: ไม่ระบุ (Other)\n   - สถานะ: รอ审批中 (Pending)\n   - จำนวนงาน: 0 งาน\n\n3. ข้อสังเกตหรือการวิเคราะห์: \n   รายการนี้ไม่มีข้อมูลเกี่ยวกับจำนวนงานทั้งหมด แต่ระบุว่ามีงาน 0 งาน และอยู่ในสถานะรอ审批中。","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":22.31301784515381,"ai_system_used":"ultimate_dual_model","intent":"work_force","entities":{"years":[],"months":[],"dates":[],"products":[],"customers":[],"amounts":[],"job_types":[],"brands":[]},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 18,
+        "timestamp": "2025-09-17 20:04:41",
+        "category": "รายได้",
+        "question": "มีงานปี 2024 กี่งาน",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 13013,
+        "response_size_bytes": 650,
+        "request": {
+    "question": "มีงานปี 2024 กี่งาน",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ไม่พบข้อมูลที่ตรงกับคำถาม: มีงานปี 2024 กี่งาน","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":13.001426935195923,"ai_system_used":"ultimate_dual_model","intent":"work_force","entities":{"years":[2024],"months":[],"dates":[],"products":[],"customers":[],"amounts":[],"job_types":[],"brands":[]},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 19,
+        "timestamp": "2025-09-17 20:04:56",
+        "category": "รายได้",
+        "question": "รายได้เฉลี่ยต่องาน",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 14433,
+        "response_size_bytes": 1274,
+        "request": {
+    "question": "รายได้เฉลี่ยต่องาน",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"1. จำนวนรายการทั้งหมดที่พบ: 1 รายการ\n\n2. รายละเอียดของแต่ละรายการ:\n   - รายได้เฉลี่ยต่อการ交易: 186,487.25 元\n   - 总交易次数: 972 次\n   - 主要服务: 无\n\n3. ข้อสังเกตหรือการวิเคราะห์:\n   - มีเพียงรายการเดียวในชุดข้อมูล ทำให้ไม่สามารถวิเคราะห์ความแปรปรวนของรายได้เฉลี่ยได้\n   - จำนวนการ交易相对较少，可能需要更多数据以获得更准确的平均值。","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":14.423629999160767,"ai_system_used":"ultimate_dual_model","intent":"sales","entities":{"years":[],"months":[],"dates":[],"products":[],"customers":[],"amounts":[],"job_types":[],"brands":[]},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 20,
+        "timestamp": "2025-09-17 20:05:22",
+        "category": "รายได้",
+        "question": "งานที่มีรายได้มากกว่า 1 ล้านบาท",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 26298,
+        "response_size_bytes": 1334,
+        "request": {
+    "question": "งานที่มีรายได้มากกว่า 1 ล้านบาท",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"1. จำนวนรายการทั้งหมดที่พบ: 1 รายการ\n\n2. รายละเอียดของแต่ละรายการ:\n   - รายได้: 109,729,530.24 บาท\n   - บริการหลัก: ไม่มีข้อมูล (ระบุว่า \"none\")\n\n3. ข้อสังเกตหรือการวิเคราะห์:\n   - มีเพียงรายการเดียวที่มีรายได้มากกว่า 1 ล้านบาท\n   - รายได้ของรายการนี้สูงถึง 109,729,530.24 บาท\n   - ไม่มีข้อมูลเกี่ยวกับบริการหลักที่ทำให้เกิดรายได้นี้","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":26.28735375404358,"ai_system_used":"ultimate_dual_model","intent":"sales","entities":{"years":[],"months":[],"dates":[],"products":[],"customers":[],"amounts":[],"job_types":[],"brands":[]},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 21,
+        "timestamp": "2025-09-17 20:05:48",
+        "category": "รายได้",
+        "question": "งานที่มีรายได้น้อยกว่า 50000 บาท",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 25847,
+        "response_size_bytes": 1378,
+        "request": {
+    "question": "งานที่มีรายได้น้อยกว่า 50000 บาท",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"1. จำนวนรายการทั้งหมดที่พบ: 1 รายการ\n\n2. รายละเอียดของแต่ละรายการ:\n   - ผลรวม: 11,698,508.78 บาท\n   - บริการหลัก: ไม่มี (none)\n\n3. ข้อสังเกตหรือการวิเคราะห์: \n   ข้อมูลที่มีอยู่ไม่ตรงกับคำถามที่ถาม เนื่องจากไม่มีรายละเอียดเกี่ยวกับงานที่มีรายได้น้อยกว่า 50,000 บาท แต่เป็นผลรวมของรายได้ทั้งหมดในรูปแบบของบริการหลักที่ไม่มีระบุ.","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":25.835060596466064,"ai_system_used":"ultimate_dual_model","intent":"sales","entities":{"years":[],"months":[],"dates":[],"products":[],"customers":[],"amounts":["000 บาท"],"job_types":[],"brands":[]},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 22,
+        "timestamp": "2025-09-17 20:06:01",
+        "category": "รายได้",
+        "question": "การเติบโตรายได้จาก 2023 เป็น 2024",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 12098,
+        "response_size_bytes": 572,
+        "request": {
+    "question": "การเติบโตรายได้จาก 2023 เป็น 2024",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ขออภัย เกิดข้อผิดพลาดในการเข้าถึงข้อมูล กรุณาลองใหม่","success":false,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":12.089678287506104,"ai_system_used":"ultimate_dual_model","intent":"sales","entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 23,
+        "timestamp": "2025-09-17 20:06:23",
+        "category": "รายได้",
+        "question": "สัดส่วนรายได้แต่ละประเภทงาน",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 21649,
+        "response_size_bytes": 1330,
+        "request": {
+    "question": "สัดส่วนรายได้แต่ละประเภทงาน",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"1. จำนวนรายการทั้งหมดที่พบ: 1 รายการ\n\n2. รายละเอียดของแต่ละรายการ:\n   - overhaul_revenue: 16,178,099.5 บาท\n   - replacement_revenue: 28,584,571.98 บาท\n   - service_revenue: 48,846,320.67 บาท\n   - parts_revenue: 3,443,060.78 บาท\n   - product_revenue: 29,921,519.38 บาท\n   - solution_revenue: 54,292,033.22 บาท\n   - total_revenue: 181,265,605.52 บาท\n\n3. ข้อสังเกต:\n   - สัดส่วนรายได้จากงานบริการ (service) มีมากที่สุด占总营收的27.0%。\n   - 解析：服务收入（service_revenue）为48,846,320.67泰铢，占总收入181,265,605.52泰铢的大约27.0%。","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":21.636976957321167,"ai_system_used":"ultimate_dual_model","intent":"sales","entities":{"years":[],"months":[],"dates":[],"products":[],"customers":[],"amounts":[],"job_types":[],"brands":[]},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 24,
+        "timestamp": "2025-09-17 20:07:19",
+        "category": "รายได้",
+        "question": "งานที่มีรายได้สูงสุดแต่ละปี",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 55483,
+        "response_size_bytes": 3961,
+        "request": {
+    "question": "งานที่มีรายได้สูงสุดแต่ละปี",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"1. จำนวนรายการทั้งหมดที่พบ: 20 รายการ\n\n2. รายละเอียดของแต่ละรายการ:\n\n   - บ.ชินอิทซึ แม็คเนติคส์ (ประเทศไทย) จก., งานเปลี่ยนอุปกรณ์ Chiller 2/4 Comp. 1, 5,491,253.53 บาท\n   - Hitachi Astemo Ayutthaya Co., Ltd., งานเปลี่ยน Parts ไดกิ้น, 5,059,543.00 บาท\n   - AGC FLAT GLASS ( THAILAND ) PLC., งานบำรุงรักษา Chiller ระบบน้ำเย็น 1 ปี, 5,001,974.50 บาท\n   - IRPC Public Company Limted, ถ่ายน้ำมัน Ch-1 Comp.2 / งานเปลี่ยน Therminal CH-1 , COMP., 4,796,080.63 บาท\n   - สำนักงานกลาโหม ศาลาว่าการ, งานบำรุงรักษาเครื่องปรับอากาศ VRV / แยกส่วน = 12 ครั้ง /ปี, 3,864,470.00 บาท\n   - บ. แปซิฟิค แคท แค็บ จก., งานซ่อมเครื่อง Airtemp SR 154Z, 3,476,450.92 บาท\n   - การไฟฟ้าฝ่ายผลิต แห่งประเทศไทย, อุปกรณ์เครื่องปรับอากาศ, 2,970,652.00 บาท\n   - LION THAILAND Co., Ltd., งานซ่อม Compressor พร้อมติดตั้ง RCUG150WHYZL1-E, 2,122,028.00 บาท\n   - บ. ดี มายเออร์ ฯ จก., งานตรวจเช็คเครื่อง / เอสโซ่ ศรีราชา, 1,862,891.87 บาท\n   - สำนักงานปลัดกระทรวงกลาโหม, งานซ่อมเครื่อง Daikin ห้องรองปลัด2, 1,858,728.10 บาท\n   - บ.โมเดิร์นฟาร์มา, เครื่องทำน้ำเย็น EK EKAC460B1=2, 1,624,000.00 บาท\n   - สำนักงานปลัดกระทรวงกลาโหม, งานเปลี่ยนอุปกรณ์ ยอยลูกยาง, 1,594,846.67 บาท\n   - การไฟฟ้าฝ่ายผลิต แห่งประเทศไทย, อุปกรณ์ระบบปรับอากาศ, 1,482,902.00 บาท\n   - การไฟฟ้าฝ่ายผลิตแห่งประเทศไทย, งานบำรุงรักษา รายปี 12 ครั้ง (โรงไฟฟ้า พระนครเหนือ), 1,349,528.97 บาท\n   - กรมบังคับคดี, งานบำรุงรักษา รายปี 6 ครั้ง (อาคารอสีติพรรษ), 1,328,635.51 บาท\n   - บ. โรโตเมทริกส์ (เอสอี เอเซีย) จก., งานตรวจเช็คเครื่องทำน้ำเย็น EKAC120B1, 1,299,080.00 บาท\n   - บ. บี พี ไอ ฯ จก., งานเปลี่ยนอุปกรณ์ เครื่องทำน้ำเย็น EK, 1,101,600.00 บาท\n   - บ. ไทยเคน เมนท์แนนฯ จก., งานเปลี่ยน Sensor Chiller, 1,072,550.00 บาท\n   - กรมบังคับคดี, งานซ","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":55.47263193130493,"ai_system_used":"ultimate_dual_model","intent":"sales","entities":{"years":[],"months":[],"dates":[],"products":[],"customers":[],"amounts":[],"job_types":[],"brands":[]},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 25,
+        "timestamp": "2025-09-17 20:07:19",
+        "category": "รายได้",
+        "question": "มูลค่ารวมของสินค้าคงคลัง",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 74,
+        "response_size_bytes": 894,
+        "request": {
+    "question": "มูลค่ารวมของสินค้าคงคลัง",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ขออภัยครับ ไม่แน่ใจว่าต้องการข้อมูลอะไร 🤔\n\n💡 ลองถามแบบนี้ดูครับ:\n• \"รายได้ปี 2024\"\n• \"ราคาอะไหล่ [รหัสสินค้า]\"\n• \"งาน PM เดือนนี้\"\n\nหรือพิมพ์ \"ช่วย\" เพื่อดูคำแนะนำทั้งหมดครับ","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":0.06433987617492676,"ai_system_used":"ultimate_dual_model","intent":"general_casual","entities":{},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 26,
+        "timestamp": "2025-09-17 20:07:41",
+        "category": "ลูกค้า",
+        "question": "มีลูกค้าทั้งหมดกี่ราย",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 21250,
+        "response_size_bytes": 1078,
+        "request": {
+    "question": "มีลูกค้าทั้งหมดกี่ราย",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"1. จำนวนรายการทั้งหมดที่พบ: 1 รายการ\n\n2. รายละเอียดของแต่ละรายการ:\n   {\"total_customers\": 457.0}\n\n3. ข้อสังเกตหรือการวิเคราะห์: \n   ข้อมูลระบุว่ามีลูกค้าทั้งหมด 457 ราย โดยไม่มีข้อมูลเพิ่มเติมอื่นๆ ให้พิจารณา.","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":21.24149775505066,"ai_system_used":"ultimate_dual_model","intent":"top_customers","entities":{"years":[],"months":[],"dates":[],"products":[],"customers":["ทั้งหมดกี่ราย"],"amounts":[],"job_types":[],"brands":[]},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 27,
+        "timestamp": "2025-09-17 20:08:26",
+        "category": "ลูกค้า",
+        "question": "Top 10 ลูกค้าที่ใช้บริการมากที่สุด",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 44549,
+        "response_size_bytes": 3488,
+        "request": {
+    "question": "Top 10 ลูกค้าที่ใช้บริการมากที่สุด",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"1. จำนวนรายการทั้งหมดที่พบ: 10 รายการ\n\n2. รายละเอียดของแต่ละรายการ:\n\n   - สำนักงานสนับสนุน สำนักปลัดกระทรวงกลาโหม: ยอดขาย 14,009,764.34 บาท, จำนวนรายการ 19\n   - Hitachi Astemo Ayutthaya Co., Ltd.: ยอดขาย 3,630,750.00 บาท, จำนวนรายการ 16\n   - การไฟฟ้าฝ่ายผลิตแห่งประเทศไทย: ยอดขาย 13,910,588.97 บาท, จำนวนรายการ 14\n   - บริษัท สตาร์ ไมโคนิคส์ แมนูแฟคเจอริ่ง จำกัด: ยอดขาย 3,681,350.00 บาท, จำนวนรายการ 13\n   - บ.บิโก้ ปราจีนบุรี (ไทยแลนด์) จก.: ยอดขาย 1,277,835.50 บาท, จำนวนรายการ 12\n   - SEIKO INSTRUMENTS (Thailand) Co., Ltd.: ยอดขาย 2,112,700.00 บาท, จำนวนรายการ 11\n   - บริษัท เฟ้ลปส์ดอด์จ อินเตอร์เนชั่นแนล (ไทยแลนด์) จำกัด: ยอดขาย 716,880.00 บาท, จำนวนรายการ 11\n   - Sadesa ( Thailand ) Co., Ltd.-ปราจีน: ยอดขาย 337,382.00 บาท, จำนวนรายการ 10\n   - AGC Flat Glass (Thailand) Co., Ltd.: ยอดขาย 202,381.00 บาท, จำนวนรายการ 9\n   - CLARION Asia ( THAILAND ) Co., Ltd.: ยอดขาย 856,697.67 บาท, จำนวนรายการ 9\n\n3. ข้อสังเกตหรือการวิเคราะห์:\n   - สำนักงานสนับสนุน สำนักปลัดกระทรวงกลาโหม มียอดขายสูงที่สุดในลิสต์\n   - การไฟฟ้าฝ่ายผลิตแห่งประเทศไทยและบริษัท สตาร์ ไมโคนิคส์ แมนูแฟคเจอริ่ง จำกัด มีจำนวนรายการเท่ากันแต่มียอดขายแตกต่างกัน\n   - ลูกค้าบางรายมียอดขายสูงแต่จำนวนรายการน้อย เช่น SEIKO INSTRUMENTS (Thailand) Co., Ltd. และ Hitachi Astemo Ayutthaya Co., Ltd.\n   - ลูกค้าบางรายมียอดขายต่ำและจำนวนรายการน้อยเช่น Sadesa ( Thailand ) Co., Ltd.-ปราจีน, AGC Flat Glass (Thailand) Co., Ltd. และ CLARION Asia ( THAILAND ) Co., Ltd.","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":44.53476333618164,"ai_system_used":"ultimate_dual_model","intent":"top_customers","entities":{"years":[],"months":[],"dates":[],"products":[],"customers":["ที่ใช้บริ"],"amounts":[],"job_types":["service"],"brands":[]},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 28,
+        "timestamp": "2025-09-17 20:09:10",
+        "category": "ลูกค้า",
+        "question": "ลูกค้าที่มียอดการใช้บริการสูงสุด",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 44134,
+        "response_size_bytes": 3169,
+        "request": {
+    "question": "ลูกค้าที่มียอดการใช้บริการสูงสุด",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"1. จำนวนรายการทั้งหมดที่พบ: 20 รายการ\n\n2. รายละเอียดของแต่ละรายการ:\n   - การไฟฟ้านครหลวง / หอประชุมวังไกรกังวล: 119,900\n   - THE PET CO., LTD.: 389,700\n   - NHK Spring (Thailand) Co., Ltd. (โรงงานบางปู): 42,750\n   - บ. ไอซิน เคมีคอน (ประเทศไทย) จก.: 0\n   - สำนักปลัดกระทรวงกลาโหม / ศรีสมาน: 17,900\n   - บ. ชวัลชา จก. / รมรวินท์ คลีนิค: 7,150\n   - Sadesa ( Thailand ) Co., Ltd.-ปราจีน: 72,532\n   - MURATA ลำพูน / Taikisha: 153,520\n   - Master Glove Industry Co.,Ltd: 19,000\n   - บริษัท บิลเลี่ยน อินคอร์ปอเรท กรุ๊ป จำกัด: 0\n   - บ. ไทยซัมมิท เคเบิลฯ จก.: 68,590\n   - HOYA ลำพูน: 120,040\n   - บริษัท โมเดิร์น ฟาร์มา จำกัด: 0\n   - Mainli Sliver Desing Co.,ltd.: 66,000\n   - THE PET Co., Ltd.: 389,700 (ซ้ำ)\n   - คลีนิกการประกอบโรคศิลปะ ฯ การแพทย์แผนจีน: 118,800\n   - บริษัท ชวัลชา จำกัด/PJ. รมรวินท์ คลีนิค สาขางามวงศ์วาน: 11,800\n   - บริษัท เอสพีพีพาวเดอร์ จำกัด: 24,000\n   - Seiko Instruments (Thailand )Ltd.: 221,892\n   - หจก. พศิน เอ็นจิเนียริ่ง แอนด์ เซอร์วิส: 24,000\n\n3. ข้อสังเกต:\n   - THE PET CO., LTD. และ THE PET Co., Ltd. มีการใช้บริการสูงสุดที่ 389,700\n   - ลูกค้าบางรายมียอดการใช้บริการเป็นศูนย์ เช่น บ. ไอซิน เคมีคอน (ประเทศไทย) จก., บริษัท บิลเลี่ยน อินคอร์ปอเรท กรุ๊ป จำกัด, และ บริษัท โมเดิร์น ฟาร์มา จำกัด\n   - มีลูกค้าที่มียอดการใช้บริการสูงกว่า 100,000 เช่น MURATA ลำพูน / Taikisha และ Seiko Instruments (Thailand )Ltd.","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":44.11420774459839,"ai_system_used":"ultimate_dual_model","intent":"top_customers","entities":{"years":[],"months":[],"dates":[],"products":[],"customers":["ที่"],"amounts":[],"job_types":["service"],"brands":[]},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 29,
+        "timestamp": "2025-09-17 20:09:10",
+        "category": "ลูกค้า",
+        "question": "ประวัติการใช้บริการของ Stanley",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 93,
+        "response_size_bytes": 894,
+        "request": {
+    "question": "ประวัติการใช้บริการของ Stanley",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ขออภัยครับ ไม่แน่ใจว่าต้องการข้อมูลอะไร 🤔\n\n💡 ลองถามแบบนี้ดูครับ:\n• \"รายได้ปี 2024\"\n• \"ราคาอะไหล่ [รหัสสินค้า]\"\n• \"งาน PM เดือนนี้\"\n\nหรือพิมพ์ \"ช่วย\" เพื่อดูคำแนะนำทั้งหมดครับ","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":0.07297730445861816,"ai_system_used":"ultimate_dual_model","intent":"general_casual","entities":{},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 30,
+        "timestamp": "2025-09-17 20:09:11",
+        "category": "ลูกค้า",
+        "question": "ประวัติการใช้บริการของ Clarion",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 76,
+        "response_size_bytes": 894,
+        "request": {
+    "question": "ประวัติการใช้บริการของ Clarion",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ขออภัยครับ ไม่แน่ใจว่าต้องการข้อมูลอะไร 🤔\n\n💡 ลองถามแบบนี้ดูครับ:\n• \"รายได้ปี 2024\"\n• \"ราคาอะไหล่ [รหัสสินค้า]\"\n• \"งาน PM เดือนนี้\"\n\nหรือพิมพ์ \"ช่วย\" เพื่อดูคำแนะนำทั้งหมดครับ","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":0.06413698196411133,"ai_system_used":"ultimate_dual_model","intent":"general_casual","entities":{},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 31,
+        "timestamp": "2025-09-17 20:09:51",
+        "category": "ลูกค้า",
+        "question": "ลูกค้าใหม่ปี 2024 มีใครบ้าง",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 39337,
+        "response_size_bytes": 3187,
+        "request": {
+    "question": "ลูกค้าใหม่ปี 2024 มีใครบ้าง",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"1. จำนวนรายการทั้งหมดที่พบ: 20 รายการ\n\n2. รายละเอียดของแต่ละรายการ:\n   - บ. ไทยสแตนย์ ฯ จก. ปทุม\n   - บริษัท ฮอนชวน ประเทศไทย (สาขาปทุมธานี)\n   - บริษัท ไทย แพ็คเกจจิ้ง แมนูแฟ็กเจอเรอร์ จำกัด\n   - Sadesa ( Thailand ) Co., Ltd. - อยุธยา\n   - ศรีอารยะเทพ\n   - IRPC PUBLIC COMPANY LIMITED\n   - บมจ.เมืองไทยประกันภัย\n   - บริษัท คังเซน-เคนโก อินเตอร์เนชั่นแนลจำกัด\n   - บ. วิชัยยุทธ จก. / รพ.วิชัยยุทธ\n   - บริษัท ไทยสแตนเลย์ ฯ จำกัด จ. ปทุมธานี\n   - Seiko Instruments (thailand)Ltd\n   - บริษัท เอ็มแอนด์อาร์ แลบเบอราทอรี่ จำกัด\n   - บริษัท ทูเพาเวอร์ วิศวกรรม จำกัด ศูนย์รถโตโยต้า ธนบุรี สาขาสุขาภิบาล 2 โดยมีรายละเอียดดังนี้\n   - บริษัท สตาร์ ไมโคนิคส์ แมนูแฟคเจอริ่ง จำกัด\n   - บริษัท พีทีที โกลบอล เคมิคอล จำกัด (มหาชน) / บริษัทจีซี-เอ็ม พีทีเอ จำกัด\n   - บริษัทไอซินเคมิคอล ประเทศไทย จำกัด\n   - บริษัท ฮอนด้า อาร์แอนด์ดี เอเชีย แปซิฟิค จำกัด\n   - บริษัท คูโบต้า จำกัด นิคมปิ่นทอง3\n   - NHK Spring (Thailand) Co., Ltd. (โรงงานบ้านโพธิ์)\n   - บจก.โตโยอิ๊ง (ประเทศไทย)\n\n3. ข้อสังเกต: รายการที่ 12 มีรายละเอียดเพิ่มเติมที่ระบุว่าเป็น \"ศูนย์รถโตโยต้า ธนบุรี สาขาสุขาภิบาล 2\" ซึ่งอาจไม่จำเป็นต้องระบุในรายการลูกค้าหลัก","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":39.32622408866882,"ai_system_used":"ultimate_dual_model","intent":"top_customers","entities":{"years":[2024],"months":[],"dates":[],"products":[],"customers":[],"amounts":[],"job_types":[],"brands":[]},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 32,
+        "timestamp": "2025-09-17 20:10:44",
+        "category": "ลูกค้า",
+        "question": "ลูกค้าที่ใช้บริการบ่อยที่สุด",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 52547,
+        "response_size_bytes": 3989,
+        "request": {
+    "question": "ลูกค้าที่ใช้บริการบ่อยที่สุด",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"1. จำนวนรายการทั้งหมดที่พบ: 20 รายการ\n\n2. รายละเอียดของแต่ละรายการ:\n\n   - สำนักงานสนับสนุน สำนักปลัดกระทรวงกลาโหม: 19 รายการ, ยอดรวม 14,009,764.34 บาท\n   - Hitachi Astemo Ayutthaya Co., Ltd.: 16 รายการ, ยอดรวม 3,630,750.00 บาท\n   - การไฟฟ้าฝ่ายผลิตแห่งประเทศไทย: 14 รายการ, ยอดรวม 13,910,588.97 บาท\n   - บริษัท สตาร์ ไมโคนิคส์ แมนูแฟคเจอริ่ง จำกัด: 13 รายการ, ยอดรวม 3,681,350.00 บาท\n   - บ.บิโก้ ปราจีนบุรี (ไทยแลนด์) จก.: 12 รายการ, ยอดรวม 1,277,835.50 บาท\n   - SEIKO INSTRUMENTS (Thailand) Co., Ltd.: 11 รายการ, ยอดรวม 2,112,700.00 บาท\n   - บริษัท เฟ้ลปส์ดอด์จ อินเตอร์เนชั่นแนล (ไทยแลนด์) จำกัด: 11 รายการ, ยอดรวม 716,880.00 บาท\n   - Sadesa ( Thailand ) Co., Ltd.-ปราจีน: 10 รายการ, ยอดรวม 337,382.00 บาท\n   - AGC Flat Glass (Thailand) Co., Ltd.: 9 รายการ, ยอดรวม 202,381.00 บาท\n   - CLARION Asia ( THAILAND ) Co., Ltd.: 9 รายการ, ยอดรวม 856,697.67 บาท\n   - สำนักคณะกรรมการส่งเสริมวิทยาศาสตร์วิจัยและนวัตกรรม: 8 รายการ, ยอดรวม 437,053.27 บาท\n   - เงินสด / อื่นๆ: 8 รายการ, ยอดรวม 27,607.48 บาท\n   - ลูกค้าซื้อ เงินสด: 8 รายการ, ยอดรวม 188,645.00 บาท\n   - บ. ชินอิทซึ แม็คเนติคส์ ฯ จก.: 8 รายการ, ยอดรวม 392,567.00 บาท\n   - ABB Electrification (Thailand) Co., Ltd.: 7 รายการ, ยอดรวม 944,850.00 บาท\n   - Seiko Instruments (thailand)Ltd: 7 รายการ, ยอดรวม 525,066.00 บาท\n   - บริษัท ชินอิทซึ แม็คเนติคส์ (ประเทศไทย) จำกัด: 7 รายการ, ยอดรวม 458,450.00 บาท\n   - Z – KURODA ( THAILAND) Co., Ltd.: 7 รายการ, ยอดรวม 229,970.00 บาท\n   - Hitachi Astemo Ayutthaya Co., Ltd.: 7 รายการ, ยอดรวม 5,364,343.00 บาท\n   - บริษัท คังเซน-เคนโก อินเตอร์เนชั่นแนลจำกัด: 7 รายการ, ยอดรวม 1,012,495.00 บาท\n\n3. ข้อสังเกต:\n   - สำนักงานสนับสนุน สำนักปลัดกระทรวงกลาโหม มีการใช้บริการมากที่สุดเป็นอันดับหนึ่ง โดยมียอดรวมสูงถึง 14,009,764.34 บาท\n   - Hitachi Astemo Ayutthaya Co.,","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":52.5313618183136,"ai_system_used":"ultimate_dual_model","intent":"top_customers","entities":{"years":[],"months":[],"dates":[],"products":[],"customers":["ที่ใช้บริ"],"amounts":[],"job_types":["service"],"brands":[]},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 33,
+        "timestamp": "2025-09-17 20:10:54",
+        "category": "ลูกค้า",
+        "question": "ลูกค้าที่ใช้บริการ overhaul",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 9688,
+        "response_size_bytes": 717,
+        "request": {
+    "question": "ลูกค้าที่ใช้บริการ overhaul",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ไม่พบข้อมูลที่ตรงกับคำถาม: ลูกค้าที่ใช้บริการ overhaul","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":9.671245098114014,"ai_system_used":"ultimate_dual_model","intent":"overhaul_report","entities":{"years":[],"months":[],"dates":[],"products":[],"customers":["ที่ใช้บริ"],"amounts":[],"job_types":["overhaul","service"],"brands":[]},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 34,
+        "timestamp": "2025-09-17 20:10:55",
+        "category": "ลูกค้า",
+        "question": "ลูกค้าภาครัฐมีใครบ้าง",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 945,
+        "response_size_bytes": 687,
+        "request": {
+    "question": "ลูกค้าภาครัฐมีใครบ้าง",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ไม่พบข้อมูลที่ตรงกับคำถาม: ลูกค้าภาครัฐมีใครบ้าง","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":0.9321308135986328,"ai_system_used":"ultimate_dual_model","intent":"top_customers","entities":{"years":[],"months":[],"dates":[],"products":[],"customers":["ภาครัฐ"],"amounts":[],"job_types":[],"brands":[]},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 35,
+        "timestamp": "2025-09-17 20:10:57",
+        "category": "ลูกค้า",
+        "question": "ลูกค้าเอกชนที่ใหญ่ที่สุด",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 1862,
+        "response_size_bytes": 732,
+        "request": {
+    "question": "ลูกค้าเอกชนที่ใหญ่ที่สุด",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ไม่พบข้อมูลที่ตรงกับคำถาม: ลูกค้าเอกชนที่ใหญ่ที่สุด","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":1.8496637344360352,"ai_system_used":"ultimate_dual_model","intent":"top_customers","entities":{"years":[],"months":[],"dates":[],"products":[],"customers":["เอกชนที่ใหญ่ที่สุด"],"amounts":[],"job_types":[],"brands":[]},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 36,
+        "timestamp": "2025-09-17 20:10:59",
+        "category": "ลูกค้า",
+        "question": "ข้อมูลลูกค้า Toyota",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 1637,
+        "response_size_bytes": 655,
+        "request": {
+    "question": "ข้อมูลลูกค้า Toyota",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ไม่พบข้อมูลที่ตรงกับคำถาม: ข้อมูลลูกค้า Toyota","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":1.6240665912628174,"ai_system_used":"ultimate_dual_model","intent":"top_customers","entities":{"years":[],"months":[],"dates":[],"products":[],"customers":["Toyota"],"amounts":[],"job_types":[],"brands":[]},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 37,
+        "timestamp": "2025-09-17 20:11:16",
+        "category": "ลูกค้า",
+        "question": "ข้อมูลลูกค้า Denso",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 16930,
+        "response_size_bytes": 1213,
+        "request": {
+    "question": "ข้อมูลลูกค้า Denso",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"1. จำนวนรายการทั้งหมดที่พบ: 1 รายการ\n\n2. รายละเอียดของแต่ละรายการ:\n   - ลูกค้า: Denso (Thailand) Co., Ltd.\n   - จำนวนรายการขาย: 2 รายการ\n   - ยอดรวม: 24,000 บาท\n\n3. ข้อสังเกตหรือการวิเคราะห์: \n   - มีลูกค้าเพียงรายเดียวที่มีข้อมูล\n   - ลูกค้านี้มีรายการขาย 2 ครั้ง และยอดรวมทั้งหมด 24,000 บาท","success":true,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":16.918384790420532,"ai_system_used":"ultimate_dual_model","intent":"top_customers","entities":{"years":[],"months":[],"dates":[],"products":[],"customers":["DENSO"],"amounts":[],"job_types":[],"brands":[]},"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }

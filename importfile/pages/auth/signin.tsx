@@ -275,54 +275,6 @@ export default function SignIn() {
               )}
             </button>
           </div>
-
-          {/* Demo Accounts Section */}
-          <div className="mt-8 border-t border-gray-200 pt-6">
-            <p className="text-sm text-gray-600 text-center mb-4">
-              🚀 บัญชีทดลองใช้งาน (Demo Accounts):
-            </p>
-            <div className="grid gap-3">
-              {demoAccounts.map((demo, index) => (
-                <button
-                  key={index}
-                  type="button"
-                  onClick={() => fillDemoAccount(demo)}
-                  className={`p-3 rounded-lg border border-gray-200 hover:border-gray-300 transition-all text-left group ${
-                    selectedDemo === demo.company ? 'ring-2 ring-blue-500 border-blue-300 bg-blue-50' : 'hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-3 h-3 rounded-full ${demo.color}`}></div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{demo.company}</p>
-                        <p className="text-xs text-gray-500">{demo.description}</p>
-                      </div>
-                    </div>
-                    <div className="text-xs text-gray-400 group-hover:text-gray-600">
-                      คลิกเพื่อเติมข้อมูล
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-            
-            {selectedDemo && (
-              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-xs text-blue-700 text-center">
-                  ✨ ข้อมูล {selectedDemo} ถูกเติมในฟอร์มแล้ว กดปุ่ม "เข้าสู่ระบบ" เพื่อดำเนินการต่อ
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Help Text */}
-          <div className="mt-6 text-center">
-            <p className="text-xs text-gray-500">
-              มีปัญหาในการเข้าสู่ระบบ? ติดต่อ IT Support: 
-              <span className="font-medium text-blue-600"> support@siamtemp.com</span>
-            </p>
-          </div>
         </form>
       </div>
     </div>

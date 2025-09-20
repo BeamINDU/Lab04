@@ -1,0 +1,128 @@
+[
+    {
+        "test_number": 1,
+        "timestamp": "2025-09-17 21:15:45",
+        "category": "รายได้",
+        "question": "รายได้รวมทั้งหมดเท่าไหร่",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 6048,
+        "response_size_bytes": 556,
+        "request": {
+    "question": "รายได้รวมทั้งหมดเท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ขออภัย เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่","success":false,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":6.026068210601807,"ai_system_used":"ultimate_dual_model","intent":"sales","entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 2,
+        "timestamp": "2025-09-17 21:15:49",
+        "category": "รายได้",
+        "question": "รายได้ปี 2024 เป็นเท่าไหร่",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 3751,
+        "response_size_bytes": 557,
+        "request": {
+    "question": "รายได้ปี 2024 เป็นเท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ขออภัย เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่","success":false,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":3.7411274909973145,"ai_system_used":"ultimate_dual_model","intent":"sales","entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 3,
+        "timestamp": "2025-09-17 21:15:54",
+        "category": "รายได้",
+        "question": "เปรียบเทียบรายได้ปี 2023 กับ 2024",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 4279,
+        "response_size_bytes": 565,
+        "request": {
+    "question": "เปรียบเทียบรายได้ปี 2023 กับ 2024",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ขออภัย เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่","success":false,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":4.268292665481567,"ai_system_used":"ultimate_dual_model","intent":"sales_analysis","entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 4,
+        "timestamp": "2025-09-17 21:16:01",
+        "category": "รายได้",
+        "question": "ยอดขาย overhaul ทั้งหมดเท่าไหร่",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 7139,
+        "response_size_bytes": 566,
+        "request": {
+    "question": "ยอดขาย overhaul ทั้งหมดเท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ขออภัย เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่","success":false,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":7.129209756851196,"ai_system_used":"ultimate_dual_model","intent":"overhaul_report","entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 5,
+        "timestamp": "2025-09-17 21:16:04",
+        "category": "รายได้",
+        "question": "ยอดขาย service ปี 2024",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 2766,
+        "response_size_bytes": 555,
+        "request": {
+    "question": "ยอดขาย service ปี 2024",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ขออภัย เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่","success":false,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":2.75716233253479,"ai_system_used":"ultimate_dual_model","intent":"sales","entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 6,
+        "timestamp": "2025-09-17 21:16:09",
+        "category": "รายได้",
+        "question": "ยอดขาย parts หรืออะไหล่มีเท่าไหร่",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 4824,
+        "response_size_bytes": 563,
+        "request": {
+    "question": "ยอดขาย parts หรืออะไหล่มีเท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ขออภัย เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่","success":false,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":4.8147406578063965,"ai_system_used":"ultimate_dual_model","intent":"spare_parts","entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 7,
+        "timestamp": "2025-09-17 21:16:26",
+        "category": "รายได้",
+        "question": "ยอดขาย replacement หรือเปลี่ยนอุปกรณ์",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 16164,
+        "response_size_bytes": 555,
+        "request": {
+    "question": "ยอดขาย replacement หรือเปลี่ยนอุปกรณ์",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ขออภัย เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่","success":false,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":16.1545889377594,"ai_system_used":"ultimate_dual_model","intent":"sales","entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 8,
+        "timestamp": "2025-09-17 21:16:32",
+        "category": "รายได้",
+        "question": "รายได้แต่ละปีเป็นอย่างไร",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 6172,
+        "response_size_bytes": 556,
+        "request": {
+    "question": "รายได้แต่ละปีเป็นอย่างไร",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ขออภัย เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่","success":false,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":6.162120819091797,"ai_system_used":"ultimate_dual_model","intent":"sales","entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }

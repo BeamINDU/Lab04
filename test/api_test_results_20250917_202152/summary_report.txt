@@ -1,0 +1,47 @@
+=====================================
+HVAC API Test Suite - Summary Report
+=====================================
+Test Date: 2025-09-17 20:21:52
+API URL: http://localhost:5000/v1/chat
+Tenant ID: company-a
+=====================================
+
+=== หมวด 1: ข้อมูลรายได้และยอดขาย ===
+
+=== หมวด 2: ข้อมูลลูกค้า ===
+
+=== หมวด 3: ข้อมูลอะไหล่และสินค้าคงคลัง ===
+
+=== หมวด 4: ข้อมูลงานบริการและทีมงาน ===
+
+=== หมวด 5: คำถามเชิงวิเคราะห์และรายงาน ===
+
+=====================================
+TEST RESULTS SUMMARY
+=====================================
+Total Tests: 100
+Successful: 9
+Failed: 91
+Success Rate: 9.00%
+Average Response Time: 632.27ms
+Total Duration: 100 seconds
+=====================================
+
+CATEGORY BREAKDOWN:
+-------------------
+รายได้: 9/25 (36.00%)
+ลูกค้า: 0/25 (0.00%)
+อะไหล่: 0/20 (0.00%)
+งานบริการ: 0/20 (0.00%)
+วิเคราะห์: 0/10 (0.00%)
+
+=====================================
+FILES GENERATED:
+=====================================
+1. Detailed Results: api_test_results_20250917_202152/detailed_results.log
+2. Summary Report: api_test_results_20250917_202152/summary_report.txt  
+3. CSV Data: api_test_results_20250917_202152/results.csv
+4. JSON Responses: api_test_results_20250917_202152/responses.json
+5. SQL Queries: 
+6. Error Log: api_test_results_20250917_202152/errors.log
+=====================================

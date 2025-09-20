@@ -1,9 +1,10 @@
-import json
+import decimal, json
 import logging
+import math
 import re
 from typing import Dict, List, Any, Optional, Tuple
 from textwrap import dedent
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta ,date
 from functools import lru_cache
 import hashlib
 
@@ -330,6 +331,13 @@ class PromptManager:
         }
     
     def _load_production_examples(self) -> Dict[str, str]:
+        """
+        The `_load_production_examples` function returns a dictionary containing SQL queries for various
+        analytical tasks related to sales, work force, spare parts, and business overview.
+        :return: A dictionary containing SQL queries for various analytical tasks related to production
+        data, spare parts, and work force management. Each query is labeled with a specific task or question
+        it aims to address.
+        """
         """Load actual production SQL examples"""
         return {
             # Customer History - ประวัติลูกค้า
@@ -502,13 +510,12 @@ class PromptManager:
             
             # Count Works by Year - จำนวนงานแต่ละปี
             'count_works_by_year': dedent("""
-                SELECT 
-                    EXTRACT(YEAR FROM date::date) AS year,
-                    COUNT(*) AS total_works
-                FROM v_work_force
-                WHERE date::date >= '2024-01-01'
-                GROUP BY EXTRACT(YEAR FROM date::date)
-                ORDER BY year;
+            SELECT 
+                EXTRACT(YEAR FROM date::date) AS year,
+                COUNT(*) AS total_works
+            FROM v_work_force
+            GROUP BY EXTRACT(YEAR FROM date::date)
+            ORDER BY year;
             """).strip(),
             
             # Year with Min/Max Revenue - ปีที่มีรายได้ต่ำสุด/สูงสุด
@@ -542,10 +549,11 @@ class PromptManager:
             
             # Average values - ค่าเฉลี่ย
             'average_work_value': dedent("""
-                SELECT AVG(total_revenue) AS average_revenue,
-                       MIN(total_revenue) AS min_revenue,
-                       MAX(total_revenue) AS max_revenue,
-                       COUNT(*) AS total_count
+                SELECT 
+                    AVG(total_revenue) AS average_revenue,
+                    MIN(total_revenue) AS min_revenue,
+                    MAX(total_revenue) AS max_revenue,
+                    COUNT(*) AS total_count
                 FROM v_sales
                 WHERE total_revenue > 0;
             """).strip(),
@@ -962,6 +970,1123 @@ class PromptManager:
                 GROUP BY year
                 ORDER BY year;
             """).strip(),
+                    'overhaul_total': dedent("""
+            SELECT 
+                SUM(overhaul_num) as total_overhaul,
+                COUNT(CASE WHEN overhaul_num > 0 THEN 1 END) as overhaul_count
+            FROM v_sales 
+            WHERE overhaul_num > 0;
+        """).strip(),
+        
+        # คำถามข้อ 6: ยอดขาย Parts/อะไหล่
+        'parts_total': dedent("""
+            SELECT 
+                SUM(parts_num) as total_parts,
+                COUNT(CASE WHEN parts_num > 0 THEN 1 END) as parts_transactions
+            FROM v_sales 
+            WHERE parts_num > 0;
+        """).strip(),
+        
+        # คำถามข้อ 7: ยอดขาย Replacement
+        'replacement_total': dedent("""
+            SELECT 
+                SUM(replacement_num) as total_replacement,
+                COUNT(CASE WHEN replacement_num > 0 THEN 1 END) as replacement_count
+            FROM v_sales 
+            WHERE replacement_num > 0;
+        """).strip(),
+        
+        # คำถามข้อ 10: รายได้เฉลี่ยต่อปี
+        'average_annual_revenue': dedent("""
+            SELECT 
+                AVG(yearly_revenue) as avg_annual_revenue,
+                MIN(yearly_revenue) as min_annual_revenue,
+                MAX(yearly_revenue) as max_annual_revenue
+            FROM (
+                SELECT year, SUM(total_revenue) as yearly_revenue 
+                FROM v_sales 
+                GROUP BY year
+            ) as yearly_totals;
+        """).strip(),
+        
+        # คำถามข้อ 17: จำนวนงานทั้งหมด
+        'count_all_jobs': dedent("""
+            SELECT 
+                COUNT(*) as total_jobs,
+                COUNT(DISTINCT customer_name) as unique_customers,
+                COUNT(DISTINCT year) as years_covered
+            FROM v_sales;
+        """).strip(),
+        
+        # คำถามข้อ 18: จำนวนงานปีเฉพาะ
+        'count_jobs_year': dedent("""
+            SELECT 
+                COUNT(*) as jobs_count,
+                COUNT(DISTINCT customer_name) as customers_count
+            FROM v_sales 
+            WHERE year = '2024';
+        """).strip(),
+        
+        # คำถามข้อ 19: รายได้เฉลี่ยต่องาน
+        'average_revenue_per_job': dedent("""
+            SELECT 
+                AVG(total_revenue) as avg_revenue_per_job,
+                PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY total_revenue) as median_revenue
+            FROM v_sales 
+            WHERE total_revenue > 0;
+        """).strip(),
+        
+        # คำถามข้อ 22: การเติบโตรายได้
+        'revenue_growth': dedent("""
+            WITH revenue_by_year AS (
+                SELECT year, SUM(total_revenue) as annual_revenue
+                FROM v_sales
+                WHERE year IN ('2023', '2024')
+                GROUP BY year
+            )
+            SELECT 
+                MAX(CASE WHEN year = '2024' THEN annual_revenue END) as revenue_2024,
+                MAX(CASE WHEN year = '2023' THEN annual_revenue END) as revenue_2023,
+                MAX(CASE WHEN year = '2024' THEN annual_revenue END) - 
+                MAX(CASE WHEN year = '2023' THEN annual_revenue END) as growth_amount,
+                ROUND(((MAX(CASE WHEN year = '2024' THEN annual_revenue END) - 
+                        MAX(CASE WHEN year = '2023' THEN annual_revenue END)) * 100.0 / 
+                        NULLIF(MAX(CASE WHEN year = '2023' THEN annual_revenue END), 0)), 2) as growth_percent
+            FROM revenue_by_year;
+        """).strip(),
+        
+        # คำถามข้อ 23: สัดส่วนรายได้แต่ละประเภท
+        'revenue_proportion': dedent("""
+            SELECT 
+                ROUND((SUM(overhaul_num) * 100.0 / NULLIF(SUM(total_revenue), 0)), 2) as overhaul_percent,
+                ROUND((SUM(service_num) * 100.0 / NULLIF(SUM(total_revenue), 0)), 2) as service_percent,
+                ROUND((SUM(parts_num) * 100.0 / NULLIF(SUM(total_revenue), 0)), 2) as parts_percent,
+                ROUND((SUM(replacement_num) * 100.0 / NULLIF(SUM(total_revenue), 0)), 2) as replacement_percent,
+                ROUND((SUM(product_num) * 100.0 / NULLIF(SUM(total_revenue), 0)), 2) as product_percent,
+                ROUND((SUM(solution_num) * 100.0 / NULLIF(SUM(total_revenue), 0)), 2) as solution_percent
+            FROM v_sales 
+            WHERE total_revenue > 0;
+        """).strip(),
+        
+        # คำถามข้อ 24: รายได้สูงสุดต่อปี
+        'max_revenue_each_year': dedent("""
+            SELECT year, job_no, customer_name, description, total_revenue 
+            FROM (
+                SELECT *, 
+                    ROW_NUMBER() OVER (PARTITION BY year ORDER BY total_revenue DESC) as rn 
+                FROM v_sales 
+                WHERE total_revenue > 0
+            ) ranked 
+            WHERE rn = 1 
+            ORDER BY year;
+        """).strip(),
+        
+        # คำถามข้อ 25: มูลค่ารวมสินค้าคงคลัง
+        'total_inventory_value': dedent("""
+            SELECT 
+                SUM(total_num) as total_inventory_value,
+                COUNT(*) as total_items,
+                SUM(balance_num) as total_quantity
+            FROM v_spare_part 
+            WHERE total_num > 0;
+        """).strip(),   
+        
+        # คำถามข้อ 29-30: ประวัติลูกค้าเฉพาะราย (Stanley/Clarion)
+        'customer_specific_history': dedent("""
+            SELECT 
+                job_no, 
+                year,
+                description, 
+                total_revenue,
+                overhaul_num,
+                service_num,
+                parts_num
+            FROM v_sales 
+            WHERE customer_name ILIKE '%stanley%' 
+            ORDER BY year DESC;
+        """).strip(),
+        
+        # คำถามข้อ 31: ลูกค้าใหม่ในปีเฉพาะ
+        'new_customers_year': dedent("""
+            SELECT DISTINCT customer_name 
+            FROM v_sales 
+            WHERE year = '2024' 
+            AND customer_name NOT IN (
+                SELECT DISTINCT customer_name 
+                FROM v_sales 
+                WHERE year < '2024'
+            )
+            ORDER BY customer_name;
+        """).strip(),
+        
+        # คำถามข้อ 32: ลูกค้าที่ใช้บริการบ่อยที่สุด
+        'frequent_customers': dedent("""
+            SELECT 
+                customer_name, 
+                COUNT(*) as service_count,
+                SUM(total_revenue) as total_spent,
+                AVG(total_revenue) as avg_per_transaction
+            FROM v_sales 
+            GROUP BY customer_name 
+            HAVING COUNT(*) >= 3
+            ORDER BY service_count DESC, total_spent DESC
+            LIMIT 10;
+        """).strip(),
+        
+        # คำถามข้อ 34: ลูกค้าภาครัฐ
+        'government_customers': dedent("""
+            SELECT DISTINCT 
+                customer_name, 
+                COUNT(*) as transaction_count,
+                SUM(total_revenue) as total_spent 
+            FROM v_sales 
+            WHERE customer_name ILIKE ANY(ARRAY['%กระทรวง%', '%กรม%', '%สำนักงาน%', '%การไฟฟ้า%'])
+            GROUP BY customer_name 
+            ORDER BY total_spent DESC;
+        """).strip(),
+        
+        # คำถามข้อ 38: ลูกค้าที่ไม่ได้ใช้บริการในปีล่าสุด
+        'inactive_customers': dedent("""
+            SELECT DISTINCT customer_name 
+            FROM v_sales 
+            WHERE year IN ('2022', '2023') 
+            AND customer_name NOT IN (
+                SELECT DISTINCT customer_name 
+                FROM v_sales 
+                WHERE year = '2024'
+            )
+            ORDER BY customer_name;
+        """).strip(),
+        
+        # คำถามข้อ 39: ลูกค้าที่ใช้บริการต่อเนื่อง
+        'continuous_customers': dedent("""
+            SELECT 
+                customer_name, 
+                COUNT(DISTINCT year) as years_active,
+                STRING_AGG(DISTINCT year, ', ' ORDER BY year) as active_years,
+                SUM(total_revenue) as total_lifetime_value
+            FROM v_sales 
+            GROUP BY customer_name 
+            HAVING COUNT(DISTINCT year) >= 3 
+            ORDER BY years_active DESC, total_lifetime_value DESC;
+        """).strip(),
+        
+        # คำถามข้อ 42: ลูกค้าโรงพยาบาล
+        'hospital_customers': dedent("""
+            SELECT DISTINCT 
+                customer_name, 
+                COUNT(*) as service_count,
+                SUM(total_revenue) as total_spent 
+            FROM v_sales 
+            WHERE customer_name ILIKE ANY(ARRAY['%โรงพยาบาล%', '%รพ.%', '%hospital%', '%clinic%'])
+            GROUP BY customer_name
+            ORDER BY total_spent DESC;
+        """).strip(),
+        
+        # คำถามข้อ 43: ลูกค้าที่จ่ายมากกว่าเกณฑ์
+        'high_value_customers': dedent("""
+            SELECT 
+                customer_name, 
+                COUNT(*) as transaction_count,
+                SUM(total_revenue) as total_spent,
+                AVG(total_revenue) as avg_transaction
+            FROM v_sales 
+            GROUP BY customer_name 
+            HAVING SUM(total_revenue) > 500000 
+            ORDER BY total_spent DESC;
+        """).strip(),
+        
+        # คำถามข้อ 45: ลูกค้าที่ใช้บริการเฉพาะ Parts
+        'parts_only_customers': dedent("""
+            SELECT DISTINCT 
+                customer_name, 
+                COUNT(*) as parts_orders,
+                SUM(parts_num) as total_parts_value
+            FROM v_sales 
+            WHERE parts_num > 0 
+                AND overhaul_num = 0 
+                AND service_num = 0 
+                AND replacement_num = 0 
+            GROUP BY customer_name 
+            ORDER BY total_parts_value DESC;
+        """).strip(),
+        
+        # คำถามข้อ 49: ลูกค้าที่มีงาน Chiller
+        'chiller_customers': dedent("""
+            SELECT DISTINCT 
+                customer_name, 
+                COUNT(*) as chiller_jobs,
+                SUM(total_revenue) as chiller_revenue
+            FROM v_sales 
+            WHERE description ILIKE '%chiller%' 
+                OR description ILIKE '%ชิลเลอร์%'
+            GROUP BY customer_name 
+            ORDER BY chiller_jobs DESC;
+        """).strip(),
+        
+        # คำถามข้อ 50: เปรียบเทียบรายได้ลูกค้าใหม่ vs เก่า
+        'new_vs_returning_customers': dedent("""
+            WITH customer_classification AS (
+                SELECT 
+                    customer_name,
+                    MIN(year) as first_year,
+                    CASE 
+                        WHEN MIN(year) = '2024' THEN 'New'
+                        ELSE 'Returning'
+                    END as customer_type
+                FROM v_sales
+                GROUP BY customer_name
+            )
+            SELECT 
+                cc.customer_type,
+                COUNT(DISTINCT s.customer_name) as customer_count,
+                SUM(s.total_revenue) as total_revenue,
+                AVG(s.total_revenue) as avg_revenue
+            FROM v_sales s
+            JOIN customer_classification cc ON s.customer_name = cc.customer_name
+            WHERE s.year = '2024'
+            GROUP BY cc.customer_type
+            ORDER BY cc.customer_type;
+        """).strip(),
+        
+        # === SPARE PARTS QUERIES (คำถาม 51-70) ===
+        
+        # คำถามข้อ 51: จำนวนอะไหล่ทั้งหมด
+        'count_all_parts': dedent("""
+            SELECT 
+                COUNT(*) as total_part_types,
+                COUNT(DISTINCT product_code) as unique_codes,
+                COUNT(DISTINCT wh) as warehouses
+            FROM v_spare_part;
+        """).strip(),
+        
+        # คำถามข้อ 52: อะไหล่ที่มีสต็อก
+        'parts_in_stock': dedent("""
+            SELECT 
+                product_code, 
+                product_name, 
+                balance_num as stock_quantity, 
+                unit_price_num,
+                total_num as stock_value
+            FROM v_spare_part 
+            WHERE balance_num > 0 
+            ORDER BY balance_num DESC, total_num DESC;
+        """).strip(),
+        
+        # คำถามข้อ 53: อะไหล่ที่หมดสต็อก
+        'parts_out_of_stock': dedent("""
+            SELECT 
+                product_code, 
+                product_name, 
+                unit_price_num,
+                wh as warehouse
+            FROM v_spare_part 
+            WHERE balance_num = 0 OR balance_num IS NULL
+            ORDER BY product_code;
+        """).strip(),
+        
+        # คำถามข้อ 54: อะไหล่ราคาแพงที่สุด
+        'most_expensive_parts': dedent("""
+            SELECT 
+                product_code, 
+                product_name, 
+                unit_price_num,
+                balance_num as stock,
+                total_num as total_value
+            FROM v_spare_part 
+            WHERE unit_price_num > 0 
+            ORDER BY unit_price_num DESC 
+            LIMIT 10;
+        """).strip(),
+        
+        # คำถามข้อ 56: อะไหล่ใกล้หมด (< 5 ชิ้น)
+        'low_stock_alert': dedent("""
+            SELECT 
+                product_code, 
+                product_name, 
+                balance_num as current_stock, 
+                unit_price_num,
+                wh as warehouse
+            FROM v_spare_part 
+            WHERE balance_num > 0 AND balance_num < 5 
+            ORDER BY balance_num ASC, unit_price_num DESC;
+        """).strip(),
+        
+        # คำถามข้อ 57: อะไหล่ในคลังเฉพาะ
+        'warehouse_specific_parts': dedent("""
+            SELECT 
+                product_code, 
+                product_name, 
+                balance_num, 
+                unit_price_num,
+                total_num
+            FROM v_spare_part 
+            WHERE wh = 'A' 
+            ORDER BY total_num DESC;
+        """).strip(),
+        
+        # คำถามข้อ 60: ราคาเฉลี่ยอะไหล่
+        'average_part_price': dedent("""
+            SELECT 
+                AVG(unit_price_num) as avg_price,
+                MIN(unit_price_num) as min_price,
+                MAX(unit_price_num) as max_price,
+                PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY unit_price_num) as median_price
+            FROM v_spare_part 
+            WHERE unit_price_num > 0;
+        """).strip(),
+        
+        # คำถามข้อ 62: อะไหล่สำหรับ Compressor
+        'compressor_parts': dedent("""
+            SELECT 
+                product_code, 
+                product_name, 
+                balance_num, 
+                unit_price_num,
+                description
+            FROM v_spare_part 
+            WHERE product_name ILIKE ANY(ARRAY['%comp%', '%compressor%', '%คอมเพรสเซอร์%'])
+                OR description ILIKE ANY(ARRAY['%comp%', '%compressor%', '%คอมเพรสเซอร์%'])
+            ORDER BY product_name;
+        """).strip(),
+        
+        # คำถามข้อ 63: Filter parts
+        'filter_parts': dedent("""
+            SELECT 
+                product_code, 
+                product_name, 
+                balance_num, 
+                unit_price_num,
+                description
+            FROM v_spare_part 
+            WHERE product_name ILIKE '%filter%' 
+                OR description ILIKE '%filter%'
+                OR product_name ILIKE '%กรอง%'
+            ORDER BY product_name;
+        """).strip(),
+        
+        # คำถามข้อ 67: คลังที่มีอะไหล่มากที่สุด
+        'warehouse_comparison': dedent("""
+            SELECT 
+                wh as warehouse, 
+                COUNT(*) as part_types, 
+                SUM(balance_num) as total_quantity,
+                SUM(total_num) as total_value
+            FROM v_spare_part 
+            WHERE wh IS NOT NULL
+            GROUP BY wh 
+            ORDER BY total_value DESC, part_types DESC;
+        """).strip(),
+        
+        # === WORK FORCE QUERIES (คำถาม 71-90) ===
+        
+        # คำถามข้อ 71: จำนวนงานทั้งหมดใน work_force
+        'count_all_works': dedent("""
+            SELECT 
+                COUNT(*) as total_work_records,
+                COUNT(DISTINCT customer) as unique_customers,
+                COUNT(DISTINCT service_group) as teams
+            FROM v_work_force;
+        """).strip(),
+        
+        # คำถามข้อ 72: งานเดือนเฉพาะ
+        'work_specific_month': dedent("""
+            SELECT 
+                date,
+                customer, 
+                project, 
+                detail, 
+                service_group
+            FROM v_work_force 
+            WHERE date::date >= '2024-09-01' 
+                AND date::date <= '2024-09-30'
+            ORDER BY date, customer;
+        """).strip(),
+        
+        # คำถามข้อ 73: งาน PM ทั้งหมด
+        'all_pm_works': dedent("""
+            SELECT 
+                date,
+                customer, 
+                project, 
+                detail,
+                service_group
+            FROM v_work_force 
+            WHERE job_description_pm = true 
+            ORDER BY date DESC;
+        """).strip(),
+        
+        # คำถามข้อ 74: งาน Overhaul (work context)
+        'work_overhaul': dedent("""
+            SELECT 
+                date,
+                customer, 
+                project, 
+                detail,
+                job_description_overhaul
+            FROM v_work_force 
+            WHERE job_description_overhaul IS NOT NULL 
+                AND job_description_overhaul != '' 
+            ORDER BY date DESC;
+        """).strip(),
+        
+        # คำถามข้อ 75: งาน Replacement
+        'work_replacement': dedent("""
+            SELECT 
+                date,
+                customer, 
+                project, 
+                detail,
+                service_group
+            FROM v_work_force 
+            WHERE job_description_replacement = true 
+            ORDER BY date DESC;
+        """).strip(),
+        
+        # คำถามข้อ 76: งานที่สำเร็จ
+        'successful_works': dedent("""
+            SELECT 
+                date,
+                customer, 
+                project, 
+                detail, 
+                success,
+                service_group
+            FROM v_work_force 
+            WHERE success IS NOT NULL 
+                AND success != '' 
+            ORDER BY date DESC;
+        """).strip(),
+        
+        # คำถามข้อ 77: งานที่ไม่สำเร็จ
+        'unsuccessful_works': dedent("""
+            SELECT 
+                date,
+                customer, 
+                project, 
+                detail, 
+                unsuccessful, 
+                failure_reason
+            FROM v_work_force 
+            WHERE unsuccessful IS NOT NULL 
+                AND unsuccessful != '' 
+            ORDER BY date DESC;
+        """).strip(),
+        
+        # คำถามข้อ 78: งานของทีมเฉพาะ
+        'team_works': dedent("""
+            SELECT 
+                date,
+                customer, 
+                project, 
+                detail,
+                service_group
+            FROM v_work_force 
+            WHERE service_group ILIKE '%A%' 
+            ORDER BY date DESC;
+        """).strip(),
+        
+        # คำถามข้อ 79: งานวันนี้
+        'work_today': dedent("""
+            SELECT 
+                customer, 
+                project, 
+                detail, 
+                service_group,
+                job_description_pm,
+                job_description_replacement
+            FROM v_work_force 
+            WHERE date = CURRENT_DATE 
+            ORDER BY customer;
+        """).strip(),
+        
+        # คำถามข้อ 80: งานสัปดาห์นี้
+        'work_this_week': dedent("""
+            SELECT 
+                date,
+                customer, 
+                project, 
+                detail,
+                service_group
+            FROM v_work_force 
+            WHERE date::date >= CURRENT_DATE - INTERVAL '7 days' 
+                AND date::date <= CURRENT_DATE 
+            ORDER BY date DESC;
+        """).strip(),
+        
+        # คำถามข้อ 81: อัตราความสำเร็จ
+        'success_rate': dedent("""
+            SELECT 
+                COUNT(*) as total_jobs,
+                SUM(CASE WHEN success IS NOT NULL AND success != '' THEN 1 ELSE 0 END) as successful_jobs,
+                SUM(CASE WHEN unsuccessful IS NOT NULL AND unsuccessful != '' THEN 1 ELSE 0 END) as failed_jobs,
+                ROUND(
+                    SUM(CASE WHEN success IS NOT NULL AND success != '' THEN 1 ELSE 0 END) * 100.0 / 
+                    NULLIF(COUNT(*), 0), 2
+                ) as success_rate_percent
+            FROM v_work_force;
+        """).strip(),
+        
+        # คำถามข้อ 82: งานที่เสร็จตรงเวลา
+        'on_time_works': dedent("""
+            SELECT 
+                date,
+                customer, 
+                project, 
+                detail,
+                report_kpi_2_days
+            FROM v_work_force 
+            WHERE report_kpi_2_days IS NOT NULL 
+                AND report_kpi_2_days != '' 
+            ORDER BY date DESC;
+        """).strip(),
+        
+        # คำถามข้อ 83: งานที่เกินเวลา
+        'overtime_works': dedent("""
+            SELECT 
+                date,
+                customer, 
+                project, 
+                detail, 
+                report_over_kpi_2_days
+            FROM v_work_force 
+            WHERE report_over_kpi_2_days IS NOT NULL 
+                AND report_over_kpi_2_days != '' 
+            ORDER BY date DESC;
+        """).strip(),
+        
+        # คำถามข้อ 85: งาน Start Up
+        'startup_works_all': dedent("""
+            SELECT 
+                date,
+                customer, 
+                project, 
+                detail,
+                job_description_start_up
+            FROM v_work_force 
+            WHERE job_description_start_up IS NOT NULL 
+                AND job_description_start_up != '' 
+            ORDER BY date DESC;
+        """).strip(),
+        
+        # คำถามข้อ 86: งาน Support
+        'support_works': dedent("""
+            SELECT 
+                date,
+                customer, 
+                project, 
+                detail,
+                job_description_support_all
+            FROM v_work_force 
+            WHERE job_description_support_all IS NOT NULL 
+                AND job_description_support_all != '' 
+            ORDER BY date DESC;
+        """).strip(),
+        
+        # คำถามข้อ 87: งาน CPA
+        'cpa_works': dedent("""
+            SELECT 
+                date,
+                customer, 
+                project, 
+                detail
+            FROM v_work_force 
+            WHERE job_description_cpa = true 
+            ORDER BY date DESC;
+        """).strip(),
+        
+        # คำถามข้อ 88: สถิติงานแต่ละทีม
+        'team_statistics': dedent("""
+            SELECT 
+                service_group, 
+                COUNT(*) as total_jobs,
+                SUM(CASE WHEN success IS NOT NULL AND success != '' THEN 1 ELSE 0 END) as successful_jobs,
+                SUM(CASE WHEN report_kpi_2_days IS NOT NULL THEN 1 ELSE 0 END) as on_time_jobs,
+                ROUND(
+                    SUM(CASE WHEN success IS NOT NULL AND success != '' THEN 1 ELSE 0 END) * 100.0 / 
+                    NULLIF(COUNT(*), 0), 2
+                ) as success_rate
+            FROM v_work_force 
+            WHERE service_group IS NOT NULL 
+            GROUP BY service_group 
+            ORDER BY total_jobs DESC;
+        """).strip(),
+        
+        # คำถามข้อ 89: ระยะเวลาการทำงาน
+        'work_duration': dedent("""
+            SELECT 
+                date,
+                customer, 
+                project, 
+                detail, 
+                duration
+            FROM v_work_force 
+            WHERE duration IS NOT NULL 
+                AND duration != '' 
+            ORDER BY date DESC;
+        """).strip(),
+        
+        # คำถามข้อ 90: งานล่าสุด
+        'latest_works': dedent("""
+            SELECT 
+                date,
+                customer, 
+                project, 
+                detail, 
+                service_group 
+            FROM v_work_force 
+            ORDER BY date DESC, id DESC 
+            LIMIT 10;
+        """).strip(),
+        
+        # === ANALYTICAL QUERIES (คำถาม 91-100) ===
+        
+        # คำถามข้อ 91: สรุปผลประกอบการรายปี
+        'annual_performance_summary': dedent("""
+            SELECT 
+                year,
+                COUNT(*) as total_jobs,
+                COUNT(DISTINCT customer_name) as unique_customers,
+                SUM(total_revenue) as total_revenue,
+                SUM(overhaul_num) as overhaul_total,
+                SUM(service_num) as service_total,
+                SUM(parts_num) as parts_total,
+                SUM(replacement_num) as replacement_total,
+                SUM(product_num) as product_total,
+                SUM(solution_num) as solution_total
+            FROM v_sales 
+            GROUP BY year 
+            ORDER BY year;
+        """).strip(),
+        
+        # คำถามข้อ 92: เทรนด์การเติบโต
+        'growth_trend': dedent("""
+            WITH yearly_revenue AS (
+                SELECT 
+                    year,
+                    SUM(total_revenue) as revenue
+                FROM v_sales 
+                GROUP BY year
+            )
+            SELECT 
+                year,
+                revenue,
+                LAG(revenue) OVER (ORDER BY year) as prev_year_revenue,
+                revenue - LAG(revenue) OVER (ORDER BY year) as growth_amount,
+                ROUND(
+                    (revenue - LAG(revenue) OVER (ORDER BY year)) * 100.0 / 
+                    NULLIF(LAG(revenue) OVER (ORDER BY year), 0), 2
+                ) as growth_rate
+            FROM yearly_revenue
+            ORDER BY year;
+        """).strip(),
+        
+        # คำถามข้อ 93: ประเภทงานที่นิยม
+        'popular_service_types': dedent("""
+            WITH service_summary AS (
+                SELECT 
+                    'Overhaul' as service_type, 
+                    COUNT(CASE WHEN overhaul_num > 0 THEN 1 END) as job_count, 
+                    SUM(overhaul_num) as total_value
+                FROM v_sales
+                UNION ALL
+                SELECT 
+                    'Service' as service_type, 
+                    COUNT(CASE WHEN service_num > 0 THEN 1 END) as job_count, 
+                    SUM(service_num) as total_value
+                FROM v_sales
+                UNION ALL
+                SELECT 
+                    'Parts' as service_type, 
+                    COUNT(CASE WHEN parts_num > 0 THEN 1 END) as job_count, 
+                    SUM(parts_num) as total_value
+                FROM v_sales
+                UNION ALL
+                SELECT 
+                    'Replacement' as service_type, 
+                    COUNT(CASE WHEN replacement_num > 0 THEN 1 END) as job_count, 
+                    SUM(replacement_num) as total_value
+                FROM v_sales
+            )
+            SELECT * FROM service_summary
+            ORDER BY total_value DESC;
+        """).strip(),
+        
+        # คำถามข้อ 94: ลูกค้าที่มีศักยภาพ
+        'high_potential_customers': dedent("""
+            SELECT 
+                customer_name,
+                COUNT(*) as service_frequency,
+                SUM(total_revenue) as total_spent,
+                AVG(total_revenue) as avg_per_job,
+                MAX(total_revenue) as max_transaction,
+                STRING_AGG(DISTINCT year, ', ' ORDER BY year) as active_years
+            FROM v_sales 
+            GROUP BY customer_name 
+            HAVING COUNT(*) >= 5 AND SUM(total_revenue) > 200000
+            ORDER BY total_spent DESC;
+        """).strip(),
+        
+        # คำถามข้อ 95: การกระจายรายได้
+        'revenue_distribution': dedent("""
+            SELECT 
+                CASE 
+                    WHEN total_revenue < 50000 THEN 'Small (< 50K)'
+                    WHEN total_revenue < 200000 THEN 'Medium (50K-200K)'
+                    WHEN total_revenue < 500000 THEN 'Large (200K-500K)'
+                    ELSE 'Extra Large (> 500K)'
+                END as job_size,
+                COUNT(*) as job_count,
+                SUM(total_revenue) as total_revenue,
+                AVG(total_revenue) as avg_revenue
+            FROM v_sales 
+            WHERE total_revenue > 0
+            GROUP BY 
+                CASE 
+                    WHEN total_revenue < 50000 THEN 'Small (< 50K)'
+                    WHEN total_revenue < 200000 THEN 'Medium (50K-200K)'
+                    WHEN total_revenue < 500000 THEN 'Large (200K-500K)'
+                    ELSE 'Extra Large (> 500K)'
+                END
+            ORDER BY 
+                CASE 
+                    WHEN total_revenue < 50000 THEN 1
+                    WHEN total_revenue < 200000 THEN 2
+                    WHEN total_revenue < 500000 THEN 3
+                    ELSE 4
+                END;
+        """).strip(),
+        
+        # คำถามข้อ 96: ประสิทธิภาพทีมงาน
+        'team_performance': dedent("""
+            SELECT 
+                service_group,
+                COUNT(*) as total_jobs,
+                SUM(CASE WHEN success IS NOT NULL AND success != '' THEN 1 ELSE 0 END) as successful_jobs,
+                SUM(CASE WHEN report_kpi_2_days IS NOT NULL AND report_kpi_2_days != '' THEN 1 ELSE 0 END) as on_time_jobs,
+                SUM(CASE WHEN report_over_kpi_2_days IS NOT NULL AND report_over_kpi_2_days != '' THEN 1 ELSE 0 END) as overtime_jobs,
+                ROUND(
+                    SUM(CASE WHEN success IS NOT NULL AND success != '' THEN 1 ELSE 0 END) * 100.0 / 
+                    NULLIF(COUNT(*), 0), 2
+                ) as success_rate,
+                ROUND(
+                    SUM(CASE WHEN report_kpi_2_days IS NOT NULL AND report_kpi_2_days != '' THEN 1 ELSE 0 END) * 100.0 / 
+                    NULLIF(COUNT(*), 0), 2
+                ) as on_time_rate
+            FROM v_work_force 
+            WHERE service_group IS NOT NULL 
+            GROUP BY service_group 
+            ORDER BY success_rate DESC;
+        """).strip(),
+        
+        # คำถามข้อ 97: แนวโน้มยอดขายรายเดือน
+        'monthly_sales_trend': dedent("""
+            WITH monthly_work AS (
+                SELECT 
+                    EXTRACT(YEAR FROM date::date) as year,
+                    EXTRACT(MONTH FROM date::date) as month,
+                    COUNT(*) as jobs_completed,
+                    COUNT(DISTINCT customer) as unique_customers
+                FROM v_work_force 
+                WHERE date::date >= '2024-01-01'
+                GROUP BY 
+                    EXTRACT(YEAR FROM date::date),
+                    EXTRACT(MONTH FROM date::date)
+            )
+            SELECT 
+                year,
+                month,
+                TO_CHAR(TO_DATE(month::text, 'MM'), 'Month') as month_name,
+                jobs_completed,
+                unique_customers
+            FROM monthly_work
+            ORDER BY year, month;
+        """).strip(),
+        
+        # คำถามข้อ 98: ROI ของการบริการ
+        'service_roi': dedent("""
+            WITH service_analysis AS (
+                SELECT 
+                    'Overhaul' as service_type,
+                    COUNT(CASE WHEN overhaul_num > 0 THEN 1 END) as job_count,
+                    SUM(overhaul_num) as total_revenue,
+                    AVG(CASE WHEN overhaul_num > 0 THEN overhaul_num END) as avg_revenue_per_job
+                FROM v_sales
+                UNION ALL
+                SELECT 
+                    'Service' as service_type,
+                    COUNT(CASE WHEN service_num > 0 THEN 1 END) as job_count,
+                    SUM(service_num) as total_revenue,
+                    AVG(CASE WHEN service_num > 0 THEN service_num END) as avg_revenue_per_job
+                FROM v_sales
+                UNION ALL
+                SELECT 
+                    'Replacement' as service_type,
+                    COUNT(CASE WHEN replacement_num > 0 THEN 1 END) as job_count,
+                    SUM(replacement_num) as total_revenue,
+                    AVG(CASE WHEN replacement_num > 0 THEN replacement_num END) as avg_revenue_per_job
+                FROM v_sales
+                UNION ALL
+                SELECT 
+                    'Parts' as service_type,
+                    COUNT(CASE WHEN parts_num > 0 THEN 1 END) as job_count,
+                    SUM(parts_num) as total_revenue,
+                    AVG(CASE WHEN parts_num > 0 THEN parts_num END) as avg_revenue_per_job
+                FROM v_sales
+            )
+            SELECT * FROM service_analysis
+            WHERE job_count > 0
+            ORDER BY avg_revenue_per_job DESC;
+        """).strip(),
+        
+        # คำถามข้อ 99: คาดการณ์รายได้
+        'revenue_forecast': dedent("""
+            WITH revenue_trend AS (
+                SELECT 
+                    year,
+                    SUM(total_revenue) as annual_revenue
+                FROM v_sales
+                WHERE year IN ('2023', '2024')
+                GROUP BY year
+            ),
+            growth_calc AS (
+                SELECT 
+                    MAX(CASE WHEN year = '2024' THEN annual_revenue END) as revenue_2024,
+                    MAX(CASE WHEN year = '2023' THEN annual_revenue END) as revenue_2023,
+                    (MAX(CASE WHEN year = '2024' THEN annual_revenue END) - 
+                     MAX(CASE WHEN year = '2023' THEN annual_revenue END)) / 
+                     NULLIF(MAX(CASE WHEN year = '2023' THEN annual_revenue END), 0) as growth_rate
+                FROM revenue_trend
+            )
+            SELECT 
+                2025 as projected_year,
+                revenue_2024 as current_year_revenue,
+                ROUND(revenue_2024 * (1 + growth_rate)) as projected_revenue,
+                ROUND(growth_rate * 100, 2) as growth_rate_percent
+            FROM growth_calc;
+        """).strip(),
+        
+        # คำถามข้อ 100: รายงานสถานะธุรกิจรวม
+        'business_overview': dedent("""
+            WITH summary AS (
+                SELECT 
+                    (SELECT SUM(total_revenue) FROM v_sales) as total_revenue,
+                    (SELECT COUNT(DISTINCT customer_name) FROM v_sales) as total_customers,
+                    (SELECT COUNT(*) FROM v_sales) as total_sales_jobs,
+                    (SELECT COUNT(DISTINCT year) FROM v_sales) as active_years,
+                    (SELECT SUM(total_num) FROM v_spare_part WHERE total_num > 0) as inventory_value,
+                    (SELECT COUNT(*) FROM v_spare_part WHERE balance_num > 0) as parts_in_stock,
+                    (SELECT COUNT(*) FROM v_work_force) as total_work_records,
+                    (SELECT COUNT(DISTINCT customer) FROM v_work_force) as work_customers
+            )
+            SELECT 
+                'Total Revenue' as metric, 
+                total_revenue::text as value 
+            FROM summary
+            UNION ALL
+            SELECT 
+                'Total Customers' as metric, 
+                total_customers::text as value 
+            FROM summary
+            UNION ALL
+            SELECT 
+                'Total Sales Jobs' as metric, 
+                total_sales_jobs::text as value 
+            FROM summary
+            UNION ALL
+            SELECT 
+                'Active Years' as metric, 
+                active_years::text as value 
+            FROM summary
+            UNION ALL
+            SELECT 
+                'Inventory Value' as metric, 
+                inventory_value::text as value 
+            FROM summary
+            UNION ALL
+            SELECT 
+                'Parts in Stock' as metric, 
+                parts_in_stock::text as value
+            FROM summary
+            UNION ALL
+            SELECT 
+                'Work Records' as metric, 
+                total_work_records::text as value 
+            FROM summary
+            UNION ALL
+            SELECT 
+                'Work Customers' as metric, 
+                work_customers::text as value
+            FROM summary;
+        """).strip(),
+
+        'year_max_revenue': dedent("""
+            SELECT year, SUM(total_revenue) AS annual_revenue
+            FROM v_sales
+            GROUP BY year
+            ORDER BY annual_revenue DESC
+            LIMIT 1;
+        """).strip(),
+        
+        # ✅ SQL ที่ถูกต้องสำหรับหาปีที่มีรายได้ต่ำสุด
+        'year_min_revenue': dedent("""
+            SELECT year, SUM(total_revenue) AS annual_revenue
+            FROM v_sales
+            GROUP BY year
+            ORDER BY annual_revenue ASC
+            LIMIT 1;
+        """).strip(),
+        # เพิ่มใน _load_production_examples()
+
+    # ข้อ 5: Service revenue for specific year
+    'service_num': dedent("""
+        SELECT SUM(service_num) as total_service
+        FROM v_sales
+        WHERE year = '2024'
+        AND service_num > 0;
+    """).strip(),
+
+    # ข้อ 16: Service revenue 2023
+    'service_revenue_2023': dedent("""
+        SELECT SUM(service_num) as service_revenue
+        FROM v_sales
+        WHERE year = '2023'
+        AND service_num > 0;
+    """).strip(),
+
+    # ข้อ 21: Low value transactions
+    'low_value_transactions': dedent("""
+        SELECT customer_name, job_no, description, total_revenue
+        FROM v_sales
+        WHERE total_revenue < 50000 
+        AND total_revenue > 0
+        ORDER BY total_revenue
+        LIMIT 20;
+    """).strip(),
+
+    # ข้อ 35: Private sector customers
+    'private_customers': dedent("""
+        SELECT customer_name,
+            COUNT(*) as transaction_count,
+            SUM(total_revenue) as total_revenue
+        FROM v_sales
+        WHERE customer_name ILIKE ANY(ARRAY['%จำกัด%', '%บริษัท%', '%co%ltd%'])
+        GROUP BY customer_name
+        ORDER BY total_revenue DESC
+        LIMIT 10;
+    """).strip(),
+
+    # ข้อ 40: Customers per year
+    'customers_per_year': dedent("""
+        SELECT year,
+            COUNT(DISTINCT customer_name) as customer_count
+        FROM v_sales
+        GROUP BY year
+        ORDER BY year;
+    """).strip(),
+
+    # ข้อ 41: Hitachi related
+    'hitachi_customers': dedent("""
+        SELECT job_no, customer_name, description, total_revenue
+        FROM v_sales
+        WHERE customer_name ILIKE '%hitachi%'
+        OR description ILIKE '%hitachi%'
+        ORDER BY total_revenue DESC;
+    """).strip(),
+
+    # ข้อ 44: Average revenue per customer
+    'avg_revenue_per_customer': dedent("""
+        SELECT AVG(customer_total) as avg_revenue_per_customer
+        FROM (
+            SELECT customer_name, SUM(total_revenue) as customer_total
+            FROM v_sales
+            GROUP BY customer_name
+        ) customer_totals;
+    """).strip(),
+
+    # ข้อ 48: Foreign customers
+    'foreign_customers': dedent("""
+        SELECT DISTINCT customer_name,
+            SUM(total_revenue) as total_spent
+        FROM v_sales
+        WHERE customer_name ~ '^[A-Z][A-Z]'
+        AND customer_name NOT ILIKE '%จำกัด%'
+        AND customer_name NOT ILIKE '%บริษัท%'
+        GROUP BY customer_name
+        ORDER BY total_spent DESC;
+    """).strip(),
+
+    # ข้อ 55: Cheapest parts
+    'cheapest_parts': dedent("""
+        SELECT product_code, product_name, unit_price_num
+        FROM v_spare_part
+        WHERE unit_price_num > 0
+        ORDER BY unit_price_num ASC
+        LIMIT 10;
+    """).strip(),
+
+    # ข้อ 58: EKAC parts
+    'ekac_parts': dedent("""
+        SELECT product_code, product_name, balance_num, unit_price_num
+        FROM v_spare_part
+        WHERE product_code ILIKE '%EKAC%'
+        ORDER BY product_code;
+    """).strip(),
+
+    # ข้อ 61: Total stock quantity
+    'total_stock_quantity': dedent("""
+        SELECT SUM(balance_num) as total_stock_quantity
+        FROM v_spare_part
+        WHERE balance_num > 0;
+    """).strip(),
+
+    # ข้อ 64: Reorder parts
+    'reorder_parts': dedent("""
+        SELECT product_code, product_name, balance_num, unit_price_num
+        FROM v_spare_part
+        WHERE balance_num < 10 
+        AND balance_num > 0
+        ORDER BY balance_num ASC;
+    """).strip(),
+
+    # ข้อ 66: Unpriced parts
+    'unpriced_parts': dedent("""
+        SELECT product_code, product_name, balance_num
+        FROM v_spare_part
+        WHERE unit_price_num = 0 
+        OR unit_price_num IS NULL;
+    """).strip(),
+
+    # ข้อ 68: EKAC460 specific
+    'ekac460_info': dedent("""
+        SELECT *
+        FROM v_spare_part
+        WHERE product_code = 'EKAC460';
+    """).strip(),
+
+    # ข้อ 69: SET parts
+    'set_parts': dedent("""
+        SELECT product_code, product_name, balance_num, unit_price_num
+        FROM v_spare_part
+        WHERE unit ILIKE '%set%';
+    """).strip(),
+
+    # ข้อ 70: Recently received
+    'recently_received': dedent("""
+        SELECT product_code, product_name, balance_num, received
+        FROM v_spare_part
+        WHERE received IS NOT NULL
+        ORDER BY id DESC
+        LIMIT 20;
+    """).strip(),
+
+    # ข้อ 84: Stanley works
+    'stanley_works': dedent("""
+        SELECT project, detail, date, success
+        FROM v_work_force
+        WHERE customer ILIKE '%stanley%'
+        ORDER BY date DESC;
+    """).strip(),
         }
     
     def _get_system_prompt(self) -> str:
@@ -1202,7 +2327,7 @@ class PromptManager:
     
     def build_sql_prompt(self, question: str, intent: str, entities: Dict,
                         context: Dict = None, examples_override: List[str] = None) -> str:
-        """Build SQL generation prompt with dynamic schema"""
+        """Build SQL generation prompt with DIRECT TEMPLATE USE for exact matches"""
         
         try:
             # Ensure schema is loaded
@@ -1226,77 +2351,135 @@ class PromptManager:
                     if key not in entities or not entities[key]:
                         entities[key] = value
             
-            # Select best matching example
+            # === INTENT OVERRIDE LOGIC ===
+            question_lower = question.lower()
+            original_intent = intent
+            
+            # Override Rule 1: Money/Value keywords → force sales intent
+            money_indicators = ['มูลค่า', 'ราคา', 'revenue', 'ยอดขาย', 'รายได้', 'บาท']
+            if any(word in question_lower for word in money_indicators):
+                if intent in ['work_force', 'work_plan', 'repair_history']:
+                    logger.warning(f"Override intent: {intent} → sales (found money keywords)")
+                    intent = 'sales'
+            
+            # Override Rule 2: Specific patterns
+            if 'งาน' in question_lower and any(kw in question_lower for kw in ['มูลค่า', 'สูงสุด', 'ต่ำสุด']):
+                logger.warning(f"Pattern 'งาน + มูลค่า' detected → forcing sales intent")
+                intent = 'sales'
+            
+            # === DETERMINE TARGET TABLE ===
+            target_table = self._get_target_table(intent)
+            
+            if target_table is None:
+                logger.info(f"No table mapping for intent '{intent}', detecting from keywords")
+                target_table = self._detect_table_from_keywords(question)
+            
+            # Final validation
+            if 'มูลค่า' in question_lower and target_table != 'v_sales':
+                logger.warning(f"Final override: {target_table} → v_sales (มูลค่า requires v_sales)")
+                target_table = 'v_sales'
+                intent = 'sales'
+            
+            logger.info(f"🎯 Target table: {target_table} (intent: {original_intent} → {intent})")
+            
+            # === SELECT BEST EXAMPLE ===
             example = self._select_best_example(question, intent, entities)
             example_name = self._get_example_name(example)
-            logger.info(f"Selected SQL example: {example_name}")
+            logger.info(f"Selected SQL example: {example_name} for table {target_table}")
             
-            # Build entity-specific hints
-            hints = self._build_sql_hints(entities, intent)
+            # === NEW: CHECK FOR EXACT MATCH CASES ===
+            exact_match_examples = [
+                'max_value_work', 'min_value_work', 
+                'year_max_revenue', 'year_min_revenue',
+                'total_revenue_all', 'total_revenue_year',
+                'count_total_customers', 'count_all_jobs',
+                'parts_in_stock', 'parts_out_of_stock',
+                'overhaul_total', 'overhaul_sales_all'
+            ]
             
-            # Get dynamic schema for target table
-            target_table = self._get_target_table(intent)
-            schema_prompt = self._get_dynamic_schema_prompt(target_table)
+            # Check if this is a high-confidence exact match
+            is_exact_match = example_name in exact_match_examples
             
-            # Determine if we have exact match
-            has_exact_example = self._has_exact_matching_example(question, example_name)
+            # === BUILD PROMPT BASED ON MATCH TYPE ===
             
-            if has_exact_example:
-                # ULTRA STRICT MODE FOR EXACT MATCHES - but handle no-year cases
-                if not entities.get('years') and 'ทั้งหมด' in question:
-                    # Special case: "ทั้งหมด" without year means NO WHERE clause
+            if is_exact_match and example:
+                # === ULTRA STRICT MODE FOR EXACT MATCHES ===
+                logger.info(f"Using EXACT MATCH mode for {example_name}")
+                
+                # Check if we need to substitute parameters
+                needs_substitution = False
+                substitutions = {}
+                
+                # Check for year substitution
+                if 'year' in example_name and entities.get('years'):
+                    needs_substitution = True
+                    substitutions['year'] = entities['years'][0]
+                
+                # Check for customer substitution  
+                if 'customer' in example_name and entities.get('customers'):
+                    needs_substitution = True
+                    substitutions['customer'] = entities['customers'][0]
+                
+                if needs_substitution:
+                    # Use template with substitution
                     prompt = dedent(f"""
                     You are a SQL query generator. Output ONLY the SQL query with no explanation.
                     
-                    CURRENT DATABASE SCHEMA:
-                    ----------------------------------------
-                    {schema_prompt}
-                    ----------------------------------------
-                    
-                    EXAMPLE SQL:
+                    USE THIS EXACT SQL TEMPLATE:
                     ----------------------------------------
                     {example}
                     ----------------------------------------
                     
-                    IMPORTANT: The word "ทั้งหมด" (all) means query ALL data without year filter.
-                    DO NOT add WHERE year clause when "ทั้งหมด" is present without specific years.
+                    SUBSTITUTION RULES:
+                    - Replace ':year' with '{substitutions.get('year', '2024')}'
+                    - Replace ':customer' with '{substitutions.get('customer', '')}'
+                    - Keep everything else EXACTLY the same
                     
-                    YOUR TASK: {question}
-                    
-                    SQL:
+                    OUTPUT THE SQL WITH SUBSTITUTIONS:
                     """).strip()
                 else:
-                    # Regular exact match mode
+                    # Use template AS-IS without any changes
                     prompt = dedent(f"""
                     You are a SQL query generator. Output ONLY the SQL query with no explanation.
                     
-                    CURRENT DATABASE SCHEMA:
-                    ----------------------------------------
-                    {schema_prompt}
-                    ----------------------------------------
-                    
-                    EXAMPLE SQL TO COPY:
+                    COPY THIS SQL EXACTLY AS-IS:
                     ----------------------------------------
                     {example}
                     ----------------------------------------
                     
-                    COPY RULES:
-                    1. COPY the SELECT clause structure EXACTLY
-                    2. COPY the FROM clause EXACTLY  
-                    3. If example has no WHERE clause, DO NOT add WHERE clause
-                    4. If example has WHERE clause, COPY it exactly (including year values)
-                    5. COPY the GROUP BY if present
-                    6. COPY the ORDER BY if present
+                    CRITICAL RULES:
+                    1. DO NOT add any WHERE clauses
+                    2. DO NOT change the LIMIT value
+                    3. DO NOT modify column names
+                    4. DO NOT add OR conditions
+                    5. Copy the SQL EXACTLY character by character
                     
-                    YOUR TASK: {question}
-                    
-                    SQL:
+                    SQL (copy exactly):
                     """).strip()
             
+            elif example_name and 'WHERE year' not in example and 'ทั้งหมด' in question:
+                # For "ทั้งหมด" queries without year filter
+                prompt = dedent(f"""
+                You are a SQL query generator. Output ONLY the SQL query with no explanation.
+                
+                REFERENCE SQL:
+                ----------------------------------------
+                {example}
+                ----------------------------------------
+                
+                IMPORTANT: The word "ทั้งหมด" means ALL data - DO NOT add WHERE year filter.
+                
+                Generate SQL for: {question}
+                
+                SQL:
+                """).strip()
+            
             else:
-                # STRICT SCHEMA MODE FOR NON-EXACT MATCHES
+                # === NORMAL MODE WITH GUIDANCE ===
+                # Get schema and hints
+                schema_prompt = self._get_dynamic_schema_prompt(target_table)
+                hints = self._build_sql_hints(entities, intent)
                 column_rules = self._get_column_rules_for_intent(intent)
-                error_examples = self._get_common_errors()
                 
                 prompt = dedent(f"""
                 You are a SQL query generator. Output ONLY the SQL query with no explanation.
@@ -1313,8 +2496,6 @@ class PromptManager:
                 
                 {column_rules}
                 
-                {error_examples}
-                
                 YOUR TASK: {question}
                 
                 {hints}
@@ -1327,7 +2508,42 @@ class PromptManager:
         except Exception as e:
             logger.error(f"Failed to build SQL prompt: {e}")
             return self._get_fallback_prompt(question)
-    
+
+
+    def _get_example_name(self, example: str) -> str:
+        """Get example name for logging and exact match checking"""
+        for name, sql in self.SQL_EXAMPLES.items():
+            # Strip and normalize for comparison
+            if sql.strip() == example.strip():
+                return name
+        return 'custom'
+
+
+    def _should_use_exact_template(self, example_name: str, question: str) -> bool:
+        """Determine if we should use the template exactly without modification"""
+        
+        # List of examples that should ALWAYS be used exactly
+        exact_use_examples = {
+            'max_value_work': ['งานที่มีมูลค่าสูงสุด', 'มูลค่าสูงสุด'],
+            'min_value_work': ['งานที่มีมูลค่าต่ำสุด', 'มูลค่าต่ำสุด'],
+            'year_max_revenue': ['ปีที่มีรายได้สูงสุด', 'ปีไหนรายได้สูงสุด'],
+            'year_min_revenue': ['ปีที่มีรายได้ต่ำสุด', 'ปีไหนรายได้ต่ำสุด'],
+            'total_revenue_all': ['รายได้รวมทั้งหมด', 'รายได้ทั้งหมด'],
+            'count_total_customers': ['จำนวนลูกค้า', 'มีลูกค้ากี่ราย'],
+            'count_all_jobs': ['จำนวนงาน', 'มีงานกี่งาน'],
+        }
+        
+        question_lower = question.lower()
+        
+        if example_name in exact_use_examples:
+            patterns = exact_use_examples[example_name]
+            for pattern in patterns:
+                if pattern in question_lower:
+                    logger.info(f"Exact template use triggered for {example_name} by pattern '{pattern}'")
+                    return True
+        
+        return False
+
     def _get_dynamic_schema_prompt(self, table_name: str) -> str:
         """Generate schema prompt dynamically based on current database structure"""
         table_info = self.get_table_info(table_name)
@@ -1379,6 +2595,53 @@ class PromptManager:
         
         return hints[:5]  # Limit hints
     
+    def _detect_table_from_keywords(self, question: str) -> str:
+        """Detect table from question keywords - FIXED priority detection"""
+        q_lower = question.lower()
+        
+        # Priority 1: Money/Value/Revenue keywords → v_sales (สูงสุด)
+        money_keywords = [
+            'มูลค่า', 'ราคา', 'รายได้', 'ยอดขาย', 'revenue', 
+            'บาท', 'ค่า', 'จ่าย', 'value', 'amount', 'cost',
+            'สูงสุด', 'ต่ำสุด', 'มากที่สุด', 'น้อยที่สุด',  # เพิ่ม min/max
+            'รวม', 'total', 'sum', 'ยอดรวม'
+        ]
+        if any(kw in q_lower for kw in money_keywords):
+            logger.info(f"Detected money/value keywords in '{question[:50]}...' → v_sales")
+            return 'v_sales'
+        
+        # Priority 2: Parts/Inventory keywords → v_spare_part
+        parts_keywords = [
+            'อะไหล่', 'สต็อก', 'คลัง', 'spare', 'part', 'inventory',
+            'balance', 'unit_price', 'warehouse', 'wh', 'สินค้า',
+            'product_code', 'product_name', 'จำนวนคงเหลือ'
+        ]
+        if any(kw in q_lower for kw in parts_keywords):
+            logger.info(f"Detected parts/inventory keywords → v_spare_part")
+            return 'v_spare_part'
+        
+        # Priority 3: Work/Service keywords → v_work_force (ต่ำสุด)
+        # ต้องไม่มี money keywords
+        work_keywords = [
+            'แผนงาน', 'ที่ทำ', 'ที่วางแผน', 'pm', 'ติดตั้ง', 
+            'ทีม', 'ซ่อม', 'บำรุง', 'service_group', 'kpi', 'duration',
+            'สำเร็จ', 'ไม่สำเร็จ', 'failure', 'report', 'วันที่ทำงาน'
+        ]
+        # เช็คว่ามี work keywords และไม่มี money keywords
+        if any(kw in q_lower for kw in work_keywords):
+            # Double check: ถ้ามีคำเกี่ยวกับเงิน ให้ใช้ v_sales
+            if not any(kw in q_lower for kw in money_keywords):
+                logger.info(f"Detected work keywords (no money context) → v_work_force")
+                return 'v_work_force'
+            else:
+                logger.info(f"Detected work + money keywords → v_sales (money priority)")
+                return 'v_sales'
+        
+        # Default: v_sales (เพราะส่วนใหญ่เกี่ยวกับการขาย/รายได้)
+        logger.info(f"No specific keywords detected → v_sales (default)")
+        return 'v_sales'
+
+    # 2. แก้ไข _get_target_table ให้ใช้ keyword detection เมื่อไม่รู้จัก intent
     def _get_target_table(self, intent: str) -> str:
         """Determine target table based on intent"""
         intent_to_table = {
@@ -1402,8 +2665,154 @@ class PromptManager:
             'inventory_value': 'v_spare_part',
             'warehouse_summary': 'v_spare_part'
         }
-        return intent_to_table.get(intent, 'v_sales')
-    
+        
+        # ถ้ารู้จัก intent ใช้ mapping
+        if intent in intent_to_table:
+            return intent_to_table[intent]
+        
+        # ถ้าไม่รู้จัก ให้ detect จาก keywords (ไม่ใช่ default v_sales)
+        # ส่ง question ไปด้วย - ต้องรับจาก build_sql_prompt
+        # เพื่อความง่าย return None และให้ build_sql_prompt เรียก _detect_table_from_keywords
+        return None
+
+    # 3. เพิ่ม method กรอง examples ตามตาราง
+    def _filter_examples_by_table(self, table: str) -> Dict[str, str]:
+        """Filter SQL examples that match the target table - COMPLETE VERSION"""
+        
+        # Complete mapping of ALL examples to their tables
+        example_tables = {
+            # === v_sales examples ===
+            'customer_history': 'v_sales',
+            'total_revenue_all': 'v_sales',
+            'total_revenue_year': 'v_sales',
+            'revenue_by_year': 'v_sales',
+            'compare_revenue_years': 'v_sales',
+            'count_total_customers': 'v_sales',
+            'top_customers': 'v_sales',
+            'top_customers_no_filter': 'v_sales',
+            'average_revenue_per_transaction': 'v_sales',
+            'high_value_transactions': 'v_sales',
+            'revenue_by_service_type': 'v_sales',
+            'max_revenue_by_year': 'v_sales',
+            'min_value_work': 'v_sales',
+            'max_value_work': 'v_sales',
+            'year_min_revenue': 'v_sales',
+            'year_max_revenue': 'v_sales',
+            'all_years_revenue_comparison': 'v_sales',
+            'average_work_value': 'v_sales',
+            'new_customers_in_year': 'v_sales',
+            'customers_using_overhaul': 'v_sales',
+            'service_revenue_by_customer': 'v_sales',
+            'overhaul_sales_all': 'v_sales',
+            'overhaul_sales': 'v_sales',
+            'overhaul_sales_specific': 'v_sales',
+            'sales_analysis': 'v_sales',
+            'sales_yoy_growth': 'v_sales',
+            'top_parts_customers': 'v_sales',
+            'service_vs_replacement': 'v_sales',
+            'solution_customers': 'v_sales',
+            'quarterly_summary': 'v_sales',
+            'customer_years_count': 'v_sales',
+            # New v_sales examples
+            'overhaul_total': 'v_sales',
+            'parts_total': 'v_sales',
+            'replacement_total': 'v_sales',
+            'average_annual_revenue': 'v_sales',
+            'count_all_jobs': 'v_sales',
+            'count_jobs_year': 'v_sales',
+            'average_revenue_per_job': 'v_sales',
+            'revenue_growth': 'v_sales',
+            'revenue_proportion': 'v_sales',
+            'max_revenue_each_year': 'v_sales',
+            'customer_specific_history': 'v_sales',
+            'new_customers_year': 'v_sales',
+            'frequent_customers': 'v_sales',
+            'government_customers': 'v_sales',
+            'inactive_customers': 'v_sales',
+            'continuous_customers': 'v_sales',
+            'hospital_customers': 'v_sales',
+            'high_value_customers': 'v_sales',
+            'parts_only_customers': 'v_sales',
+            'chiller_customers': 'v_sales',
+            'new_vs_returning_customers': 'v_sales',
+            'annual_performance_summary': 'v_sales',
+            'growth_trend': 'v_sales',
+            'popular_service_types': 'v_sales',
+            'high_potential_customers': 'v_sales',
+            'revenue_distribution': 'v_sales',
+            'service_roi': 'v_sales',
+            'revenue_forecast': 'v_sales',
+            'business_overview': 'v_sales',
+            
+            # === v_work_force examples ===
+            'work_monthly': 'v_work_force',
+            'work_summary_monthly': 'v_work_force',
+            'work_plan_date': 'v_work_force',
+            'repair_history': 'v_work_force',
+            'min_duration_work': 'v_work_force',
+            'max_duration_work': 'v_work_force',
+            'count_works_by_year': 'v_work_force',
+            'successful_work_monthly': 'v_work_force',
+            'pm_work_summary': 'v_work_force',
+            'startup_works': 'v_work_force',
+            'kpi_reported_works': 'v_work_force',
+            'team_specific_works': 'v_work_force',
+            'replacement_monthly': 'v_work_force',
+            'long_duration_works': 'v_work_force',
+            # New v_work_force examples
+            'count_all_works': 'v_work_force',
+            'work_specific_month': 'v_work_force',
+            'all_pm_works': 'v_work_force',
+            'work_overhaul': 'v_work_force',
+            'work_replacement': 'v_work_force',
+            'successful_works': 'v_work_force',
+            'unsuccessful_works': 'v_work_force',
+            'team_works': 'v_work_force',
+            'work_today': 'v_work_force',
+            'work_this_week': 'v_work_force',
+            'success_rate': 'v_work_force',
+            'on_time_works': 'v_work_force',
+            'overtime_works': 'v_work_force',
+            'startup_works_all': 'v_work_force',
+            'support_works': 'v_work_force',
+            'cpa_works': 'v_work_force',
+            'team_statistics': 'v_work_force',
+            'work_duration': 'v_work_force',
+            'latest_works': 'v_work_force',
+            'team_performance': 'v_work_force',
+            'monthly_sales_trend': 'v_work_force',
+            
+            # === v_spare_part examples ===
+            'spare_parts_price': 'v_spare_part',
+            'parts_search_multi': 'v_spare_part',
+            'inventory_check': 'v_spare_part',
+            'highest_value_items': 'v_spare_part',
+            'warehouse_summary': 'v_spare_part',
+            'low_stock_items': 'v_spare_part',
+            'high_unit_price': 'v_spare_part',
+            # New v_spare_part examples
+            'count_all_parts': 'v_spare_part',
+            'parts_in_stock': 'v_spare_part',
+            'parts_out_of_stock': 'v_spare_part',
+            'most_expensive_parts': 'v_spare_part',
+            'low_stock_alert': 'v_spare_part',
+            'warehouse_specific_parts': 'v_spare_part',
+            'average_part_price': 'v_spare_part',
+            'compressor_parts': 'v_spare_part',
+            'filter_parts': 'v_spare_part',
+            'warehouse_comparison': 'v_spare_part',
+            'total_inventory_value': 'v_spare_part',
+        }
+        
+        # Filter examples for the target table
+        filtered = {}
+        for example_name, example_sql in self.SQL_EXAMPLES.items():
+            if example_tables.get(example_name, 'v_sales') == table:
+                filtered[example_name] = example_sql
+        
+        logger.debug(f"Filtered {len(filtered)} examples for table {table}")
+        return filtered
+
     def _has_exact_matching_example(self, question: str, example_name: str) -> bool:
         """Check if we have an exact matching example for this question type"""
         question_lower = question.lower()
@@ -1504,235 +2913,389 @@ class PromptManager:
         """).strip()
     
     def _select_best_example(self, question: str, intent: str, entities: Dict) -> str:
-        """Select most relevant example - Enhanced with more specific patterns and no-year handling"""
+        """Select most relevant example - COMPLETE MAPPING VERSION"""
         question_lower = question.lower()
         
-        logger.debug(f"Selecting example for intent: {intent}, question: {question_lower[:50]}...")
-        logger.debug(f"Entities: {entities}")
-        
-        # PRIORITY 1: Very specific patterns for common questions
-        
-        # Total revenue questions - distinguish between with/without year
-        if ('รายได้รวม' in question_lower or 'รายได้ทั้งหมด' in question_lower or 
-            'total revenue' in question_lower.replace(' ', '')):
-            # Check if years are specified
-            if not entities.get('years'):
-                logger.info("Selected: total_revenue_all (รายได้รวมทั้งหมด - ไม่ระบุปี)")
-                return self.SQL_EXAMPLES.get('total_revenue_all', self.SQL_EXAMPLES['sales_analysis'])
-            else:
-                logger.info("Selected: total_revenue_year (รายได้รวม - ระบุปี)")
-                return self.SQL_EXAMPLES.get('total_revenue_year', self.SQL_EXAMPLES['sales_analysis'])
-        
-        # Year with min/max revenue queries
-        if ('ปีไหน' in question_lower or 'ปีใด' in question_lower or 'which year' in question_lower):
-            if ('รายได้ต่ำสุด' in question_lower or 'รายได้น้อยสุด' in question_lower or 
-                'lowest revenue' in question_lower or 'minimum revenue' in question_lower):
-                logger.info("Selected: year_min_revenue (ปีที่มีรายได้ต่ำสุด)")
-                return self.SQL_EXAMPLES.get('year_min_revenue', self.SQL_EXAMPLES['revenue_by_year'])
-            elif ('รายได้สูงสุด' in question_lower or 'รายได้มากสุด' in question_lower or 
-                  'highest revenue' in question_lower or 'maximum revenue' in question_lower):
-                logger.info("Selected: year_max_revenue (ปีที่มีรายได้สูงสุด)")
-                return self.SQL_EXAMPLES.get('year_max_revenue', self.SQL_EXAMPLES['revenue_by_year'])
-        
-        # Revenue by each year (no filter, just GROUP BY)
-        if ('รายได้แต่ละปี' in question_lower or 'รายได้เฉลี่ยต่อปี' in question_lower or
-            'revenue by year' in question_lower or 'annual revenue' in question_lower):
-            logger.info("Selected: revenue_by_year (รายได้แต่ละปี)")
-            return self.SQL_EXAMPLES.get('revenue_by_year', self.SQL_EXAMPLES['sales_analysis'])
-        
-        # Compare revenue between specific years
-        if ('เปรียบเทียบ' in question_lower or 'compare' in question_lower) and len(entities.get('years', [])) >= 2:
-            logger.info("Selected: compare_revenue_years (เปรียบเทียบรายได้)")
-            return self.SQL_EXAMPLES.get('compare_revenue_years', self.SQL_EXAMPLES['sales_analysis'])
-        
-        # Count customers
-        if ('มีลูกค้า' in question_lower and 'กี่ราย' in question_lower) or 'จำนวนลูกค้า' in question_lower:
-            logger.info("Selected: count_total_customers (นับจำนวนลูกค้า)")
-            return self.SQL_EXAMPLES.get('count_total_customers', self.SQL_EXAMPLES['top_customers'])
-        
-        # Customer service-related queries - Handle before wrong customer detection
-        if ('ลูกค้าที่ใช้บริการ' in question_lower or 'ลูกค้าใช้บริการ' in question_lower or
-            'customer service' in question_lower or 'use service' in question_lower):
+        # === PHASE 0: Direct Exact Match - เพิ่มคำถามจาก 100 ข้อ ===
+        exact_matches = {
+            # ข้อ 1-10: รายได้และยอดขาย
+            'รายได้รวมทั้งหมดเท่าไหร่': 'total_revenue_all',
+            'รายได้ปี 2024': 'total_revenue_year',
+            'เปรียบเทียบรายได้ปี 2023 กับ 2024': 'compare_revenue_years',
+            'ยอดขาย overhaul ทั้งหมด': 'overhaul_total',
+            'ยอดขาย service ปี 2024': 'service_num',  # ต้องสร้างใหม่
+            'ยอดขาย parts/อะไหล่': 'parts_total',
+            'ยอดขาย replacement/เปลี่ยนอุปกรณ์': 'replacement_total',
+            'รายได้แต่ละปีเป็นอย่างไร': 'revenue_by_year',
+            'ยอดขายแยกตามประเภทงาน': 'revenue_by_service_type',
+            'รายได้เฉลี่ยต่อปี': 'average_annual_revenue',
             
-            # Check for specific criteria
-            if ('ต่อเนื่อง' in question_lower or 'ทุกปี' in question_lower or 
-                'continuous' in question_lower or 'every year' in question_lower):
-                logger.info("Selected: customers_continuous_years (ลูกค้าใช้บริการต่อเนื่อง)")
-                return self.SQL_EXAMPLES.get('customers_continuous_years', self.SQL_EXAMPLES['top_customers'])
+            # ข้อ 11-25: การวิเคราะห์รายได้
+            'ปีไหนมีรายได้สูงสุด': 'year_max_revenue',
+            'ปีไหนมีรายได้ต่ำสุด': 'year_min_revenue',
+            'งานที่มีมูลค่าสูงสุด': 'max_value_work',
+            'งานที่มีมูลค่าต่ำสุด': 'min_value_work',
+            'รายได้จาก overhaul ปี 2024': 'overhaul_sales_specific',
+            'รายได้จาก service ปี 2023': 'service_revenue_2023',  # ต้องสร้างใหม่
+            'มีงานทั้งหมดกี่งาน': 'count_all_jobs',
+            'มีงานปี 2024 กี่งาน': 'count_jobs_year',
+            'รายได้เฉลี่ยต่องาน': 'average_revenue_per_job',
+            'งานที่มีรายได้มากกว่า 1 ล้าน': 'high_value_transactions',
+            'งานที่มีรายได้น้อยกว่า 50,000': 'low_value_transactions',  # ต้องสร้างใหม่
+            'การเติบโตรายได้จาก 2023 เป็น 2024': 'revenue_growth',
+            'สัดส่วนรายได้แต่ละประเภท': 'revenue_proportion',
+            'รายได้สูงสุดต่อปี': 'max_revenue_each_year',
+            'มูลค่ารวมของสินค้าคงคลัง': 'total_inventory_value',
             
-            elif ('service' in question_lower or 'บริการ' in question_lower) and ('มาก' in question_lower or 'สูง' in question_lower):
-                logger.info("Selected: top_service_customers (ลูกค้าใช้ service มาก)")
-                return self.SQL_EXAMPLES.get('top_service_customers', self.SQL_EXAMPLES['top_customers'])
+            # ข้อ 26-50: ลูกค้า
+            'มีลูกค้าทั้งหมดกี่ราย': 'count_total_customers',
+            'top 10 ลูกค้าที่ใช้บริการมากที่สุด': 'top_customers',
+            'ลูกค้าที่มียอดการใช้บริการสูงสุด': 'top_customers',
+            'ประวัติการใช้บริการของ stanley': 'customer_specific_history',
+            'ประวัติการใช้บริการของ clarion': 'customer_specific_history',
+            'ลูกค้าใหม่ปี 2024': 'new_customers_year',
+            'ลูกค้าที่ใช้บริการบ่อยที่สุด': 'frequent_customers',
+            'ลูกค้าที่ใช้บริการ overhaul': 'customers_using_overhaul',
+            'ลูกค้าภาครัฐมีใครบ้าง': 'government_customers',
+            'ลูกค้าเอกชนที่ใหญ่ที่สุด': 'private_customers',  # ต้องสร้างใหม่
+            'ข้อมูลลูกค้า': 'customer_specific_history',
+            'ลูกค้าที่เคยใช้บริการแต่ไม่ได้ใช้ปี 2024': 'inactive_customers',
+            'ลูกค้าที่ใช้บริการต่อเนื่องทุกปี': 'continuous_customers',
+            'จำนวนลูกค้าที่ใช้บริการแต่ละปี': 'customers_per_year',  # ต้องสร้างใหม่
+            'ลูกค้าที่เกี่ยวข้องกับ hitachi': 'hitachi_customers',  # ต้องสร้างใหม่
+            'ลูกค้าโรงพยาบาลมีใครบ้าง': 'hospital_customers',
+            'ลูกค้าที่จ่ายมากกว่า 500,000 บาท': 'high_value_customers',
+            'รายได้เฉลี่ยต่อลูกค้า': 'avg_revenue_per_customer',  # ต้องสร้างใหม่
+            'ลูกค้าที่ใช้บริการเฉพาะซื้ออะไหล่': 'parts_only_customers',
+            'ลูกค้าต่างชาติมีใครบ้าง': 'foreign_customers',  # ต้องสร้างใหม่
+            'ลูกค้าที่มีงาน chiller': 'chiller_customers',
+            'เปรียบเทียบรายได้จากลูกค้าใหม่กับลูกค้าเก่า': 'new_vs_returning_customers',
             
-            elif ('บ่อย' in question_lower or 'frequent' in question_lower or 
-                  'หลายครั้ง' in question_lower or 'many times' in question_lower):
-                logger.info("Selected: most_frequent_customers (ลูกค้าใช้บริการบ่อย)")
-                return self.SQL_EXAMPLES.get('most_frequent_customers', self.SQL_EXAMPLES['top_customers'])
+            # ข้อ 51-70: อะไหล่และสินค้าคงคลัง
+            'มีอะไหล่ทั้งหมดกี่รายการ': 'count_all_parts',
+            'อะไหล่ที่มีสต็อกคงเหลือ': 'parts_in_stock',
+            'อะไหล่ที่หมดสต็อก': 'parts_out_of_stock',
+            'อะไหล่ที่มีราคาแพงที่สุด': 'most_expensive_parts',
+            'อะไหล่ที่มีราคาถูกที่สุด': 'cheapest_parts',  # ต้องสร้างใหม่
+            'อะไหล่ที่มีสต็อกน้อยกว่า 5 ชิ้น': 'low_stock_alert',
+            'อะไหล่ในคลัง a': 'warehouse_specific_parts',
+            'อะไหล่ที่มีรหัส ekac': 'ekac_parts',  # ต้องสร้างใหม่
+            'อะไหล่ที่มีมูลค่ารวมสูงสุด': 'highest_value_items',
+            'ราคาเฉลี่ยของอะไหล่': 'average_part_price',
+            'จำนวนอะไหล่ทั้งหมดที่มีในสต็อก': 'total_stock_quantity',  # ต้องสร้างใหม่
+            'อะไหล่สำหรับ compressor': 'compressor_parts',
+            'อะไหล่ filter มีอะไรบ้าง': 'filter_parts',
+            'อะไหล่ที่ต้องสั่งเติม': 'reorder_parts',  # ต้องสร้างใหม่
+            'มูลค่าสต็อกรวมทั้งหมด': 'total_inventory_value',
+            'อะไหล่ที่ไม่มีการตั้งราคา': 'unpriced_parts',  # ต้องสร้างใหม่
+            'คลังไหนมีอะไหล่มากที่สุด': 'warehouse_comparison',
+            'ข้อมูลอะไหล่รหัส ekac460': 'ekac460_info',  # ต้องสร้างใหม่
+            'อะไหล่ที่ขายเป็น set': 'set_parts',  # ต้องสร้างใหม่
+            'สินค้าที่เพิ่งรับเข้าล่าสุด': 'recently_received',  # ต้องสร้างใหม่
             
-            # Default for general "ลูกค้าที่ใช้บริการ"
-            else:
-                logger.info("Selected: top_customers_no_filter (ลูกค้าที่ใช้บริการทั่วไป)")
-                return self.SQL_EXAMPLES.get('top_customers_no_filter', self.SQL_EXAMPLES['top_customers'])
+            # ข้อ 71-90: งานบริการและทีมงาน
+            'มีงานทั้งหมดกี่งานในระบบ': 'count_all_works',
+            'งานเดือนกันยายน 2024': 'work_specific_month',
+            'งานบำรุงรักษา (pm) ทั้งหมด': 'all_pm_works',
+            'งาน overhaul ที่ทำ': 'work_overhaul',
+            'งานเปลี่ยนอุปกรณ์': 'work_replacement',
+            'งานที่ทำสำเร็จ': 'successful_works',
+            'งานที่ไม่สำเร็จ': 'unsuccessful_works',
+            'งานของทีม a': 'team_works',
+            'งานวันนี้มีอะไรบ้าง': 'work_today',
+            'งานสัปดาห์นี้': 'work_this_week',
+            'อัตราความสำเร็จของงาน': 'success_rate',
+            'งานที่เสร็จตรงเวลา': 'on_time_works',
+            'งานที่ทำเกินเวลา': 'overtime_works',
+            'งานทั้งหมดของลูกค้า stanley': 'stanley_works',  # ต้องสร้างใหม่
+            'งาน start up/เริ่มต้นระบบ': 'startup_works_all',
+            'งานสนับสนุนทั่วไป': 'support_works',
+            'งาน cpa': 'cpa_works',
+            'สถิติงานของแต่ละทีม': 'team_statistics',
+            'ระยะเวลาการทำงานแต่ละงาน': 'work_duration',
+            'งาน 10 งานล่าสุด': 'latest_works',
+            
+            # ข้อ 91-100: การวิเคราะห์และรายงาน
+            'สรุปผลประกอบการแต่ละปี': 'annual_performance_summary',
+            'เทรนด์การเติบโตของธุรกิจ': 'growth_trend',
+            'ประเภทงานที่ลูกค้านิยมใช้บริการมากที่สุด': 'popular_service_types',
+            'ลูกค้าที่มีศักยภาพสูง': 'high_potential_customers',
+            'การกระจายรายได้ตามขนาดงาน': 'revenue_distribution',
+            'ประสิทธิภาพการทำงานของแต่ละทีม': 'team_performance',
+            'แนวโน้มยอดขายรายเดือนปี 2024': 'monthly_sales_trend',
+            'ผลตอบแทนจากการลงทุนในแต่ละประเภทบริการ': 'service_roi',
+            'คาดการณ์รายได้ปี 2025 จากเทรนด์': 'revenue_forecast',
+            'รายงานสถานะธุรกิจโดยรวม': 'business_overview',
+        }
         
-        # Average revenue per transaction
-        if 'รายได้เฉลี่ยต่องาน' in question_lower or 'average revenue per' in question_lower:
-            logger.info("Selected: average_revenue_per_transaction (รายได้เฉลี่ยต่องาน)")
-            return self.SQL_EXAMPLES.get('average_revenue_per_transaction', self.SQL_EXAMPLES['sales_analysis'])
+        for pattern, example_name in exact_matches.items():
+            if pattern in question_lower:
+                logger.info(f"Exact match found: {example_name} for pattern '{pattern}'")
+                if example_name in self.SQL_EXAMPLES:
+                    return self.SQL_EXAMPLES[example_name]
         
-        # Min/Max value queries
-        if ('งานที่มีมูลค่า' in question_lower or 'งานที่มีรายได้' in question_lower or 
-            'value' in question_lower or 'revenue' in question_lower):
-            if 'ต่ำสุด' in question_lower or 'น้อยสุด' in question_lower or 'min' in question_lower:
-                logger.info("Selected: min_value_work (งานมูลค่าต่ำสุด)")
-                return self.SQL_EXAMPLES.get('min_value_work', self.SQL_EXAMPLES['sales_analysis'])
-            elif 'สูงสุด' in question_lower or 'มากสุด' in question_lower or 'max' in question_lower:
-                logger.info("Selected: max_value_work (งานมูลค่าสูงสุด)")
-                return self.SQL_EXAMPLES.get('max_value_work', self.SQL_EXAMPLES['sales_analysis'])
+        # === PHASE 1: Pattern-Based Priority Rules ===
         
-        # Duration queries
-        if ('ใช้เวลา' in question_lower or 'duration' in question_lower):
-            if 'น้อยสุด' in question_lower or 'สั้นสุด' in question_lower or 'min' in question_lower:
-                logger.info("Selected: min_duration_work (งานใช้เวลาน้อยสุด)")
-                return self.SQL_EXAMPLES.get('min_duration_work', self.SQL_EXAMPLES['work_monthly'])
-            elif 'นานสุด' in question_lower or 'มากสุด' in question_lower or 'max' in question_lower:
-                logger.info("Selected: max_duration_work (งานใช้เวลานานสุด)")
-                return self.SQL_EXAMPLES.get('max_duration_work', self.SQL_EXAMPLES['work_monthly'])
+        # Rule 1: "แยกตาม" = Breakdown query
+        if any(word in question_lower for word in ['แยกตาม', 'แต่ละประเภท', 'breakdown', 'by type']):
+            if any(word in question_lower for word in ['ประเภทงาน', 'ประเภท', 'type', 'service']):
+                logger.info("Priority rule: แยกตามประเภท → revenue_by_service_type")
+                return self.SQL_EXAMPLES.get('revenue_by_service_type', '')
         
-        # Revenue by service type - check for year
-        if ('ยอดขายแยกตาม' in question_lower or 'รายได้แต่ละประเภท' in question_lower or 
-            'สัดส่วนรายได้' in question_lower or 'แยกตามประเภทงาน' in question_lower):
-            if entities.get('years'):
-                logger.info("Selected: revenue_by_service_type (รายได้แยกตามประเภท - มีปี)")
-            else:
-                logger.info("Selected: revenue_by_service_type for all years (รายได้แยกตามประเภท - ทุกปี)")
-            return self.SQL_EXAMPLES.get('revenue_by_service_type', self.SQL_EXAMPLES['sales_analysis'])
+        # Rule 2: Value/Price + Max/Min
+        if any(word in question_lower for word in ['มูลค่า', 'ราคา', 'value', 'price']):
+            if any(word in question_lower for word in ['สูงสุด', 'มากที่สุด', 'แพงที่สุด', 'highest', 'maximum']):
+                if 'งาน' in question_lower:
+                    logger.info("Priority rule: งาน + มูลค่าสูงสุด → max_value_work")
+                    return self.SQL_EXAMPLES.get('max_value_work', '')
+                elif 'อะไหล่' in question_lower or 'parts' in question_lower:
+                    logger.info("Priority rule: อะไหล่ + ราคาสูงสุด → most_expensive_parts")
+                    return self.SQL_EXAMPLES.get('most_expensive_parts', '')
+            elif any(word in question_lower for word in ['ต่ำสุด', 'น้อยที่สุด', 'ถูกที่สุด', 'lowest', 'minimum']):
+                if 'งาน' in question_lower:
+                    logger.info("Priority rule: งาน + มูลค่าต่ำสุด → min_value_work")
+                    return self.SQL_EXAMPLES.get('min_value_work', '')
         
-        # Growth analysis
-        if 'การเติบโต' in question_lower or 'growth' in question_lower:
-            logger.info("Selected: sales_yoy_growth (การเติบโต)")
-            return self.SQL_EXAMPLES.get('sales_yoy_growth', self.SQL_EXAMPLES['sales_analysis'])
-        
-        # New customers in year
-        if 'ลูกค้าใหม่' in question_lower and entities.get('years'):
-            logger.info("Selected: new_customers_in_year (ลูกค้าใหม่)")
-            return self.SQL_EXAMPLES.get('new_customers_in_year', self.SQL_EXAMPLES['top_customers'])
-        
-        # Overhaul queries - Handle with/without year specification
-        if 'overhaul' in question_lower:
-            # If asking for "ทั้งหมด" (all) without year - get total across all years
-            if ('ทั้งหมด' in question_lower or 'รวม' in question_lower) and not entities.get('years'):
-                logger.info("Selected: overhaul_sales_all (overhaul ทั้งหมด - ไม่กรองปี)")
-                return self.SQL_EXAMPLES.get('overhaul_sales_all', self.SQL_EXAMPLES['overhaul_sales'])
-            # If has specific years
-            elif entities.get('years'):
-                logger.info("Selected: overhaul_sales_specific (overhaul ปีเฉพาะ)")
-                return self.SQL_EXAMPLES.get('overhaul_sales_specific', self.SQL_EXAMPLES['overhaul_sales'])
-            # Default to showing by year (GROUP BY without WHERE)
-            else:
-                logger.info("Selected: overhaul_sales (overhaul แยกตามปี)")
-                return self.SQL_EXAMPLES.get('overhaul_sales', self.SQL_EXAMPLES['overhaul_sales'])
-        
-        # Count works
-        if ('มีงาน' in question_lower and 'กี่งาน' in question_lower) or 'จำนวนงาน' in question_lower:
-            logger.info("Selected: count_works_by_year (จำนวนงาน)")
-            return self.SQL_EXAMPLES.get('count_works_by_year', self.SQL_EXAMPLES['work_monthly'])
-        
-        # PRIORITY 2: Work plan with months
-        if intent == 'work_plan' and entities.get('months'):
-            logger.info("Selected: work_monthly (work_plan with months)")
-            return self.SQL_EXAMPLES['work_monthly']
-        
-        # PRIORITY 2: Specific patterns
-        if 'งานที่วางแผน' in question_lower or 'แผนงาน' in question_lower:
-            if entities.get('months'):
-                logger.info("Selected: work_monthly (งานที่วางแผน with months)")
-                return self.SQL_EXAMPLES['work_monthly']
-            elif entities.get('dates'):
-                logger.info("Selected: work_plan_date (specific date)")
-                return self.SQL_EXAMPLES['work_plan_date']
-            else:
-                logger.info("Selected: work_monthly (default for งานที่วางแผน)")
-                return self.SQL_EXAMPLES['work_monthly']
-        
-        # PRIORITY 3: Work summaries
-        if 'สรุปงาน' in question_lower and 'เดือน' in question_lower:
-            logger.info("Selected: work_summary_monthly")
-            return self.SQL_EXAMPLES['work_summary_monthly']
-        
-        # PRIORITY 4: Check compiled patterns
-        for pattern_name, pattern in self.compiled_patterns.items():
-            if pattern.search(question_lower):
-                if pattern_name in self.SQL_EXAMPLES:
-                    logger.info(f"Selected: {pattern_name} (pattern match)")
-                    return self.SQL_EXAMPLES[pattern_name]
-        
-        # PRIORITY 5: Parts/spare parts
-        if 'อะไหล่' in question_lower or 'ราคาอะไหล่' in question_lower:
-            if any(word in question_lower for word in ['ek', 'model', 'ekac']):
-                logger.info("Selected: parts_search_multi")
-                return self.SQL_EXAMPLES['parts_search_multi']
-            logger.info("Selected: spare_parts_price")
-            return self.SQL_EXAMPLES['spare_parts_price']
-        
-        # PRIORITY 6: Sales analysis
-        if 'วิเคราะห์' in question_lower or len(entities.get('years', [])) > 1:
-            logger.info("Selected: sales_analysis")
-            return self.SQL_EXAMPLES['sales_analysis']
-        
-        # PRIORITY 7: Customer history
-        if 'ประวัติ' in question_lower or 'ย้อนหลัง' in question_lower:
-            if 'ซ่อม' in question_lower:
-                logger.info("Selected: repair_history")
-                return self.SQL_EXAMPLES['repair_history']
-            logger.info("Selected: customer_history")
-            return self.SQL_EXAMPLES['customer_history']
-        
-        if ('กี่ปี' in question_lower or 'จำนวนปี' in question_lower) and \
-            ('ซื้อขาย' in question_lower or 'การซื้อขาย' in question_lower):
+        # Rule 3: Customer history with years
+        if any(word in question_lower for word in ['ซื้อขาย', 'ประวัติ', 'history', 'ย้อนหลัง']):
             if entities.get('customers'):
-                logger.info("Selected: customer_years_count (years of operation)")
-                return self.SQL_EXAMPLES['customer_years_count']
+                logger.info("Priority rule: Customer history → customer_history")
+                return self.SQL_EXAMPLES.get('customer_history', '')
         
-        # PRIORITY 8: Default by intent
+        # === PHASE 2: Full EXAMPLE_KEYWORDS Mapping (All 100+ examples) ===
+        EXAMPLE_KEYWORDS = {
+            # === REVENUE/SALES EXAMPLES (หมวด 1: ข้อ 1-25) ===
+            'total_revenue_all': ['รายได้รวมทั้งหมด', 'รายได้ทั้งหมด', 'total revenue', 'รายได้รวม'],
+            'total_revenue_year': ['รายได้ปี', 'revenue year', 'รายได้ใน'],
+            'revenue_by_year': ['รายได้แต่ละปี', 'รายได้รายปี', 'annual revenue', 'revenue by year'],
+            'compare_revenue_years': ['เปรียบเทียบรายได้', 'compare revenue', 'เทียบรายได้'],
+            'overhaul_total': ['ยอดขาย overhaul', 'total overhaul', 'overhaul ทั้งหมด'],
+            'overhaul_sales': ['overhaul แต่ละปี', 'overhaul by year'],
+            'overhaul_sales_all': ['overhaul รวม', 'ยอด overhaul', 'overhaul revenue'],
+            'overhaul_sales_specific': ['overhaul ปี', 'overhaul เฉพาะปี'],
+            'service_num': ['ยอด service', 'service revenue', 'บริการ'],
+            'parts_total': ['ยอดขาย parts', 'ยอดอะไหล่', 'parts revenue'],
+            'replacement_total': ['ยอดขาย replacement', 'ยอดเปลี่ยน', 'replacement revenue'],
+            'average_annual_revenue': ['รายได้เฉลี่ยต่อปี', 'average annual', 'เฉลี่ยต่อปี'],
+            'year_min_revenue': ['ปีที่มีรายได้ต่ำสุด', 'ปีไหนรายได้น้อยสุด', 'lowest year'],
+            'year_max_revenue': ['ปีที่มีรายได้สูงสุด', 'ปีไหนรายได้มากสุด', 'highest year'],
+            'max_value_work': ['งานที่มีมูลค่าสูงสุด', 'มูลค่าสูงสุด', 'งานมูลค่าสูง', 'highest value work'],
+            'min_value_work': ['งานที่มีมูลค่าต่ำสุด', 'มูลค่าต่ำสุด', 'งานมูลค่าต่ำ', 'lowest value work'],
+            'average_revenue_per_job': ['รายได้เฉลี่ยต่องาน', 'average per job', 'เฉลี่ยต่องาน'],
+            'high_value_transactions': ['งานมูลค่าสูง', 'มากกว่า 1 ล้าน', 'high value'],
+            'revenue_growth': ['การเติบโตรายได้', 'revenue growth', 'อัตราการเติบโต'],
+            'revenue_proportion': ['สัดส่วนรายได้', 'proportion', 'แบ่งสัดส่วน'],
+            'max_revenue_each_year': ['รายได้สูงสุดแต่ละปี', 'max revenue year', 'สูงสุดของแต่ละปี'],
+            'total_inventory_value': ['มูลค่าสินค้าคงคลัง', 'inventory value', 'มูลค่ารวม'],
+            'all_years_revenue_comparison': ['เปรียบเทียบรายได้ทุกปี', 'compare all years'],
+            'average_work_value': ['ค่าเฉลี่ย', 'average value'],
+            'sales_analysis': ['วิเคราะห์การขาย', 'sales analysis'],
+            
+            # === CUSTOMER EXAMPLES (หมวด 2: ข้อ 26-50) ===
+            'count_total_customers': ['จำนวนลูกค้า', 'กี่ลูกค้า', 'มีลูกค้ากี่ราย', 'customer count'],
+            'top_customers': ['top ลูกค้า', 'ลูกค้าสูงสุด', 'best customers'],
+            'top_customers_no_filter': ['ลูกค้าที่ใช้บริการมาก', 'frequent customers'],
+            'customer_specific_history': ['ประวัติลูกค้า', 'customer history', 'ประวัติการซื้อ'],
+            'customer_history': ['ประวัติการใช้บริการ', 'service history'],
+            'new_customers_year': ['ลูกค้าใหม่', 'new customers', 'ลูกค้าใหม่ปี'],
+            'new_customers_in_year': ['ลูกค้าใหม่ในปี', 'new in year'],
+            'frequent_customers': ['ลูกค้าที่ใช้บริการบ่อย', 'ลูกค้าประจำ', 'frequent'],
+            'most_frequent_customers': ['ใช้บริการบ่อยที่สุด', 'most frequent'],
+            'government_customers': ['ลูกค้าภาครัฐ', 'กระทรวง', 'government', 'หน่วยงานราชการ'],
+            'hospital_customers': ['ลูกค้าโรงพยาบาล', 'hospital', 'รพ.', 'คลินิก'],
+            'continuous_customers': ['ลูกค้าต่อเนื่อง', 'ใช้บริการต่อเนื่อง', 'loyal customers'],
+            'customers_continuous_years': ['ลูกค้าต่อเนื่องทุกปี', 'every year customer'],
+            'inactive_customers': ['ลูกค้าที่ไม่ได้ใช้บริการ', 'inactive', 'หายไป', 'ไม่กลับมา'],
+            'high_value_customers': ['ลูกค้าที่จ่ายมาก', 'มูลค่าสูง', 'high value', 'จ่ายเยอะ'],
+            'parts_only_customers': ['ลูกค้าที่ซื้อแต่อะไหล่', 'parts only', 'เฉพาะอะไหล่'],
+            'chiller_customers': ['ลูกค้า chiller', 'งาน chiller', 'ชิลเลอร์'],
+            'new_vs_returning_customers': ['เปรียบเทียบลูกค้าใหม่กับเก่า', 'new vs returning'],
+            'customers_using_overhaul': ['ลูกค้าที่ใช้ overhaul', 'overhaul customers'],
+            'top_service_customers': ['ลูกค้าที่ใช้ service มาก', 'service customers'],
+            'customer_years_count': ['ซื้อขายมากี่ปี', 'กี่ปีแล้ว', 'how many years'],
+            'top_parts_customers': ['ลูกค้าที่ซื้ออะไหล่มาก', 'top parts customers'],
+            'service_vs_replacement': ['เปรียบเทียบ service กับ replacement'],
+            'solution_customers': ['ลูกค้า solution', 'solution sales'],
+            
+            # === SPARE PARTS EXAMPLES (หมวด 3: ข้อ 51-70) ===
+            'count_all_parts': ['จำนวนอะไหล่ทั้งหมด', 'กี่รายการ', 'total parts types'],
+            'parts_in_stock': ['อะไหล่ที่มีสต็อก', 'in stock', 'มีในคลัง'],
+            'parts_out_of_stock': ['อะไหล่หมดสต็อก', 'out of stock', 'หมด', 'ไม่มีของ'],
+            'most_expensive_parts': ['อะไหล่ราคาแพง', 'expensive parts', 'ราคาสูง'],
+            'low_stock_alert': ['อะไหล่ใกล้หมด', 'low stock', 'เหลือน้อย', 'ต้องสั่ง'],
+            'warehouse_specific_parts': ['อะไหล่ในคลัง', 'คลัง a', 'warehouse a'],
+            'spare_parts_price': ['ราคาอะไหล่', 'spare parts price'],
+            'parts_search_multi': ['ค้นหาอะไหล่', 'search parts'],
+            'average_part_price': ['ราคาเฉลี่ยอะไหล่', 'average price parts'],
+            'compressor_parts': ['อะไหล่ compressor', 'คอมเพรสเซอร์', 'comp'],
+            'filter_parts': ['อะไหล่ filter', 'กรอง', 'ฟิลเตอร์'],
+            'warehouse_comparison': ['เปรียบเทียบคลัง', 'คลังไหนมีมาก', 'warehouse compare'],
+            'inventory_check': ['ตรวจสอบสินค้าคงคลัง', 'inventory', 'stock check'],
+            'highest_value_items': ['สินค้ามูลค่าสูง', 'highest value items'],
+            'warehouse_summary': ['สรุปคลัง', 'warehouse summary'],
+            'low_stock_items': ['ใกล้หมด', 'สต็อกน้อย', 'low stock'],
+            'high_unit_price': ['ราคาต่อหน่วยสูง', 'ราคาแพง', 'expensive'],
+            
+            # === WORK FORCE EXAMPLES (หมวด 4: ข้อ 71-90) ===
+            'count_all_works': ['จำนวนงานทั้งหมดในระบบ', 'work records', 'บันทึกงาน'],
+            'count_works_by_year': ['จำนวนงานแต่ละปี', 'works by year'],
+            'work_monthly': ['งานรายเดือน', 'งานเดือน', 'monthly work', 'แผนงานเดือน'],
+            'work_summary_monthly': ['สรุปงานเดือน', 'monthly summary'],
+            'work_specific_month': ['งานเดือนที่', 'งานเดือนนี้', 'work this month'],
+            'work_plan_date': ['แผนงานวันที่', 'work plan date'],
+            'all_pm_works': ['งาน pm', 'preventive', 'บำรุงรักษา'],
+            'pm_work_summary': ['สรุปงาน pm', 'pm summary'],
+            'work_overhaul': ['งาน overhaul', 'overhaul ที่ทำ', 'overhaul work'],
+            'work_replacement': ['งาน replacement', 'งานเปลี่ยน', 'replacement work'],
+            'replacement_monthly': ['งานเปลี่ยนรายเดือน', 'replacement monthly'],
+            'successful_works': ['งานที่สำเร็จ', 'successful', 'งานเสร็จ'],
+            'successful_work_monthly': ['งานสำเร็จรายเดือน', 'successful monthly'],
+            'unsuccessful_works': ['งานที่ไม่สำเร็จ', 'failed', 'งานล้มเหลว'],
+            'work_today': ['งานวันนี้', 'today work', 'วันนี้มีงานอะไร'],
+            'work_this_week': ['งานสัปดาห์นี้', 'this week', 'อาทิตย์นี้'],
+            'success_rate': ['อัตราความสำเร็จ', 'success rate', 'เปอร์เซ็นต์สำเร็จ'],
+            'on_time_works': ['งานตรงเวลา', 'on time', 'ทันเวลา', 'ไม่ล่าช้า'],
+            'kpi_reported_works': ['งานที่มี kpi', 'kpi report'],
+            'overtime_works': ['งานเกินเวลา', 'overtime', 'ล่าช้า', 'delay'],
+            'startup_works': ['งาน startup', 'start up', 'เริ่มระบบ'],
+            'startup_works_all': ['งาน startup ทั้งหมด', 'all startup'],
+            'support_works': ['งาน support', 'งานสนับสนุน', 'support all'],
+            'cpa_works': ['งาน cpa', 'cpa'],
+            'team_statistics': ['สถิติทีม', 'team stats', 'ผลงานทีม'],
+            'team_specific_works': ['งานของทีม', 'team work'],
+            'team_works': ['งานของทีม', 'team a', 'ทีม a'],
+            'work_duration': ['ระยะเวลาทำงาน', 'duration', 'ใช้เวลา'],
+            'min_duration_work': ['งานที่ใช้เวลาน้อยสุด', 'ใช้เวลาน้อยที่สุด', 'shortest duration'],
+            'max_duration_work': ['งานที่ใช้เวลานานสุด', 'ใช้เวลานานที่สุด', 'longest duration'],
+            'long_duration_works': ['ใช้เวลานาน', 'หลายวัน', 'งานนาน'],
+            'latest_works': ['งานล่าสุด', 'latest', 'งานใหม่ล่าสุด'],
+            'repair_history': ['ประวัติการซ่อม', 'repair history'],
+            
+            # === ANALYTICAL EXAMPLES (หมวด 5: ข้อ 91-100) ===
+            'annual_performance_summary': ['สรุปผลประกอบการ', 'annual summary', 'สรุปรายปี'],
+            'growth_trend': ['เทรนด์การเติบโต', 'growth trend', 'แนวโน้ม'],
+            'popular_service_types': ['ประเภทงานที่นิยม', 'popular service', 'บริการยอดนิยม'],
+            'high_potential_customers': ['ลูกค้าที่มีศักยภาพ', 'potential', 'ลูกค้าดี'],
+            'revenue_distribution': ['การกระจายรายได้', 'distribution', 'กระจาย'],
+            'team_performance': ['ประสิทธิภาพทีม', 'team performance', 'ผลงานทีม'],
+            'monthly_sales_trend': ['แนวโน้มรายเดือน', 'monthly trend', 'ยอดขายรายเดือน'],
+            'service_roi': ['roi', 'ผลตอบแทน', 'return on investment'],
+            'revenue_forecast': ['คาดการณ์รายได้', 'forecast', 'พยากรณ์', 'ปีหน้า'],
+            'business_overview': ['สถานะธุรกิจรวม', 'overview', 'ภาพรวม', 'สรุปทั้งหมด'],
+            'quarterly_summary': ['ไตรมาส', 'quarterly', 'รายไตรมาส', 'quarter'],
+            'sales_yoy_growth': ['เติบโต', 'อัตราการเติบโต', 'growth', 'yoy', 'year over year'],
+        }
+        
+        # === PHASE 3: Smart Scoring with Required/Forbidden Words ===
+        # === PHASE 3: Simple Scoring (Backward Compatible) ===
+        best_matches = []
+        
+        for example_name, keywords in EXAMPLE_KEYWORDS.items():
+            score = 0
+            matched_keywords = []
+            
+            # Handle both list and dict format
+            if isinstance(keywords, dict):
+                # New format with config - extract just keywords
+                keyword_list = keywords.get('keywords', [])
+            else:
+                # Old format - simple list
+                keyword_list = keywords
+            
+            for keyword in keyword_list:
+                keyword_lower = keyword.lower()
+                
+                # Exact phrase match
+                if keyword_lower in question_lower:
+                    score += 20
+                    matched_keywords.append(keyword)
+                # All words match (สำหรับ multi-word keywords)
+                elif len(keyword_lower.split()) > 1:
+                    if all(word in question_lower for word in keyword_lower.split() if len(word) > 2):
+                        score += 12
+                        matched_keywords.append(keyword)
+                # Partial match
+                elif any(word in question_lower for word in keyword_lower.split() if len(word) > 2):
+                    score += 3
+                    matched_keywords.append(keyword)
+            
+            # === PENALTIES for wrong context ===
+            
+            # Penalty 1: Work examples shouldn't match money queries
+            if 'work' in example_name or 'pm' in example_name:
+                if any(word in question_lower for word in ['มูลค่า', 'ราคา', 'value', 'revenue', 'ยอดขาย']):
+                    score = score * 0.3
+            
+            # Penalty 2: Single type shouldn't match breakdown queries
+            if any(word in question_lower for word in ['แยกตาม', 'แต่ละ', 'breakdown']):
+                if example_name in ['overhaul_sales_all', 'parts_total', 'service_num']:
+                    score = score * 0.5
+            
+            # Bonus for intent match
+            if intent and intent.lower() in example_name.lower():
+                score += 5
+            
+            # Bonus for entity match
+            if entities.get('years') and ('year' in example_name or 'annual' in example_name):
+                score += 3
+            if entities.get('customers') and 'customer' in example_name:
+                score += 5
+            
+            if score > 0:
+                best_matches.append((score, example_name, matched_keywords))
+        
+        # Sort by score
+        best_matches.sort(key=lambda x: x[0], reverse=True)
+        
+        # Log top matches
+        if best_matches:
+            logger.info(f"Top matches: 1. {best_matches[0][1]} (score: {best_matches[0][0]})")
+            if len(best_matches) > 1:
+                logger.debug(f"  2. {best_matches[1][1]} (score: {best_matches[1][0]})")
+        
+        # Return best match
+        if best_matches and best_matches[0][0] > 5:
+            selected = best_matches[0][1]
+            if selected in self.SQL_EXAMPLES:
+                logger.info(f"✓ Selected: {selected} (score: {best_matches[0][0]}, matched: {best_matches[0][2]})")
+                return self.SQL_EXAMPLES[selected]
+        
+        # === PHASE 4: Intent-based fallback ===
         intent_map = {
-            'work_plan': self.SQL_EXAMPLES['work_monthly'],
-            'work_force': self.SQL_EXAMPLES['work_monthly'],
-            'work_summary': self.SQL_EXAMPLES['work_summary_monthly'],
-            'repair_history': self.SQL_EXAMPLES['repair_history'],
-            'customer_history': self.SQL_EXAMPLES['customer_history'],
-            'spare_parts': self.SQL_EXAMPLES['spare_parts_price'],
-            'parts_price': self.SQL_EXAMPLES['spare_parts_price'],
-            'sales': self.SQL_EXAMPLES['sales_analysis'],
-            'sales_analysis': self.SQL_EXAMPLES['sales_analysis'],
-            'overhaul_report': self.SQL_EXAMPLES['overhaul_sales'],
-            'top_customers': self.SQL_EXAMPLES['top_customers'],
-            'inventory_check': self.SQL_EXAMPLES['inventory_check'],
-            'top_parts_customers': self.SQL_EXAMPLES['top_parts_customers'],
-            'service_comparison': self.SQL_EXAMPLES['service_vs_replacement'], 
-            'solution_sales': self.SQL_EXAMPLES['solution_customers'],
-            'quarterly_sales': self.SQL_EXAMPLES['quarterly_summary'],
-            'inventory_value': self.SQL_EXAMPLES['highest_value_items'],
-            'warehouse_analysis': self.SQL_EXAMPLES['warehouse_summary'],
-            'low_stock': self.SQL_EXAMPLES['low_stock_items'],
-            'expensive_parts': self.SQL_EXAMPLES['high_unit_price'],
-            'successful_works': self.SQL_EXAMPLES['successful_work_monthly'],
-            'pm_summary': self.SQL_EXAMPLES['pm_work_summary'],
-            'startup_summary': self.SQL_EXAMPLES['startup_works'],
-            'kpi_works': self.SQL_EXAMPLES['kpi_reported_works'],
-            'team_works': self.SQL_EXAMPLES['team_specific_works'],
-            'replacement_works': self.SQL_EXAMPLES['replacement_monthly'],
-            'customer_years': self.SQL_EXAMPLES['customer_years_count'],
-            'years_of_operation': self.SQL_EXAMPLES['customer_years_count'],
-            'long_works': self.SQL_EXAMPLES['long_duration_works']
+            'customer_history': 'customer_history',
+            'sales': 'sales_analysis',
+            'sales_analysis': 'sales_analysis',
+            'revenue': 'revenue_by_year',
+            'work_plan': 'work_monthly',
+            'work_force': 'work_monthly',
+            'spare_parts': 'spare_parts_price',
+            'parts_price': 'spare_parts_price',
+            'top_customers': 'top_customers',
+            'overhaul_report': 'overhaul_sales',
         }
         
         if intent in intent_map:
-            logger.info(f"Selected: {intent} (intent default)")
-            return intent_map[intent]
+            example = intent_map[intent]
+            if example in self.SQL_EXAMPLES:
+                logger.info(f"Selected: {example} (intent fallback)")
+                return self.SQL_EXAMPLES[example]
         
-        # Final default
-        logger.info("Selected: sales_analysis (final default)")
-        return self.SQL_EXAMPLES['sales_analysis']
+        # Final fallback
+        logger.info("Selected: sales_analysis (final fallback)")
+        return self.SQL_EXAMPLES.get('sales_analysis', '')
+
+
+    def _detect_context(self, question: str) -> str:
+        """Helper method to detect context from question"""
+        q_lower = question.lower()
+        
+        # ตรวจสอบ context จาก keywords
+        if any(word in q_lower for word in ['งาน', 'ทีม', 'ซ่อม', 'pm', 'ติดตั้ง']):
+            return 'v_work'
+        elif any(word in q_lower for word in ['อะไหล่', 'สต็อก', 'คลัง', 'spare']):
+            return 'v_spare'
+        else:
+            return 'v_sales'
     
     def _build_sql_hints(self, entities: Dict, intent: str) -> str:
         """Build SQL hints with table specification and year filtering rules"""
@@ -1828,23 +3391,17 @@ class PromptManager:
         
         return '\n'.join(hints) if hints else ""
     
+
     def build_response_prompt(self, question: str, results: List[Dict],
                             sql_query: str, locale: str = "th") -> str:
-        """Build response generation prompt - แก้ไขให้แสดงข้อมูลครบ"""
+        """Build response generation prompt - แสดงข้อมูลครบ"""
         if not results:
             return f"ไม่พบข้อมูลสำหรับคำถาม: {question}"
         
         stats = self._analyze_results(results)
         
-        # ปรับจำนวน sample และไม่ตัด string
-        if len(results) <= 20:
-            sample = results
-            sample_json = json.dumps(sample, ensure_ascii=False, default=str)
-        else:
-            sample = results[:20]
-            sample_json = json.dumps(sample, ensure_ascii=False, default=str)
-            if len(sample_json) > 3000:
-                sample_json = sample_json[:3000] + "..."
+        # เอา limit ออก - แสดงทั้งหมด
+        sample_json = json.dumps(results, ensure_ascii=False, default=str)
         
         prompt = dedent(f"""
         สรุปข้อมูลสำหรับคำถาม: {question}
@@ -1852,7 +3409,7 @@ class PromptManager:
         พบข้อมูลทั้งหมด: {len(results)} รายการ
         {stats}
         
-        ข้อมูลทั้งหมด ({len(sample)} รายการ):
+        ข้อมูลทั้งหมด ({len(results)} รายการ):
         {sample_json}
         
         กรุณาสรุปข้อมูลให้ครบถ้วน:
@@ -1862,9 +3419,9 @@ class PromptManager:
         
         ข้อกำหนดสำคัญ:
         ⚠️ ห้ามแต่งหรือเพิ่มข้อมูลที่ไม่มีอยู่ในข้อมูลต้นฉบับ
-        ✓ ใช้ข้อมูลจากที่ให้มาเท่านั้น
-        ✓ หากข้อมูลมีมากกว่าที่แสดง ให้ระบุไว้ชัดเจน
-
+        ✔ ใช้ข้อมูลจากที่ให้มาเท่านั้น
+        ✔ หากข้อมูลมีมากให้จัดกลุ่มหรือสรุปแบบตาราง
+        
         ตอบภาษาไทยแบบกระชับ ตรงประเด็น อ่านง่าย:
         """)
         

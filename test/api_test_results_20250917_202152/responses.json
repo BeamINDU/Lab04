@@ -1,0 +1,1602 @@
+[
+    {
+        "test_number": 1,
+        "timestamp": "2025-09-17 20:22:00",
+        "category": "รายได้",
+        "question": "รายได้รวมทั้งหมดเท่าไหร่",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 7820,
+        "response_size_bytes": 556,
+        "request": {
+    "question": "รายได้รวมทั้งหมดเท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ขออภัย เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่","success":false,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":7.804680347442627,"ai_system_used":"ultimate_dual_model","intent":"sales","entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 2,
+        "timestamp": "2025-09-17 20:22:04",
+        "category": "รายได้",
+        "question": "รายได้ปี 2024 เป็นเท่าไหร่",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 3268,
+        "response_size_bytes": 557,
+        "request": {
+    "question": "รายได้ปี 2024 เป็นเท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ขออภัย เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่","success":false,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":3.2585043907165527,"ai_system_used":"ultimate_dual_model","intent":"sales","entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 3,
+        "timestamp": "2025-09-17 20:22:09",
+        "category": "รายได้",
+        "question": "เปรียบเทียบรายได้ปี 2023 กับ 2024",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 5400,
+        "response_size_bytes": 565,
+        "request": {
+    "question": "เปรียบเทียบรายได้ปี 2023 กับ 2024",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ขออภัย เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่","success":false,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":5.390106439590454,"ai_system_used":"ultimate_dual_model","intent":"sales_analysis","entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 4,
+        "timestamp": "2025-09-17 20:22:14",
+        "category": "รายได้",
+        "question": "ยอดขาย overhaul ทั้งหมดเท่าไหร่",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 4276,
+        "response_size_bytes": 566,
+        "request": {
+    "question": "ยอดขาย overhaul ทั้งหมดเท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ขออภัย เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่","success":false,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":4.265153884887695,"ai_system_used":"ultimate_dual_model","intent":"overhaul_report","entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 5,
+        "timestamp": "2025-09-17 20:22:21",
+        "category": "รายได้",
+        "question": "ยอดขาย service ปี 2024",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 6808,
+        "response_size_bytes": 556,
+        "request": {
+    "question": "ยอดขาย service ปี 2024",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ขออภัย เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่","success":false,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":6.796775817871094,"ai_system_used":"ultimate_dual_model","intent":"sales","entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 6,
+        "timestamp": "2025-09-17 20:22:28",
+        "category": "รายได้",
+        "question": "ยอดขาย parts หรืออะไหล่มีเท่าไหร่",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 6363,
+        "response_size_bytes": 563,
+        "request": {
+    "question": "ยอดขาย parts หรืออะไหล่มีเท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ขออภัย เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่","success":false,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":6.3539135456085205,"ai_system_used":"ultimate_dual_model","intent":"spare_parts","entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 7,
+        "timestamp": "2025-09-17 20:22:42",
+        "category": "รายได้",
+        "question": "ยอดขาย replacement หรือเปลี่ยนอุปกรณ์",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 13839,
+        "response_size_bytes": 557,
+        "request": {
+    "question": "ยอดขาย replacement หรือเปลี่ยนอุปกรณ์",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ขออภัย เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่","success":false,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":13.829599857330322,"ai_system_used":"ultimate_dual_model","intent":"sales","entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 8,
+        "timestamp": "2025-09-17 20:22:47",
+        "category": "รายได้",
+        "question": "รายได้แต่ละปีเป็นอย่างไร",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 4825,
+        "response_size_bytes": 556,
+        "request": {
+    "question": "รายได้แต่ละปีเป็นอย่างไร",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ขออภัย เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่","success":false,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":4.815662145614624,"ai_system_used":"ultimate_dual_model","intent":"sales","entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 9,
+        "timestamp": "2025-09-17 20:22:58",
+        "category": "รายได้",
+        "question": "ยอดขายแยกตามประเภทงาน",
+        "status": "SUCCESS",
+        "http_code": 200,
+        "response_time_ms": 10082,
+        "response_size_bytes": 556,
+        "request": {
+    "question": "ยอดขายแยกตามประเภทงาน",
+    "tenant_id": "company-a"
+},
+        "response": {"answer":"ขออภัย เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่","success":false,"sql_query":null,"results_count":0,"tenant_id":"company-a","user_id":"default","processing_time":10.07325267791748,"ai_system_used":"ultimate_dual_model","intent":"sales","entities":null,"data_quality":null,"features_used":null,"conversation_id":null,"session_id":null,"is_followup":false,"resolved_question":null,"suggested_followups":null,"conversation_turn":1,"references_resolved":null}
+    }
+,
+    {
+        "test_number": 10,
+        "timestamp": "2025-09-17 20:22:58",
+        "category": "รายได้",
+        "question": "รายได้เฉลี่ยต่อปีเท่าไหร่",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "รายได้เฉลี่ยต่อปีเท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 11,
+        "timestamp": "2025-09-17 20:22:58",
+        "category": "รายได้",
+        "question": "ปีไหนมีรายได้สูงสุด",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 12,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ปีไหนมีรายได้สูงสุด",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 12,
+        "timestamp": "2025-09-17 20:22:59",
+        "category": "รายได้",
+        "question": "ปีไหนมีรายได้ต่ำสุด",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ปีไหนมีรายได้ต่ำสุด",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 13,
+        "timestamp": "2025-09-17 20:22:59",
+        "category": "รายได้",
+        "question": "งานที่มีมูลค่าสูงสุดคืองานไหน",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งานที่มีมูลค่าสูงสุดคืองานไหน",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 14,
+        "timestamp": "2025-09-17 20:22:59",
+        "category": "รายได้",
+        "question": "งานที่มีมูลค่าต่ำสุด",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งานที่มีมูลค่าต่ำสุด",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 15,
+        "timestamp": "2025-09-17 20:23:00",
+        "category": "รายได้",
+        "question": "รายได้จาก overhaul ปี 2024",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "รายได้จาก overhaul ปี 2024",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 16,
+        "timestamp": "2025-09-17 20:23:00",
+        "category": "รายได้",
+        "question": "รายได้จาก service ปี 2023 เท่าไหร่",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "รายได้จาก service ปี 2023 เท่าไหร่",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 17,
+        "timestamp": "2025-09-17 20:23:00",
+        "category": "รายได้",
+        "question": "มีงานทั้งหมดกี่งาน",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "มีงานทั้งหมดกี่งาน",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 18,
+        "timestamp": "2025-09-17 20:23:01",
+        "category": "รายได้",
+        "question": "มีงานปี 2024 กี่งาน",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "มีงานปี 2024 กี่งาน",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 19,
+        "timestamp": "2025-09-17 20:23:01",
+        "category": "รายได้",
+        "question": "รายได้เฉลี่ยต่องาน",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "รายได้เฉลี่ยต่องาน",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 20,
+        "timestamp": "2025-09-17 20:23:04",
+        "category": "รายได้",
+        "question": "งานที่มีรายได้มากกว่า 1 ล้านบาท",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งานที่มีรายได้มากกว่า 1 ล้านบาท",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 21,
+        "timestamp": "2025-09-17 20:23:05",
+        "category": "รายได้",
+        "question": "งานที่มีรายได้น้อยกว่า 50000 บาท",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 8,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งานที่มีรายได้น้อยกว่า 50000 บาท",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 22,
+        "timestamp": "2025-09-17 20:23:05",
+        "category": "รายได้",
+        "question": "การเติบโตรายได้จาก 2023 เป็น 2024",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "การเติบโตรายได้จาก 2023 เป็น 2024",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 23,
+        "timestamp": "2025-09-17 20:23:05",
+        "category": "รายได้",
+        "question": "สัดส่วนรายได้แต่ละประเภทงาน",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 9,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "สัดส่วนรายได้แต่ละประเภทงาน",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 24,
+        "timestamp": "2025-09-17 20:23:06",
+        "category": "รายได้",
+        "question": "งานที่มีรายได้สูงสุดแต่ละปี",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งานที่มีรายได้สูงสุดแต่ละปี",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 25,
+        "timestamp": "2025-09-17 20:23:06",
+        "category": "รายได้",
+        "question": "มูลค่ารวมของสินค้าคงคลัง",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "มูลค่ารวมของสินค้าคงคลัง",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 26,
+        "timestamp": "2025-09-17 20:23:06",
+        "category": "ลูกค้า",
+        "question": "มีลูกค้าทั้งหมดกี่ราย",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "มีลูกค้าทั้งหมดกี่ราย",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 27,
+        "timestamp": "2025-09-17 20:23:07",
+        "category": "ลูกค้า",
+        "question": "Top 10 ลูกค้าที่ใช้บริการมากที่สุด",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 5,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "Top 10 ลูกค้าที่ใช้บริการมากที่สุด",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 28,
+        "timestamp": "2025-09-17 20:23:07",
+        "category": "ลูกค้า",
+        "question": "ลูกค้าที่มียอดการใช้บริการสูงสุด",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ลูกค้าที่มียอดการใช้บริการสูงสุด",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 29,
+        "timestamp": "2025-09-17 20:23:07",
+        "category": "ลูกค้า",
+        "question": "ประวัติการใช้บริการของ Stanley",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 5,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ประวัติการใช้บริการของ Stanley",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 30,
+        "timestamp": "2025-09-17 20:23:08",
+        "category": "ลูกค้า",
+        "question": "ประวัติการใช้บริการของ Clarion",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 5,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ประวัติการใช้บริการของ Clarion",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 31,
+        "timestamp": "2025-09-17 20:23:08",
+        "category": "ลูกค้า",
+        "question": "ลูกค้าใหม่ปี 2024 มีใครบ้าง",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ลูกค้าใหม่ปี 2024 มีใครบ้าง",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 32,
+        "timestamp": "2025-09-17 20:23:08",
+        "category": "ลูกค้า",
+        "question": "ลูกค้าที่ใช้บริการบ่อยที่สุด",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 5,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ลูกค้าที่ใช้บริการบ่อยที่สุด",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 33,
+        "timestamp": "2025-09-17 20:23:09",
+        "category": "ลูกค้า",
+        "question": "ลูกค้าที่ใช้บริการ overhaul",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 5,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ลูกค้าที่ใช้บริการ overhaul",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 34,
+        "timestamp": "2025-09-17 20:23:09",
+        "category": "ลูกค้า",
+        "question": "ลูกค้าภาครัฐมีใครบ้าง",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 5,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ลูกค้าภาครัฐมีใครบ้าง",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 35,
+        "timestamp": "2025-09-17 20:23:09",
+        "category": "ลูกค้า",
+        "question": "ลูกค้าเอกชนที่ใหญ่ที่สุด",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 5,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ลูกค้าเอกชนที่ใหญ่ที่สุด",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 36,
+        "timestamp": "2025-09-17 20:23:10",
+        "category": "ลูกค้า",
+        "question": "ข้อมูลลูกค้า Toyota",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 5,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ข้อมูลลูกค้า Toyota",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 37,
+        "timestamp": "2025-09-17 20:23:10",
+        "category": "ลูกค้า",
+        "question": "ข้อมูลลูกค้า Denso",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ข้อมูลลูกค้า Denso",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 38,
+        "timestamp": "2025-09-17 20:23:10",
+        "category": "ลูกค้า",
+        "question": "ลูกค้าที่เคยใช้บริการแต่ไม่ได้ใช้ปี 2024",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 5,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ลูกค้าที่เคยใช้บริการแต่ไม่ได้ใช้ปี 2024",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 39,
+        "timestamp": "2025-09-17 20:23:11",
+        "category": "ลูกค้า",
+        "question": "ลูกค้าที่ใช้บริการต่อเนื่องทุกปี",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ลูกค้าที่ใช้บริการต่อเนื่องทุกปี",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 40,
+        "timestamp": "2025-09-17 20:23:11",
+        "category": "ลูกค้า",
+        "question": "จำนวนลูกค้าที่ใช้บริการแต่ละปี",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "จำนวนลูกค้าที่ใช้บริการแต่ละปี",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 41,
+        "timestamp": "2025-09-17 20:23:11",
+        "category": "ลูกค้า",
+        "question": "ลูกค้าที่เกี่ยวข้องกับ Hitachi",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ลูกค้าที่เกี่ยวข้องกับ Hitachi",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 42,
+        "timestamp": "2025-09-17 20:23:12",
+        "category": "ลูกค้า",
+        "question": "ลูกค้าโรงพยาบาลมีใครบ้าง",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ลูกค้าโรงพยาบาลมีใครบ้าง",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 43,
+        "timestamp": "2025-09-17 20:23:12",
+        "category": "ลูกค้า",
+        "question": "ลูกค้าที่จ่ายมากกว่า 500000 บาท",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 5,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ลูกค้าที่จ่ายมากกว่า 500000 บาท",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 44,
+        "timestamp": "2025-09-17 20:23:12",
+        "category": "ลูกค้า",
+        "question": "รายได้เฉลี่ยต่อลูกค้า",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "รายได้เฉลี่ยต่อลูกค้า",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 45,
+        "timestamp": "2025-09-17 20:23:13",
+        "category": "ลูกค้า",
+        "question": "ลูกค้าที่ใช้บริการเฉพาะซื้ออะไหล่",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ลูกค้าที่ใช้บริการเฉพาะซื้ออะไหล่",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 46,
+        "timestamp": "2025-09-17 20:23:13",
+        "category": "ลูกค้า",
+        "question": "ข้อมูลลูกค้า Master Glove",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 5,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ข้อมูลลูกค้า Master Glove",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 47,
+        "timestamp": "2025-09-17 20:23:13",
+        "category": "ลูกค้า",
+        "question": "ข้อมูลลูกค้า IRPC",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ข้อมูลลูกค้า IRPC",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 48,
+        "timestamp": "2025-09-17 20:23:14",
+        "category": "ลูกค้า",
+        "question": "ลูกค้าต่างชาติมีใครบ้าง",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ลูกค้าต่างชาติมีใครบ้าง",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 49,
+        "timestamp": "2025-09-17 20:23:14",
+        "category": "ลูกค้า",
+        "question": "ลูกค้าที่มีงานเกี่ยวกับ Chiller",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 5,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ลูกค้าที่มีงานเกี่ยวกับ Chiller",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 50,
+        "timestamp": "2025-09-17 20:23:14",
+        "category": "ลูกค้า",
+        "question": "เปรียบเทียบรายได้จากลูกค้าใหม่กับลูกค้าเก่า",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 5,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "เปรียบเทียบรายได้จากลูกค้าใหม่กับลูกค้าเก่า",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 51,
+        "timestamp": "2025-09-17 20:23:15",
+        "category": "อะไหล่",
+        "question": "มีอะไหล่ทั้งหมดกี่รายการ",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "มีอะไหล่ทั้งหมดกี่รายการ",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 52,
+        "timestamp": "2025-09-17 20:23:15",
+        "category": "อะไหล่",
+        "question": "อะไหล่ที่มีสต็อกคงเหลือ",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 5,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "อะไหล่ที่มีสต็อกคงเหลือ",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 53,
+        "timestamp": "2025-09-17 20:23:16",
+        "category": "อะไหล่",
+        "question": "อะไหล่ที่หมดสต็อก",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 5,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "อะไหล่ที่หมดสต็อก",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 54,
+        "timestamp": "2025-09-17 20:23:16",
+        "category": "อะไหล่",
+        "question": "อะไหล่ที่มีราคาแพงที่สุด",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 5,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "อะไหล่ที่มีราคาแพงที่สุด",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 55,
+        "timestamp": "2025-09-17 20:23:16",
+        "category": "อะไหล่",
+        "question": "อะไหล่ที่มีราคาถูกที่สุด",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 5,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "อะไหล่ที่มีราคาถูกที่สุด",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 56,
+        "timestamp": "2025-09-17 20:23:17",
+        "category": "อะไหล่",
+        "question": "อะไหล่ที่มีสต็อกน้อยกว่า 5 ชิ้น",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "อะไหล่ที่มีสต็อกน้อยกว่า 5 ชิ้น",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 57,
+        "timestamp": "2025-09-17 20:23:17",
+        "category": "อะไหล่",
+        "question": "อะไหล่ในคลัง A",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 5,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "อะไหล่ในคลัง A",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 58,
+        "timestamp": "2025-09-17 20:23:17",
+        "category": "อะไหล่",
+        "question": "อะไหล่ที่มีรหัส EKAC",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "อะไหล่ที่มีรหัส EKAC",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 59,
+        "timestamp": "2025-09-17 20:23:18",
+        "category": "อะไหล่",
+        "question": "อะไหล่ที่มีมูลค่ารวมสูงสุด",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "อะไหล่ที่มีมูลค่ารวมสูงสุด",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 60,
+        "timestamp": "2025-09-17 20:23:18",
+        "category": "อะไหล่",
+        "question": "ราคาเฉลี่ยของอะไหล่",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ราคาเฉลี่ยของอะไหล่",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 61,
+        "timestamp": "2025-09-17 20:23:18",
+        "category": "อะไหล่",
+        "question": "จำนวนอะไหล่ทั้งหมดที่มีในสต็อก",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "จำนวนอะไหล่ทั้งหมดที่มีในสต็อก",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 62,
+        "timestamp": "2025-09-17 20:23:19",
+        "category": "อะไหล่",
+        "question": "อะไหล่สำหรับ compressor",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "อะไหล่สำหรับ compressor",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 63,
+        "timestamp": "2025-09-17 20:23:19",
+        "category": "อะไหล่",
+        "question": "อะไหล่ filter มีอะไรบ้าง",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "อะไหล่ filter มีอะไรบ้าง",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 64,
+        "timestamp": "2025-09-17 20:23:19",
+        "category": "อะไหล่",
+        "question": "อะไหล่ที่ต้องสั่งเติม",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "อะไหล่ที่ต้องสั่งเติม",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 65,
+        "timestamp": "2025-09-17 20:23:20",
+        "category": "อะไหล่",
+        "question": "มูลค่าสต็อกรวมทั้งหมด",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "มูลค่าสต็อกรวมทั้งหมด",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 66,
+        "timestamp": "2025-09-17 20:23:20",
+        "category": "อะไหล่",
+        "question": "อะไหล่ที่ไม่มีการตั้งราคา",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 5,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "อะไหล่ที่ไม่มีการตั้งราคา",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 67,
+        "timestamp": "2025-09-17 20:23:20",
+        "category": "อะไหล่",
+        "question": "คลังไหนมีอะไหล่มากที่สุด",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "คลังไหนมีอะไหล่มากที่สุด",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 68,
+        "timestamp": "2025-09-17 20:23:21",
+        "category": "อะไหล่",
+        "question": "ข้อมูลอะไหล่รหัส EKAC460",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 5,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ข้อมูลอะไหล่รหัส EKAC460",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 69,
+        "timestamp": "2025-09-17 20:23:21",
+        "category": "อะไหล่",
+        "question": "อะไหล่ที่ขายเป็น SET",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 5,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "อะไหล่ที่ขายเป็น SET",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 70,
+        "timestamp": "2025-09-17 20:23:21",
+        "category": "อะไหล่",
+        "question": "สินค้าที่เพิ่งรับเข้าล่าสุด",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "สินค้าที่เพิ่งรับเข้าล่าสุด",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 71,
+        "timestamp": "2025-09-17 20:23:22",
+        "category": "งานบริการ",
+        "question": "มีงานทั้งหมดกี่งานในระบบ",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 5,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "มีงานทั้งหมดกี่งานในระบบ",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 72,
+        "timestamp": "2025-09-17 20:23:22",
+        "category": "งานบริการ",
+        "question": "งานเดือนกันยายน 2024",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งานเดือนกันยายน 2024",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 73,
+        "timestamp": "2025-09-17 20:23:22",
+        "category": "งานบริการ",
+        "question": "งานบำรุงรักษา PM ทั้งหมด",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 5,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งานบำรุงรักษา PM ทั้งหมด",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 74,
+        "timestamp": "2025-09-17 20:23:23",
+        "category": "งานบริการ",
+        "question": "งาน overhaul ที่ทำ",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 5,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งาน overhaul ที่ทำ",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 75,
+        "timestamp": "2025-09-17 20:23:23",
+        "category": "งานบริการ",
+        "question": "งานเปลี่ยนอุปกรณ์",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งานเปลี่ยนอุปกรณ์",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 76,
+        "timestamp": "2025-09-17 20:23:23",
+        "category": "งานบริการ",
+        "question": "งานที่ทำสำเร็จ",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 8,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งานที่ทำสำเร็จ",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 77,
+        "timestamp": "2025-09-17 20:23:24",
+        "category": "งานบริการ",
+        "question": "งานที่ไม่สำเร็จ",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งานที่ไม่สำเร็จ",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 78,
+        "timestamp": "2025-09-17 20:23:24",
+        "category": "งานบริการ",
+        "question": "งานของทีม A",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 5,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งานของทีม A",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 79,
+        "timestamp": "2025-09-17 20:23:24",
+        "category": "งานบริการ",
+        "question": "งานวันนี้มีอะไรบ้าง",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 5,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งานวันนี้มีอะไรบ้าง",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 80,
+        "timestamp": "2025-09-17 20:23:25",
+        "category": "งานบริการ",
+        "question": "งานสัปดาห์นี้",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งานสัปดาห์นี้",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 81,
+        "timestamp": "2025-09-17 20:23:25",
+        "category": "งานบริการ",
+        "question": "อัตราความสำเร็จของงาน",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "อัตราความสำเร็จของงาน",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 82,
+        "timestamp": "2025-09-17 20:23:26",
+        "category": "งานบริการ",
+        "question": "งานที่เสร็จตรงเวลา ไม่เกิน 2 วัน",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งานที่เสร็จตรงเวลา ไม่เกิน 2 วัน",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 83,
+        "timestamp": "2025-09-17 20:23:26",
+        "category": "งานบริการ",
+        "question": "งานที่ทำเกินเวลา",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งานที่ทำเกินเวลา",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 84,
+        "timestamp": "2025-09-17 20:23:26",
+        "category": "งานบริการ",
+        "question": "งานทั้งหมดของลูกค้า Stanley",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งานทั้งหมดของลูกค้า Stanley",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 85,
+        "timestamp": "2025-09-17 20:23:27",
+        "category": "งานบริการ",
+        "question": "งาน start up เริ่มต้นระบบ",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งาน start up เริ่มต้นระบบ",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 86,
+        "timestamp": "2025-09-17 20:23:27",
+        "category": "งานบริการ",
+        "question": "งานสนับสนุนทั่วไป",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งานสนับสนุนทั่วไป",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 87,
+        "timestamp": "2025-09-17 20:23:27",
+        "category": "งานบริการ",
+        "question": "งาน CPA",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 5,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งาน CPA",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 88,
+        "timestamp": "2025-09-17 20:23:28",
+        "category": "งานบริการ",
+        "question": "สถิติงานของแต่ละทีม",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 5,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "สถิติงานของแต่ละทีม",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 89,
+        "timestamp": "2025-09-17 20:23:28",
+        "category": "งานบริการ",
+        "question": "ระยะเวลาการทำงานแต่ละงาน",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ระยะเวลาการทำงานแต่ละงาน",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 90,
+        "timestamp": "2025-09-17 20:23:28",
+        "category": "งานบริการ",
+        "question": "งาน 10 งานล่าสุด",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 5,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "งาน 10 งานล่าสุด",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 91,
+        "timestamp": "2025-09-17 20:23:29",
+        "category": "วิเคราะห์",
+        "question": "สรุปผลประกอบการแต่ละปี",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "สรุปผลประกอบการแต่ละปี",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 92,
+        "timestamp": "2025-09-17 20:23:29",
+        "category": "วิเคราะห์",
+        "question": "เทรนด์การเติบโตของธุรกิจ",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 5,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "เทรนด์การเติบโตของธุรกิจ",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 93,
+        "timestamp": "2025-09-17 20:23:29",
+        "category": "วิเคราะห์",
+        "question": "ประเภทงานที่ลูกค้านิยมใช้บริการมากที่สุด",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ประเภทงานที่ลูกค้านิยมใช้บริการมากที่สุด",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 94,
+        "timestamp": "2025-09-17 20:23:30",
+        "category": "วิเคราะห์",
+        "question": "ลูกค้าที่มีศักยภาพสูง ใช้บริการบ่อยและจ่ายเยอะ",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ลูกค้าที่มีศักยภาพสูง ใช้บริการบ่อยและจ่ายเยอะ",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 95,
+        "timestamp": "2025-09-17 20:23:30",
+        "category": "วิเคราะห์",
+        "question": "การกระจายรายได้ตามขนาดงาน",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 7,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "การกระจายรายได้ตามขนาดงาน",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 96,
+        "timestamp": "2025-09-17 20:23:30",
+        "category": "วิเคราะห์",
+        "question": "ประสิทธิภาพการทำงานของแต่ละทีม",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ประสิทธิภาพการทำงานของแต่ละทีม",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 97,
+        "timestamp": "2025-09-17 20:23:31",
+        "category": "วิเคราะห์",
+        "question": "แนวโน้มยอดขายรายเดือนปี 2024",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 5,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "แนวโน้มยอดขายรายเดือนปี 2024",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 98,
+        "timestamp": "2025-09-17 20:23:31",
+        "category": "วิเคราะห์",
+        "question": "ผลตอบแทนจากการลงทุนในแต่ละประเภทบริการ",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 8,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "ผลตอบแทนจากการลงทุนในแต่ละประเภทบริการ",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 99,
+        "timestamp": "2025-09-17 20:23:31",
+        "category": "วิเคราะห์",
+        "question": "คาดการณ์รายได้ปี 2025 จากเทรนด์",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "คาดการณ์รายได้ปี 2025 จากเทรนด์",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+,
+    {
+        "test_number": 100,
+        "timestamp": "2025-09-17 20:23:32",
+        "category": "วิเคราะห์",
+        "question": "รายงานสถานะธุรกิจโดยรวม",
+        "status": "FAILED",
+        "http_code": 000,
+        "response_time_ms": 6,
+        "response_size_bytes": 0,
+        "request": {
+    "question": "รายงานสถานะธุรกิจโดยรวม",
+    "tenant_id": "company-a"
+},
+        "response": null
+    }
+
+]

@@ -29,12 +29,12 @@ const TABS = [
     icon: '📤',
     description: 'Import ข้อมูลจากไฟล์ CSV, Excel หรือ JSON'
   },
-  { 
-    id: 'history' as TabType, 
-    label: 'ประวัติ Import', 
-    icon: '📊',
-    description: 'ดูประวัติและผลลัพธ์การ import ข้อมูล'
-  }
+  // { 
+  //   id: 'history' as TabType, 
+  //   label: 'ประวัติ Import', 
+  //   icon: '📊',
+  //   description: 'ดูประวัติและผลลัพธ์การ import ข้อมูล'
+  // }
 ];
 
 // Main CompleteSchemaManagementSystem component
