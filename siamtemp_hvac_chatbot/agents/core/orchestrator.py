@@ -555,4 +555,4 @@ class ImprovedDualModelDynamicAISystem:
     
     # Model configurations
     SQL_MODEL = 'llama3.1:8b'
-    NL_MODEL = 'qwen2.5:7b-instruct'
+    NL_MODEL = 'llama3.2-vision:11b-instruct-q4_K_M'

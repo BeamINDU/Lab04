@@ -20,6 +20,7 @@ __all__ = [
     'ImprovedDualModelDynamicAISystem',
     'ImprovedIntentDetector',
     'PromptManager',
+    "TemplateConfig",
     'SQLValidator',
     'DataCleaningEngine',
     'SimplifiedDatabaseHandler',

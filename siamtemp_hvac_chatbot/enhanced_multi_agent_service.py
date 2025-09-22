@@ -84,7 +84,7 @@ class ServiceConfig:
         
         # Model settings
         self.sql_model = os.getenv('SQL_MODEL', 'llama3.1:8b')
-        self.nl_model = os.getenv('NL_MODEL', 'qwen2.5:7b-instruct')
+        self.nl_model = os.getenv('NL_MODEL', 'llama3.2-vision:11b-instruct-q4_K_M')
         
         # Feature flags
         self.enable_streaming = os.getenv('ENABLE_STREAMING', 'false').lower() == 'true'

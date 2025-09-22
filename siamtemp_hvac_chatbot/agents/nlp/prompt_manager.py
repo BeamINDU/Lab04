@@ -7,6 +7,7 @@ from textwrap import dedent
 from datetime import datetime, timedelta ,date
 from functools import lru_cache
 import hashlib
+from .template_config import TemplateConfig
 
 logger = logging.getLogger(__name__)
 
@@ -879,7 +880,7 @@ class PromptManager:
                     detail
                 FROM v_work_force
                 WHERE date::date BETWEEN '2025-06-01' AND '2025-08-31'
-                AND job_description_pm = true
+                AND job_description_pm is not null
                 ORDER BY date DESC
                 LIMIT 100;
             """).strip(),
@@ -926,7 +927,7 @@ class PromptManager:
                     detail
                 FROM v_work_force
                 WHERE date::date BETWEEN '2025-07-01' AND '2025-07-31'
-                AND job_description_replacement = true
+                AND job_description_replacement is not null
                 ORDER BY date;
             """).strip(),
 
@@ -970,7 +971,7 @@ class PromptManager:
                 GROUP BY year
                 ORDER BY year;
             """).strip(),
-                    'overhaul_total': dedent("""
+        'overhaul_total': dedent("""
             SELECT 
                 SUM(overhaul_num) as total_overhaul,
                 COUNT(CASE WHEN overhaul_num > 0 THEN 1 END) as overhaul_count
@@ -1405,15 +1406,8 @@ class PromptManager:
         
         # คำถามข้อ 73: งาน PM ทั้งหมด
         'all_pm_works': dedent("""
-            SELECT 
-                date,
-                customer, 
-                project, 
-                detail,
-                service_group
-            FROM v_work_force 
-            WHERE job_description_pm = true 
-            ORDER BY date DESC;
+            select * from public.v_work_force  
+            where job_description_pm is not null 
         """).strip(),
         
         # คำถามข้อ 74: งาน Overhaul (work context)
@@ -1439,7 +1433,7 @@ class PromptManager:
                 detail,
                 service_group
             FROM v_work_force 
-            WHERE job_description_replacement = true 
+            WHERE job_description_replacement is not null
             ORDER BY date DESC;
         """).strip(),
         
@@ -1591,7 +1585,7 @@ class PromptManager:
                 project, 
                 detail
             FROM v_work_force 
-            WHERE job_description_cpa = true 
+            WHERE job_description_cpa is not null
             ORDER BY date DESC;
         """).strip(),
         
@@ -2327,9 +2321,13 @@ class PromptManager:
     
     def build_sql_prompt(self, question: str, intent: str, entities: Dict,
                         context: Dict = None, examples_override: List[str] = None) -> str:
-        """Build SQL generation prompt with DIRECT TEMPLATE USE for exact matches"""
+        """Build SQL generation prompt with centralized template configuration"""
         
         try:
+            # ============================================
+            # INITIALIZATION
+            # ============================================
+            
             # Ensure schema is loaded
             if not self.VIEW_COLUMNS:
                 self._load_dynamic_schema()
@@ -2342,6 +2340,9 @@ class PromptManager:
             
             # Validate and convert entities
             entities = self.validate_entities(entities)
+            question_lower = question.lower()
+            
+            # Convert Buddhist Era years in question
             question = re.sub(r'\b25[67]\d\b', lambda m: str(int(m.group())-543), question)
             
             # Use context if provided
@@ -2351,8 +2352,10 @@ class PromptManager:
                     if key not in entities or not entities[key]:
                         entities[key] = value
             
-            # === INTENT OVERRIDE LOGIC ===
-            question_lower = question.lower()
+            # ============================================
+            # INTENT OVERRIDE LOGIC
+            # ============================================
+            
             original_intent = intent
             
             # Override Rule 1: Money/Value keywords → force sales intent
@@ -2367,14 +2370,17 @@ class PromptManager:
                 logger.warning(f"Pattern 'งาน + มูลค่า' detected → forcing sales intent")
                 intent = 'sales'
             
-            # === DETERMINE TARGET TABLE ===
+            # ============================================
+            # DETERMINE TARGET TABLE
+            # ============================================
+            
             target_table = self._get_target_table(intent)
             
             if target_table is None:
                 logger.info(f"No table mapping for intent '{intent}', detecting from keywords")
                 target_table = self._detect_table_from_keywords(question)
             
-            # Final validation
+            # Final validation for money-related queries
             if 'มูลค่า' in question_lower and target_table != 'v_sales':
                 logger.warning(f"Final override: {target_table} → v_sales (มูลค่า requires v_sales)")
                 target_table = 'v_sales'
@@ -2382,133 +2388,298 @@ class PromptManager:
             
             logger.info(f"🎯 Target table: {target_table} (intent: {original_intent} → {intent})")
             
-            # === SELECT BEST EXAMPLE ===
+            # ============================================
+            # SELECT BEST EXAMPLE
+            # ============================================
+            
             example = self._select_best_example(question, intent, entities)
             example_name = self._get_example_name(example)
+            
+            if not example_name or example_name == 'custom':
+                logger.warning(f"No specific template found, using fallback")
+                return self._get_fallback_prompt(question)
+            
             logger.info(f"Selected SQL example: {example_name} for table {target_table}")
             
-            # === NEW: CHECK FOR EXACT MATCH CASES ===
-            exact_match_examples = [
-                'max_value_work', 'min_value_work', 
-                'year_max_revenue', 'year_min_revenue',
-                'total_revenue_all', 'total_revenue_year',
-                'count_total_customers', 'count_all_jobs',
-                'parts_in_stock', 'parts_out_of_stock',
-                'overhaul_total', 'overhaul_sales_all'
-            ]
+            # ============================================
+            # GET TEMPLATE CONFIGURATION
+            # ============================================
             
-            # Check if this is a high-confidence exact match
-            is_exact_match = example_name in exact_match_examples
+            template_config = TemplateConfig.get_template_config(example_name)
             
-            # === BUILD PROMPT BASED ON MATCH TYPE ===
+            if not template_config:
+                logger.warning(f"No configuration found for template: {example_name}")
+                # Fallback to normal mode if no config
+                return self._build_normal_prompt(
+                    example, question, intent, entities, target_table
+                )
             
-            if is_exact_match and example:
-                # === ULTRA STRICT MODE FOR EXACT MATCHES ===
-                logger.info(f"Using EXACT MATCH mode for {example_name}")
-                
-                # Check if we need to substitute parameters
-                needs_substitution = False
-                substitutions = {}
-                
-                # Check for year substitution
-                if 'year' in example_name and entities.get('years'):
-                    needs_substitution = True
-                    substitutions['year'] = entities['years'][0]
-                
-                # Check for customer substitution  
-                if 'customer' in example_name and entities.get('customers'):
-                    needs_substitution = True
-                    substitutions['customer'] = entities['customers'][0]
-                
-                if needs_substitution:
-                    # Use template with substitution
-                    prompt = dedent(f"""
-                    You are a SQL query generator. Output ONLY the SQL query with no explanation.
-                    
-                    USE THIS EXACT SQL TEMPLATE:
-                    ----------------------------------------
-                    {example}
-                    ----------------------------------------
-                    
-                    SUBSTITUTION RULES:
-                    - Replace ':year' with '{substitutions.get('year', '2024')}'
-                    - Replace ':customer' with '{substitutions.get('customer', '')}'
-                    - Keep everything else EXACTLY the same
-                    
-                    OUTPUT THE SQL WITH SUBSTITUTIONS:
-                    """).strip()
-                else:
-                    # Use template AS-IS without any changes
-                    prompt = dedent(f"""
-                    You are a SQL query generator. Output ONLY the SQL query with no explanation.
-                    
-                    COPY THIS SQL EXACTLY AS-IS:
-                    ----------------------------------------
-                    {example}
-                    ----------------------------------------
-                    
-                    CRITICAL RULES:
-                    1. DO NOT add any WHERE clauses
-                    2. DO NOT change the LIMIT value
-                    3. DO NOT modify column names
-                    4. DO NOT add OR conditions
-                    5. Copy the SQL EXACTLY character by character
-                    
-                    SQL (copy exactly):
-                    """).strip()
+            complexity = template_config.get('complexity', 'NORMAL')
+            logger.info(f"Template complexity: {complexity}")
             
-            elif example_name and 'WHERE year' not in example and 'ทั้งหมด' in question:
-                # For "ทั้งหมด" queries without year filter
-                prompt = dedent(f"""
-                You are a SQL query generator. Output ONLY the SQL query with no explanation.
-                
-                REFERENCE SQL:
-                ----------------------------------------
-                {example}
-                ----------------------------------------
-                
-                IMPORTANT: The word "ทั้งหมด" means ALL data - DO NOT add WHERE year filter.
-                
-                Generate SQL for: {question}
-                
-                SQL:
-                """).strip()
+            # ============================================
+            # HANDLE BASED ON COMPLEXITY
+            # ============================================
             
+            # CASE 1: COMPLEX LOGIC TEMPLATES
+            if complexity == 'COMPLEX':
+                logger.warning(f"⚠️ COMPLEX template: {example_name}")
+                
+                # Apply smart year adjustment if needed
+                modified_example = example
+                if TemplateConfig.requires_smart_year_adjustment(example_name):
+                    modified_example = self._apply_smart_year_adjustment(
+                        example, entities, question_lower
+                    )
+                
+                return self._build_complex_prompt(
+                    modified_example, question, intent, template_config
+                )
+            
+            # CASE 2: EXACT TEMPLATES
+            elif complexity == 'EXACT':
+                logger.warning(f"📌 EXACT template: {example_name}")
+                return self._build_exact_prompt(example)
+            
+            # CASE 3: NORMAL TEMPLATES
             else:
-                # === NORMAL MODE WITH GUIDANCE ===
-                # Get schema and hints
-                schema_prompt = self._get_dynamic_schema_prompt(target_table)
-                hints = self._build_sql_hints(entities, intent)
-                column_rules = self._get_column_rules_for_intent(intent)
+                logger.info(f"NORMAL template: {example_name}")
                 
-                prompt = dedent(f"""
-                You are a SQL query generator. Output ONLY the SQL query with no explanation.
+                # Apply simple year adjustment if needed
+                modified_example = example
+                if template_config.get('year_adjustment') == 'simple' and entities.get('years'):
+                    modified_example = self._apply_simple_year_adjustment(example, entities)
                 
-                CURRENT DATABASE SCHEMA:
-                ----------------------------------------
-                {schema_prompt}
-                ----------------------------------------
+                return self._build_normal_prompt(
+                    modified_example, question, intent, entities, target_table
+                )
                 
-                REFERENCE EXAMPLE:
-                ----------------------------------------
-                {example}
-                ----------------------------------------
-                
-                {column_rules}
-                
-                YOUR TASK: {question}
-                
-                {hints}
-                
-                SQL:
-                """).strip()
-            
-            return prompt
-            
         except Exception as e:
             logger.error(f"Failed to build SQL prompt: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             return self._get_fallback_prompt(question)
 
+
+    def _apply_smart_year_adjustment(self, template: str, entities: Dict, 
+                                    question_lower: str) -> str:
+        """Apply smart year adjustment for complex templates"""
+        if not entities.get('years'):
+            return template
+            
+        target_year = entities['years'][0]
+        modified = template
+        
+        logger.info(f"Applying smart year adjustment for year: {target_year}")
+        
+        # Check context for NOT IN queries
+        if any(phrase in question_lower for phrase in ['ไม่ได้ใช้', 'inactive', 'ไม่ใช้', 'เคยใช้แต่ไม่']):
+            logger.debug("Detected inactive/not-in context")
+            
+            # Adjust NOT IN clause (the exclusion year)
+            modified = re.sub(
+                r"WHERE year = '\d{4}'(?=\s*\))",  # Year in NOT IN subquery
+                f"WHERE year = '{target_year}'",
+                modified
+            )
+            
+            # Adjust main WHERE for previous years
+            prev_year = str(int(target_year) - 1)
+            prev_year2 = str(int(target_year) - 2)
+            
+            # Replace year range in main WHERE clause
+            modified = re.sub(
+                r"WHERE year IN \([^)]+\)(?!\s*\))",  # Main WHERE clause (not in subquery)
+                f"WHERE year IN ('{prev_year2}', '{prev_year}')",
+                modified,
+                count=1  # Only first occurrence
+            )
+            
+            logger.debug(f"Adjusted NOT IN year to {target_year}, main years to {prev_year2}-{prev_year}")
+        
+        elif 'ใหม่' in question_lower or 'new' in question_lower:
+            logger.debug("Detected new customers context")
+            
+            # For new customers: current year in main, previous years in NOT IN
+            modified = re.sub(r"'2024'", f"'{target_year}'", modified)
+            modified = re.sub(r"'2023'", f"'{str(int(target_year)-1)}'", modified)
+            modified = re.sub(r"'2022'", f"'{str(int(target_year)-2)}'", modified)
+        
+        else:
+            # Standard year replacement
+            logger.debug("Applying standard year replacement")
+            modified = modified.replace("'2024'", f"'{target_year}'")
+            modified = modified.replace("'2023'", f"'{str(int(target_year)-1)}'")
+            modified = modified.replace("'2022'", f"'{str(int(target_year)-2)}'")
+        
+        return modified
+
+
+    def _apply_simple_year_adjustment(self, template: str, entities: Dict) -> str:
+        """Apply simple year replacement"""
+        if not entities.get('years'):
+            return template
+        
+        target_year = entities['years'][0]
+        modified = template
+        
+        logger.debug(f"Applying simple year adjustment: {target_year}")
+        
+        # Simple replacement
+        modified = re.sub(r"year = '\d{4}'", f"year = '{target_year}'", modified)
+        modified = re.sub(r"year IN \('[0-9, ']+'\)", f"year = '{target_year}'", modified)
+        
+        return modified
+
+
+    def _build_complex_prompt(self, template: str, question: str, 
+                            intent: str, config: Dict) -> str:
+        """Build prompt for complex logic templates"""
+        
+        # Get additional context
+        schema_info = self._get_strict_schema_for_intent(intent)
+        common_errors = self._get_common_errors()
+        
+        # Build warning about complexity
+        complexity_warning = []
+        if config.get('has_subquery'):
+            complexity_warning.append("- Contains subqueries that must be preserved")
+        if config.get('has_not_in'):
+            complexity_warning.append("- Contains NOT IN logic that must be kept intact")
+        
+        prompt = dedent(f"""
+        You are a SQL query generator. Output ONLY the SQL query with no explanation.
+        
+        ⚠️ CRITICAL: This is a COMPLEX LOGIC query. The structure MUST be preserved exactly.
+        
+        Template Type: {config.get('description', 'Complex query')}
+        Complexity Warnings:
+        {chr(10).join(complexity_warning) if complexity_warning else '- Complex business logic'}
+        
+        {schema_info}
+        
+        VERIFIED SQL TEMPLATE (DO NOT SIMPLIFY):
+        ----------------------------------------
+        {template}
+        ----------------------------------------
+        
+        {common_errors}
+        
+        STRICT RULES:
+        1. DO NOT remove or simplify NOT IN clauses
+        2. DO NOT remove or change subqueries
+        3. DO NOT change the WHERE condition logic
+        4. DO NOT simplify the query structure
+        5. ONLY adjust literal values if absolutely necessary
+        
+        Question: {question}
+        
+        Output the SQL above exactly as shown:
+        """).strip()
+        
+        return prompt
+
+
+    def _build_exact_prompt(self, template: str) -> str:
+        """Build prompt for exact templates (no modification allowed)"""
+        
+        prompt = dedent(f"""
+        You are a SQL query generator. Output ONLY the SQL query with no explanation.
+        
+        📌 EXACT TEMPLATE - Copy without ANY modifications:
+        
+        {template}
+        
+        CRITICAL: Output the exact SQL above. Do not change ANYTHING.
+        
+        SQL:
+        """).strip()
+        
+        return prompt
+
+    def _build_normal_prompt(self, template: str, question: str, intent: str,
+                            entities: Dict, target_table: str) -> str:
+        """Build prompt for normal templates (flexible modification allowed)"""
+        
+        # Get schema and hints
+        schema_prompt = self._get_dynamic_schema_prompt(target_table)
+        hints = self._build_sql_hints(entities, intent)
+        column_rules = self._get_column_rules_for_intent(intent)
+        
+        # Generate column hints
+        column_hints = self._generate_column_hints(target_table, 
+                                                self.VIEW_COLUMNS.get(target_table, []))
+        column_hints_str = '\n'.join(column_hints) if column_hints else ''
+        
+        # Special rules for v_work_force table
+        work_force_rules = ""
+        if target_table == 'v_work_force':
+            work_force_rules = dedent("""
+            ⚠️ IMPORTANT RULES FOR WORK FORCE QUERIES:
+            1. DO NOT add date filters unless the question mentions specific dates/months/years
+            2. If the question asks for "งาน overhaul" without date, show ALL overhaul work
+            3. Only add WHERE date conditions if explicitly mentioned in the question
+            4. Default should be to show ALL relevant records without date restrictions
+            """)
+        
+        # Check if date/time is mentioned in question
+        question_lower = question.lower()
+        has_date_context = any(word in question_lower for word in [
+            'วันนี้', 'today', 'เมื่อวาน', 'yesterday',
+            'สัปดาห์', 'week', 'เดือน', 'month', 'ปี', 'year',
+            '2022', '2023', '2024', '2025', '2026',
+            'มกราคม', 'กุมภา', 'มีนา', 'เมษา', 'พฤษภา', 'มิถุนา',
+            'กรกฎา', 'สิงหา', 'กันยา', 'ตุลา', 'พฤศจิกา', 'ธันวา'
+        ])
+        
+        # Build date instruction
+        date_instruction = ""
+        if target_table == 'v_work_force' and not has_date_context:
+            date_instruction = dedent("""
+            📌 DATE FILTER INSTRUCTION:
+            The question does NOT mention any specific date/time period.
+            Therefore, DO NOT add any date filters to the WHERE clause.
+            Show ALL records that match the other criteria.
+            """)
+        
+        prompt = dedent(f"""
+        You are a SQL query generator. Output ONLY the SQL query with no explanation.
+        
+        DATABASE SCHEMA:
+        ----------------------------------------
+        {schema_prompt}
+        ----------------------------------------
+        
+        COLUMN USAGE HINTS:
+        {column_hints_str}
+        
+        REFERENCE TEMPLATE (modify as needed):
+        ----------------------------------------
+        {template}
+        ----------------------------------------
+        
+        {column_rules}
+        
+        {work_force_rules}
+        
+        YOUR TASK: {question}
+        
+        {date_instruction}
+        
+        {hints}
+        
+        GUIDELINES:
+        1. Follow the general structure of the template
+        2. Modify values (dates, names, years) ONLY if mentioned in the question
+        3. Keep the same table and column names
+        4. Add LIMIT 1000 if not present
+        5. DO NOT add extra filters that are not in the question
+        6. If the question is simple (like "งาน overhaul"), keep the query simple
+        
+        SQL:
+        """).strip()
+        
+        return prompt
 
     def _get_example_name(self, example: str) -> str:
         """Get example name for logging and exact match checking"""
@@ -2677,141 +2848,46 @@ class PromptManager:
 
     # 3. เพิ่ม method กรอง examples ตามตาราง
     def _filter_examples_by_table(self, table: str) -> Dict[str, str]:
-        """Filter SQL examples that match the target table - COMPLETE VERSION"""
+        """Filter SQL examples that match the target table using centralized config"""
         
-        # Complete mapping of ALL examples to their tables
-        example_tables = {
-            # === v_sales examples ===
-            'customer_history': 'v_sales',
-            'total_revenue_all': 'v_sales',
-            'total_revenue_year': 'v_sales',
-            'revenue_by_year': 'v_sales',
-            'compare_revenue_years': 'v_sales',
-            'count_total_customers': 'v_sales',
-            'top_customers': 'v_sales',
-            'top_customers_no_filter': 'v_sales',
-            'average_revenue_per_transaction': 'v_sales',
-            'high_value_transactions': 'v_sales',
-            'revenue_by_service_type': 'v_sales',
-            'max_revenue_by_year': 'v_sales',
-            'min_value_work': 'v_sales',
-            'max_value_work': 'v_sales',
-            'year_min_revenue': 'v_sales',
-            'year_max_revenue': 'v_sales',
-            'all_years_revenue_comparison': 'v_sales',
-            'average_work_value': 'v_sales',
-            'new_customers_in_year': 'v_sales',
-            'customers_using_overhaul': 'v_sales',
-            'service_revenue_by_customer': 'v_sales',
-            'overhaul_sales_all': 'v_sales',
-            'overhaul_sales': 'v_sales',
-            'overhaul_sales_specific': 'v_sales',
-            'sales_analysis': 'v_sales',
-            'sales_yoy_growth': 'v_sales',
-            'top_parts_customers': 'v_sales',
-            'service_vs_replacement': 'v_sales',
-            'solution_customers': 'v_sales',
-            'quarterly_summary': 'v_sales',
-            'customer_years_count': 'v_sales',
-            # New v_sales examples
-            'overhaul_total': 'v_sales',
-            'parts_total': 'v_sales',
-            'replacement_total': 'v_sales',
-            'average_annual_revenue': 'v_sales',
-            'count_all_jobs': 'v_sales',
-            'count_jobs_year': 'v_sales',
-            'average_revenue_per_job': 'v_sales',
-            'revenue_growth': 'v_sales',
-            'revenue_proportion': 'v_sales',
-            'max_revenue_each_year': 'v_sales',
-            'customer_specific_history': 'v_sales',
-            'new_customers_year': 'v_sales',
-            'frequent_customers': 'v_sales',
-            'government_customers': 'v_sales',
-            'inactive_customers': 'v_sales',
-            'continuous_customers': 'v_sales',
-            'hospital_customers': 'v_sales',
-            'high_value_customers': 'v_sales',
-            'parts_only_customers': 'v_sales',
-            'chiller_customers': 'v_sales',
-            'new_vs_returning_customers': 'v_sales',
-            'annual_performance_summary': 'v_sales',
-            'growth_trend': 'v_sales',
-            'popular_service_types': 'v_sales',
-            'high_potential_customers': 'v_sales',
-            'revenue_distribution': 'v_sales',
-            'service_roi': 'v_sales',
-            'revenue_forecast': 'v_sales',
-            'business_overview': 'v_sales',
-            
-            # === v_work_force examples ===
-            'work_monthly': 'v_work_force',
-            'work_summary_monthly': 'v_work_force',
-            'work_plan_date': 'v_work_force',
-            'repair_history': 'v_work_force',
-            'min_duration_work': 'v_work_force',
-            'max_duration_work': 'v_work_force',
-            'count_works_by_year': 'v_work_force',
-            'successful_work_monthly': 'v_work_force',
-            'pm_work_summary': 'v_work_force',
-            'startup_works': 'v_work_force',
-            'kpi_reported_works': 'v_work_force',
-            'team_specific_works': 'v_work_force',
-            'replacement_monthly': 'v_work_force',
-            'long_duration_works': 'v_work_force',
-            # New v_work_force examples
-            'count_all_works': 'v_work_force',
-            'work_specific_month': 'v_work_force',
-            'all_pm_works': 'v_work_force',
-            'work_overhaul': 'v_work_force',
-            'work_replacement': 'v_work_force',
-            'successful_works': 'v_work_force',
-            'unsuccessful_works': 'v_work_force',
-            'team_works': 'v_work_force',
-            'work_today': 'v_work_force',
-            'work_this_week': 'v_work_force',
-            'success_rate': 'v_work_force',
-            'on_time_works': 'v_work_force',
-            'overtime_works': 'v_work_force',
-            'startup_works_all': 'v_work_force',
-            'support_works': 'v_work_force',
-            'cpa_works': 'v_work_force',
-            'team_statistics': 'v_work_force',
-            'work_duration': 'v_work_force',
-            'latest_works': 'v_work_force',
-            'team_performance': 'v_work_force',
-            'monthly_sales_trend': 'v_work_force',
-            
-            # === v_spare_part examples ===
-            'spare_parts_price': 'v_spare_part',
-            'parts_search_multi': 'v_spare_part',
-            'inventory_check': 'v_spare_part',
-            'highest_value_items': 'v_spare_part',
-            'warehouse_summary': 'v_spare_part',
-            'low_stock_items': 'v_spare_part',
-            'high_unit_price': 'v_spare_part',
-            # New v_spare_part examples
-            'count_all_parts': 'v_spare_part',
-            'parts_in_stock': 'v_spare_part',
-            'parts_out_of_stock': 'v_spare_part',
-            'most_expensive_parts': 'v_spare_part',
-            'low_stock_alert': 'v_spare_part',
-            'warehouse_specific_parts': 'v_spare_part',
-            'average_part_price': 'v_spare_part',
-            'compressor_parts': 'v_spare_part',
-            'filter_parts': 'v_spare_part',
-            'warehouse_comparison': 'v_spare_part',
-            'total_inventory_value': 'v_spare_part',
-        }
+        # Get template names from centralized config
+        template_names = TemplateConfig.get_templates_by_table(table)
         
-        # Filter examples for the target table
         filtered = {}
-        for example_name, example_sql in self.SQL_EXAMPLES.items():
-            if example_tables.get(example_name, 'v_sales') == table:
-                filtered[example_name] = example_sql
+        for name in template_names:
+            if name in self.SQL_EXAMPLES:
+                filtered[name] = self.SQL_EXAMPLES[name]
         
-        logger.debug(f"Filtered {len(filtered)} examples for table {table}")
+        logger.debug(f"Filtered {len(filtered)} examples for table {table} using TemplateConfig")
         return filtered
+
+
+    # Update _should_use_exact_template to use centralized config
+    def _should_use_exact_template(self, template_name: str, question: str = None) -> bool:
+        """Determine if template should be used exactly (using centralized config)"""
+        
+        # Check centralized config first
+        if TemplateConfig.is_exact_template(template_name):
+            logger.debug(f"Template {template_name} marked as EXACT in config")
+            return True
+        
+        # Optionally check question patterns if needed
+        # (keeping backward compatibility)
+        if question:
+            question_lower = question.lower()
+            exact_patterns = {
+                'total_revenue_all': ['รายได้รวมทั้งหมด', 'รายได้ทั้งหมด'],
+                'count_total_customers': ['จำนวนลูกค้า', 'มีลูกค้ากี่ราย'],
+            }
+            
+            if template_name in exact_patterns:
+                patterns = exact_patterns[template_name]
+                for pattern in patterns:
+                    if pattern in question_lower:
+                        logger.debug(f"Pattern '{pattern}' suggests exact template usage")
+                        return True
+        
+        return False
 
     def _has_exact_matching_example(self, question: str, example_name: str) -> bool:
         """Check if we have an exact matching example for this question type"""
@@ -2849,7 +2925,7 @@ class PromptManager:
         return self._get_dynamic_schema_prompt(target_table)
     
     def _get_column_rules_for_intent(self, intent: str) -> str:
-        """Get specific rules for common queries"""
+        """Get specific rules for common queries - Enhanced version"""
         
         rules_map = {
             'sales': """
@@ -2865,8 +2941,27 @@ class PromptManager:
             COLUMN USAGE RULES:
             - Always SELECT: date, customer, detail
             - For date ranges: WHERE date::date BETWEEN 'start' AND 'end'
-            - For PM jobs: WHERE job_description_pm = true
+            - For PM jobs: WHERE job_description_pm is not null
             - Never use COUNT(*) for "มีกี่งาน" - show the actual records
+            - DO NOT add date filters unless explicitly asked
+            """,
+            
+            'work_force': """
+            COLUMN USAGE RULES:
+            - For overhaul work: WHERE job_description_overhaul IS NOT NULL AND job_description_overhaul != ''
+            - For PM work: WHERE job_description_pm is not null
+            - For replacement: WHERE job_description_replacement is not null
+            - DO NOT add date filters unless the question mentions dates
+            - Show ALL relevant records by default
+            """,
+            
+            'work_analysis': """
+            COLUMN USAGE RULES:
+            - For overhaul: Check job_description_overhaul column
+            - For successful: Check success column
+            - For team: Check service_group column
+            - Default: Show ALL matching records without date restriction
+            - Only filter by date if explicitly mentioned
             """,
             
             'spare_parts': """

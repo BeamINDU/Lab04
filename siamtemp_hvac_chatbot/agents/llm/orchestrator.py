@@ -289,7 +289,7 @@ Always return valid JSON only:
 class LLMClient:
     """Multi-model client สำหรับ SQL generation และ natural language response"""
     
-    def __init__(self, base_url: str = None, sql_model: str = "llama3.1:8b", nl_model: str = "qwen2.5:7b-instruct"):
+    def __init__(self, base_url: str = None, sql_model: str = "llama3.1:8b", nl_model: str = "llama3.2-vision:11b-instruct-q4_K_M"):
         # ใช้ URL จาก environment หรือ default จากโปรเจ็กต์
         self.base_url = base_url or os.getenv('OLLAMA_BASE_URL', 'http://52.74.36.160:12434')
         self.sql_model = sql_model  # สำหรับสร้าง SQL
@@ -408,7 +408,7 @@ class LLMOrchestrator:
         
         # Model configuration from environment or defaults
         sql_model = sql_model or os.getenv('SQL_MODEL', 'llama3.1:8b')
-        nl_model = nl_model or os.getenv('NL_MODEL', 'qwen2.5:7b-instruct')
+        nl_model = nl_model or os.getenv('NL_MODEL', 'llama3.2-vision:11b-instruct-q4_K_M')
         
         self.llm = LLMClient(base_url=base_url, sql_model=sql_model, nl_model=nl_model)
         self.schema = SchemaManager()
@@ -696,85 +696,7 @@ Return ONLY this JSON (no markdown, no explanations):
             result['years'] = ['2022', '2023', '2024', '2025']
         
         return result
-        
-        # Specialized SQL System Prompt for SQL Model (llama3.1:8b)
-        self.sql_system_prompt = """
-You are a specialized PostgreSQL Expert for Siamtemp HVAC Business Intelligence System.
-Your ONLY job is to generate precise, safe SQL queries.
-
-=== CORE PRINCIPLES ===
-1. ALWAYS return ONLY valid JSON format
-2. ONLY SELECT queries allowed (no mutations)  
-3. ALWAYS add LIMIT 1000 for safety
-4. Use year as STRING: '2024' not 2024
-5. Use date::date for date comparisons
-
-=== SPECIALIZED SQL INTELLIGENCE ===
-
-**TABLE EXPERTISE:**
-- v_sales: customer_name, year, total_revenue, overhaul_num, service_num, parts_num, description
-- v_spare_part: product_code, product_name, balance_num, unit_price_num, total_num
-- v_work_force: date, customer, detail, service_group, job_description_pm
-
-**SEARCH PATTERN INTELLIGENCE:**
-Company Names (→ customer_name ILIKE):
-- "ชินอิทซึ แม็คเนติคส์" → customer_name ILIKE '%ชินอิทซึ%'
-- "Stanley Electric" → customer_name ILIKE '%stanley%'
-
-Technical Terms (→ description ILIKE):
-- "overhaul compressor" → description ILIKE '%overhaul%' OR description ILIKE '%compressor%'
-- "งาน PM" → description ILIKE '%PM%' OR description ILIKE '%บำรุงรักษา%'
-
-**YEAR CONVERSION EXPERT:**
-Thai Buddhist (พ.ศ.) → Gregorian (ค.ศ.): พ.ศ. - 543
-- ปี 2567 → year = '2024'
-- ปี 2568 → year = '2025'
-- เดือนมิถุนายน 2568 → date::date BETWEEN '2025-06-01' AND '2025-06-30'
-
-**SQL OPTIMIZATION:**
-- Use UNION ALL for service type analysis
-- Use GROUP BY for aggregations
-- Use ORDER BY for meaningful sorting
-- Always include WHERE conditions for filtering
-
-=== OUTPUT FORMAT ===
-Return ONLY this JSON (no markdown, no explanations):
-{
-  "sql": "SELECT ... FROM ... WHERE ... LIMIT 1000;",
-  "explanation": "Thai explanation of query purpose",
-  "confidence": "high|medium|low"
-}
-"""
-        
-        # Enhanced Natural Language System Prompt for NL Model (qwen2.5:7b-instruct)
-        self.response_system_prompt = """
-คุณเป็น AI Business Analyst ที่เชี่ยวชาญด้าน HVAC และการวิเคราะห์ธุรกิจของ Siamtemp
-
-ความเชี่ยวชาญของคุณ:
-1. วิเคราะห์ข้อมูลทางธุรกิจ HVAC (การขาย, ลูกค้า, บริการ)
-2. สร้างรายงานที่เข้าใจง่ายและมีประโยชน์
-3. ระบุ insights และแนวโน้มสำคัญ
-4. ให้คำแนะนำเชิงธุรกิจ
-
-หลักการในการตอบ:
-1. **ความถูกต้อง**: ใช้เฉพาะข้อมูลที่ให้มา ห้ามแต่งเพิ่ม
-2. **ความชัดเจน**: แสดงตัวเลขรูปแบบ 1,234,567 บาท
-3. **การวิเคราะห์**: ระบุ patterns, trends, และข้อสังเกต
-4. **ความครบถ้วน**: สรุปข้อมูลหลักและรายละเอียดสำคัญ
-5. **ภาษาธุรกิจ**: ใช้ศัพท์ HVAC และธุรกิจที่เหมาะสม
-
-รูปแบบการนำเสนอ:
-- เริ่มด้วยสรุปหลัก (Executive Summary)
-- แสดงข้อมูลสำคัญด้วยตัวเลข
-- วิเคราะห์แนวโน้มและ insights
-- ข้อเสนอแนะ (ถ้าเหมาะสม)
-
-ตัวอย่างคำตอบที่ดี:
-"จากการวิเคราะห์ข้อมูลการขาย พบว่า..."
-"ลูกค้า [ชื่อ] มีการใช้บริการ..."
-"แนวโน้มยอดขายแสดงให้เห็นว่า..."
-"""
-    
+         
     async def process_question(self, question: str) -> Dict[str, Any]:
         """ประมวลผลคำถามด้วย Ultra-High Performance LLM-First approach"""
         
@@ -1159,41 +1081,36 @@ SQL เดิมมีปัญหา: {error_msg}
             return {"success": False, "error": "ไม่สามารถสร้าง fallback SQL ได้"}
     
     async def _generate_response_with_llm(self, question: str, results: List[Dict], sql: str) -> str:
-        """ให้ LLM สร้างคำตอบจากผลลัพธ์"""
+        """ให้ LLM สร้างคำตอบจากผลลัพธ์ - QUICK FIX: Send ALL Data"""
         
-        # จำกัดข้อมูลที่ส่งให้ LLM
-        if len(results) > 20:
-            sample_results = results[:20]
-            has_more = True
-        else:
-            sample_results = results
-            has_more = False
+        # ============================================
+        # QUICK FIX: ส่งข้อมูลทั้งหมดให้ LLM
+        # ============================================
         
-        results_json = json.dumps(sample_results, ensure_ascii=False, default=str, indent=2)
+        total_results = len(results)
+        
+        # ส่งข้อมูลทั้งหมด ไม่จำกัดจำนวน
+        results_json = json.dumps(results, ensure_ascii=False, default=str, indent=2)
         
         prompt = f"""
-คำถาม: {question}
-SQL ที่ใช้: {sql}
-จำนวนผลลัพธ์ทั้งหมด: {len(results)} รายการ
-{"(แสดงเฉพาะ 20 รายการแรก)" if has_more else ""}
+    คำถาม: {question}
+    SQL ที่ใช้: {sql}
+    จำนวนผลลัพธ์ทั้งหมด: {total_results} รายการ
 
-ข้อมูลผลลัพธ์:
-{results_json}
+    ข้อมูลผลลัพธ์ทั้งหมด:
+    {results_json}
 
-กรุณาสร้างคำตอบที่:
-1. ตอบคำถามตรงประเด็น
-2. สรุปข้อมูลสำคัญอย่างชัดเจน  
-3. แสดงตัวเลขในรูปแบบที่อ่านง่าย
-4. หากมีข้อมูลหลายรายการ ให้เน้น highlights สำคัญ
-5. ใช้ภาษาไทยที่เป็นมิตร
+    กรุณาสร้างคำตอบที่:
+    1. แสดงข้อมูลทั้งหมด {total_results} รายการให้ครบถ้วน
+    2. ตอบคำถามตรงประเด็น
+    3. สรุปข้อมูลสำคัญอย่างชัดเจน  
+    4. แสดงตัวเลขในรูปแบบที่อ่านง่าย
+    5. ใช้ภาษาไทยที่เป็นมิตร
 
-ห้าม:
-- แต่งข้อมูลที่ไม่มี
-- ใช้ข้อมูลนอกเหนือจากที่ให้มา
-- ตอบคำถามที่ไม่ได้ถาม
+    สำคัญ: กรุณาแสดงข้อมูลทั้งหมด {total_results} รายการ ไม่ต้องย่อหรือตัดทอน
 
-คำตอบ:
-"""
+    คำตอบ:
+    """
         
         llm_response = await self.llm.generate_response(prompt, self.response_system_prompt)
         
@@ -1206,8 +1123,9 @@ SQL ที่ใช้: {sql}
             elif len(results) == 1:
                 return f"พบข้อมูล 1 รายการ: {json.dumps(results[0], ensure_ascii=False)}"
             else:
-                return f"พบข้อมูล {len(results)} รายการ ตัวอย่างรายการแรก: {json.dumps(results[0], ensure_ascii=False)}"
-    
+                # Fallback: แสดงจำนวนและตัวอย่าง
+                return f"พบข้อมูล {len(results)} รายการ. ข้อมูลทั้งหมด: {json.dumps(results, ensure_ascii=False)}"
+          
     def _create_error_response(self, error_message: str) -> Dict[str, Any]:
         """สร้าง error response"""
         return {
