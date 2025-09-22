@@ -1241,7 +1241,19 @@ class TemplateConfig:
             'intent': 'work_analysis',
             'description': 'งานเปลี่ยนอุปกรณ์'
         },
-        
+
+        'employee_work_history': {
+            'table': 'v_work_force',
+            'complexity': 'NORMAL',
+            'keywords': ['พนักงานชื่อ', 'ช่างชื่อ', 'ทีม', 'การทำงานของ', 'employee name'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'none',
+            'intent': 'work_analysis',
+            'description': 'ประวัติการทำงานของพนักงาน',
+            'search_columns': ['detail', 'service_group']
+        },
+
         'successful_works': {
             'table': 'v_work_force',
             'complexity': 'NORMAL',

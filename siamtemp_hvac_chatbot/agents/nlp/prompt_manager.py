@@ -1403,7 +1403,11 @@ class PromptManager:
                 AND date::date <= '2024-09-30'
             ORDER BY date, customer;
         """).strip(),
-        
+
+        'employee_work_history': dedent("""
+            select * from v_work_force  where service_group like '%อานนท์%' 
+        """).strip(),
+
         # คำถามข้อ 73: งาน PM ทั้งหมด
         'all_pm_works': dedent("""
             select * from public.v_work_force  
@@ -1412,18 +1416,9 @@ class PromptManager:
         
         # คำถามข้อ 74: งาน Overhaul (work context)
         'work_overhaul': dedent("""
-            SELECT 
-                date,
-                customer, 
-                project, 
-                detail,
-                job_description_overhaul
-            FROM v_work_force 
-            WHERE job_description_overhaul IS NOT NULL 
-                AND job_description_overhaul != '' 
-            ORDER BY date DESC;
+            select * from public.v_work_force  
+            where job_description_overhaul is not null 
         """).strip(),
-        
         # คำถามข้อ 75: งาน Replacement
         'work_replacement': dedent("""
             SELECT 
@@ -2319,6 +2314,45 @@ class PromptManager:
     
     # ===== MAIN METHODS =====
     
+    def _extract_employees(self, text: str) -> List[str]:
+        """Extract employee/staff names from text"""
+        employees = []
+        text_lower = text.lower()
+        
+        # Keywords indicating employee search
+        employee_keywords = [
+            'พนักงาน', 'ช่าง', 'ทีม', 'คนทำงาน', 
+            'ผู้รับผิดชอบ', 'staff', 'employee', 'technician'
+        ]
+        
+        # Check if searching for employee
+        is_employee_search = any(kw in text_lower for kw in employee_keywords)
+        
+        if is_employee_search:
+            # Pattern 1: ชื่อ followed by Thai name
+            pattern1 = r'ชื่อ\s+([ก-์]+(?:\s+[ก-์]+)?)'
+            matches = re.findall(pattern1, text)
+            
+            for match in matches:
+                name = match.strip()
+                # Filter out common words
+                if name not in ['พนักงาน', 'ช่าง', 'ทีม', 'ข้อมูล', 'การทำงาน']:
+                    employees.append(name)
+                    logger.info(f"✅ Found employee name: {name}")
+            
+            # Pattern 2: If no matches, try another pattern
+            if not employees:
+                # Look for Thai names after keywords
+                pattern2 = r'(?:พนักงาน|ช่าง|ทีม)\s*(?:ชื่อ)?\s*([ก-์]+)'
+                matches = re.findall(pattern2, text)
+                for match in matches:
+                    name = match.strip()
+                    if name not in ['ชื่อ', 'ที่', 'ของ'] and len(name) > 1:
+                        employees.append(name)
+                        logger.info(f"✅ Found employee name: {name}")
+        
+        return employees
+
     def build_sql_prompt(self, question: str, intent: str, entities: Dict,
                         context: Dict = None, examples_override: List[str] = None) -> str:
         """Build SQL generation prompt with centralized template configuration"""
@@ -2344,7 +2378,23 @@ class PromptManager:
             
             # Convert Buddhist Era years in question
             question = re.sub(r'\b25[67]\d\b', lambda m: str(int(m.group())-543), question)
-            
+            employees = self._extract_employees(question)
+            if employees:
+                # Clean up employee names
+                cleaned_employees = []
+                for emp in employees:
+                    # Remove common prefixes
+                    emp_clean = emp
+                    for prefix in ['ขอข้อมูลการทำงานพนักงานชื่อ', 'พนักงานชื่อ', 'ช่างชื่อ', 'ชื่อ']:
+                        emp_clean = emp_clean.replace(prefix, '').strip()
+                    
+                    if emp_clean and len(emp_clean) > 1:
+                        cleaned_employees.append(emp_clean)
+                
+                if cleaned_employees:
+                    entities['employees'] = cleaned_employees
+                    logger.info(f"Detected employees: {cleaned_employees}")
+
             # Use context if provided
             if context:
                 logger.debug(f"Using context: {context}")
@@ -2357,7 +2407,6 @@ class PromptManager:
             # ============================================
             
             original_intent = intent
-            
             # Override Rule 1: Money/Value keywords → force sales intent
             money_indicators = ['มูลค่า', 'ราคา', 'revenue', 'ยอดขาย', 'รายได้', 'บาท']
             if any(word in question_lower for word in money_indicators):
@@ -2599,7 +2648,7 @@ class PromptManager:
 
     def _build_normal_prompt(self, template: str, question: str, intent: str,
                             entities: Dict, target_table: str) -> str:
-        """Build prompt for normal templates (flexible modification allowed)"""
+        """Build prompt for normal templates with employee support"""
         
         # Get schema and hints
         schema_prompt = self._get_dynamic_schema_prompt(target_table)
@@ -2611,6 +2660,33 @@ class PromptManager:
                                                 self.VIEW_COLUMNS.get(target_table, []))
         column_hints_str = '\n'.join(column_hints) if column_hints else ''
         
+        # ============================================
+        # EMPLOYEE SEARCH INSTRUCTIONS (NEW)
+        # ============================================
+        employee_instructions = ""
+        if any(word in question.lower() for word in ['พนักงาน', 'ช่าง', 'ชื่อ', 'ทีม']):
+            # Try to extract name
+            name_match = re.search(r'ชื่อ\s*([ก-์]+)', question)
+            if name_match or entities.get('employees'):
+                employee_name = entities.get('employees', [name_match.group(1) if name_match else ''])[0]
+                employee_instructions = f"""
+    🔴 CRITICAL - EMPLOYEE SEARCH DETECTED:
+    This query is looking for work done by employee/technician: {employee_name}
+
+    MUST FOLLOW THESE RULES:
+    1. ❌ NEVER use: WHERE customer = '{employee_name}' 
+    (customer column is for COMPANY names, not employee names!)
+    
+    2. ✅ CORRECT usage:
+     service_group LIKE '%{employee_name}%'
+    
+    3. Columns that contain employee names:
+    - detail: Contains work details and technician names
+    - service_group: Contains team/technician information
+    
+    4. Show ALL work records where this employee is mentioned
+    """
+        
         # Special rules for v_work_force table
         work_force_rules = ""
         if target_table == 'v_work_force':
@@ -2620,6 +2696,16 @@ class PromptManager:
             2. If the question asks for "งาน overhaul" without date, show ALL overhaul work
             3. Only add WHERE date conditions if explicitly mentioned in the question
             4. Default should be to show ALL relevant records without date restrictions
+            """)
+            
+            # Additional rules for overhaul queries
+            if 'overhaul' in question.lower():
+                work_force_rules += dedent("""
+            
+            OVERHAUL QUERY DETECTED:
+            - MUST include: WHERE job_description_overhaul IS NOT NULL 
+                            AND job_description_overhaul != ''
+            - If year is mentioned, also add year filter
             """)
         
         # Check if date/time is mentioned in question
@@ -2644,6 +2730,8 @@ class PromptManager:
         
         prompt = dedent(f"""
         You are a SQL query generator. Output ONLY the SQL query with no explanation.
+        
+        {employee_instructions}
         
         DATABASE SCHEMA:
         ----------------------------------------
@@ -2672,9 +2760,9 @@ class PromptManager:
         1. Follow the general structure of the template
         2. Modify values (dates, names, years) ONLY if mentioned in the question
         3. Keep the same table and column names
-        4. Add LIMIT 1000 if not present
-        5. DO NOT add extra filters that are not in the question
-        6. If the question is simple (like "งาน overhaul"), keep the query simple
+        4. DO NOT add extra filters that are not in the question
+        5. If the question is simple (like "งาน overhaul"), keep the query simple
+        6. For employee searches, NEVER use customer column - use detail or service_group
         
         SQL:
         """).strip()
@@ -3399,18 +3487,39 @@ class PromptManager:
         # Get target table
         target_table = self._get_target_table(intent)
         hints.append(f"USE TABLE: {target_table}")
-        
+
+        if entities.get('employees') and target_table == 'v_work_force':
+            employee = entities['employees'][0]
+            hints.append(f"""
+    ⚠️ EMPLOYEE SEARCH:
+    Looking for employee/staff named: {employee}
+
+    CRITICAL INSTRUCTIONS:
+    1. DO NOT use: WHERE customer = '{employee}' (customer is for company names!)
+    2. USE: WHERE service_group LIKE '%{employee}%'
+    3. The detail and service_group columns contain employee/technician names
+    4. Show ALL work records related to this employee
+    """)
+        # Don't add other hints for employee search
+            return '\n'.join(hints)
+
         # Table-specific hints
         if target_table == 'v_work_force':
-            hints.append("Format: WHERE date::date BETWEEN 'YYYY-MM-DD' AND 'YYYY-MM-DD'")
-            hints.append("SELECT: date, customer, detail (do NOT use COUNT)")
-        elif target_table == 'v_sales':
-            # Check if years are specified
+            # Special handling for v_work_force with year
             if entities.get('years'):
-                hints.append("Filter by year column using specified years only")
+                year = entities['years'][0]
+                hints.append(f"Filter: EXTRACT(YEAR FROM date::date) = {year}")
+                hints.append(f"Or use: WHERE date::date BETWEEN '{year}-01-01' AND '{year}-12-31'")
             else:
-                hints.append("⚠️ NO YEAR FILTER - Query ALL years in database")
-                hints.append("DO NOT add WHERE year clause unless years are explicitly mentioned")
+                hints.append("NO YEAR FILTER - Show all records")
+        
+        elif target_table == 'v_sales':
+            if entities.get('years'):
+                years = entities['years']
+                year_str = "', '".join(years)
+                hints.append(f"WHERE year IN ('{year_str}')")
+            else:
+                hints.append("NO YEAR SPECIFIED - Query ALL years")
         
         # Year hints - only if years are specified
         if entities.get('years'):
@@ -3456,7 +3565,16 @@ class PromptManager:
                 last_day = self._get_last_day_of_month(year, max_month)
                 hints.append(f"WHERE date::date BETWEEN '{year}-{min_month:02d}-01' "
                         f"AND '{year}-{max_month:02d}-{last_day:02d}'")
-        
+            if entities.get('employees') and target_table == 'v_work_force':
+                employee = entities['employees'][0]
+                hints.append(f"""
+        ⚠️ EMPLOYEE SEARCH:
+        Looking for employee/staff named: {employee}
+        Use: WHERE service_group LIKE '%{employee}%'
+        DO NOT use customer column (that's for customer names)
+        """)
+            
+            return '\n'.join(hints)
         # Customer hints
         if entities.get('customers'):
             customer = entities['customers'][0]
