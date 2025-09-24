@@ -4,7 +4,7 @@ services:
   # =============================================================================
   
   open-webui:
-    image: ghcr.io/open-webui/open-webui:v0.6.28
+    image: ghcr.io/open-webui/open-webui:v0.6.30
     container_name: open-webui
     ports:
       - "3000:8080"
@@ -15,6 +15,7 @@ services:
       - WEBUI_NAME=Siamtemp AI Assistant
       - WEBUI_URL=http://localhost:3000
       - DEFAULT_MODELS=llama3.1:8b
+      - N8N_TIMEOUT=300
     volumes:
       - open_webui_data:/app/backend/data
     networks:

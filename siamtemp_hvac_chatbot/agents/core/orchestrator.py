@@ -400,13 +400,17 @@ class ImprovedDualModelDynamicAISystem:
         # Build response prompt
         prompt = self.prompt_manager.build_response_prompt(
             question=context.question,
-            results=results[:1000],  # Limit for prompt
+            results=results,  # Limit for prompt
             sql_query=sql_query
         )
         
         # Generate response
         response = await self.ollama_client.generate(prompt, self.NL_MODEL)
-             
+        
+        # Fallback to template if generation fails
+        if not response or len(response) < 50:
+            response = self._generate_template_response(results, context, insights)
+        
         return response
     
     # =========================================================================

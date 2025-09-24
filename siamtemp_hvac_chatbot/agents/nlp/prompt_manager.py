@@ -91,7 +91,7 @@ class PromptManager:
         logger.warning("Using fallback schema")
         self.VIEW_COLUMNS = {
             'v_sales': [
-                'id', 'year', 'job_no', 'customer_name', 'description',
+                'id', 'year','month', 'job_no', 'customer_name', 'description',
                 'overhaul_text', 'replacement_text', 'service_text', 
                 'parts_text', 'product_text', 'solution_text',
                 'overhaul_num', 'replacement_num', 'service_num',
@@ -356,8 +356,7 @@ class PromptManager:
                 WHERE customer_name LIKE '%STANLEY%'
                   AND year IN ('2023','2024','2025')
                 GROUP BY year, customer_name
-                ORDER BY year, total_revenue DESC
-                LIMIT 100;
+                ORDER BY year, total_revenue DESC;
             """).strip(),
             
             # Total Revenue All Years - รายได้รวมทั้งหมด (ไม่กรองปี)
@@ -651,8 +650,7 @@ class PromptManager:
                 SELECT date, customer, detail
                 FROM v_work_force
                 WHERE date::date BETWEEN '2025-08-01' AND '2025-09-30'
-                ORDER BY date
-                LIMIT 200;
+                ORDER BY date;
             """).strip(),
 
             # Work Summary Monthly - สรุปงานเดือน
@@ -881,8 +879,7 @@ class PromptManager:
                 FROM v_work_force
                 WHERE date::date BETWEEN '2025-06-01' AND '2025-08-31'
                 AND job_description_pm is not null
-                ORDER BY date DESC
-                LIMIT 100;
+                ORDER BY date DESC;
             """).strip(),
 
             'startup_works': dedent("""
@@ -1130,8 +1127,7 @@ class PromptManager:
             FROM v_sales 
             GROUP BY customer_name 
             HAVING COUNT(*) >= 3
-            ORDER BY service_count DESC, total_spent DESC
-            LIMIT 10;
+            ORDER BY service_count DESC, total_spent DESC;
         """).strip(),
         
         # คำถามข้อ 34: ลูกค้าภาครัฐ
@@ -1949,8 +1945,7 @@ class PromptManager:
         FROM v_sales
         WHERE total_revenue < 50000 
         AND total_revenue > 0
-        ORDER BY total_revenue
-        LIMIT 20;
+        ORDER BY total_revenue;
     """).strip(),
 
     # ข้อ 35: Private sector customers
@@ -1961,8 +1956,7 @@ class PromptManager:
         FROM v_sales
         WHERE customer_name ILIKE ANY(ARRAY['%จำกัด%', '%บริษัท%', '%co%ltd%'])
         GROUP BY customer_name
-        ORDER BY total_revenue DESC
-        LIMIT 10;
+        ORDER BY total_revenue DESC;
     """).strip(),
 
     # ข้อ 40: Customers per year
@@ -2648,121 +2642,61 @@ class PromptManager:
 
     def _build_normal_prompt(self, template: str, question: str, intent: str,
                             entities: Dict, target_table: str) -> str:
-        """Build prompt for normal templates with employee support"""
+        """Build prompt for normal templates with date handling"""
         
         # Get schema and hints
         schema_prompt = self._get_dynamic_schema_prompt(target_table)
         hints = self._build_sql_hints(entities, intent)
-        column_rules = self._get_column_rules_for_intent(intent)
         
-        # Generate column hints
-        column_hints = self._generate_column_hints(target_table, 
-                                                self.VIEW_COLUMNS.get(target_table, []))
-        column_hints_str = '\n'.join(column_hints) if column_hints else ''
-        
-        # ============================================
-        # EMPLOYEE SEARCH INSTRUCTIONS (NEW)
-        # ============================================
-        employee_instructions = ""
-        if any(word in question.lower() for word in ['พนักงาน', 'ช่าง', 'ชื่อ', 'ทีม']):
-            # Try to extract name
-            name_match = re.search(r'ชื่อ\s*([ก-์]+)', question)
-            if name_match or entities.get('employees'):
-                employee_name = entities.get('employees', [name_match.group(1) if name_match else ''])[0]
-                employee_instructions = f"""
-    🔴 CRITICAL - EMPLOYEE SEARCH DETECTED:
-    This query is looking for work done by employee/technician: {employee_name}
-
-    MUST FOLLOW THESE RULES:
-    1. ❌ NEVER use: WHERE customer = '{employee_name}' 
-    (customer column is for COMPANY names, not employee names!)
-    
-    2. ✅ CORRECT usage:
-     service_group LIKE '%{employee_name}%'
-    
-    3. Columns that contain employee names:
-    - detail: Contains work details and technician names
-    - service_group: Contains team/technician information
-    
-    4. Show ALL work records where this employee is mentioned
-    """
-        
-        # Special rules for v_work_force table
-        work_force_rules = ""
-        if target_table == 'v_work_force':
-            work_force_rules = dedent("""
-            ⚠️ IMPORTANT RULES FOR WORK FORCE QUERIES:
-            1. DO NOT add date filters unless the question mentions specific dates/months/years
-            2. If the question asks for "งาน overhaul" without date, show ALL overhaul work
-            3. Only add WHERE date conditions if explicitly mentioned in the question
-            4. Default should be to show ALL relevant records without date restrictions
-            """)
+        # === FIX: Handle date replacement for monthly queries ===
+        if intent in ['work_summary', 'work_plan'] and entities.get('months'):
+            # Replace dates in template dynamically
+            month = entities['months'][0]
+            year = entities.get('years', ['2025'])[0]
             
-            # Additional rules for overhaul queries
-            if 'overhaul' in question.lower():
-                work_force_rules += dedent("""
+            # Calculate correct date range
+            if isinstance(month, int):
+                first_day = f"{year}-{month:02d}-01"
+                last_day_num = self._get_last_day_of_month(int(year), month)
+                last_day = f"{year}-{month:02d}-{last_day_num:02d}"
+            else:
+                month_int = int(month)
+                first_day = f"{year}-{month_int:02d}-01"
+                last_day_num = self._get_last_day_of_month(int(year), month_int)
+                last_day = f"{year}-{month_int:02d}-{last_day_num:02d}"
             
-            OVERHAUL QUERY DETECTED:
-            - MUST include: WHERE job_description_overhaul IS NOT NULL 
-                            AND job_description_overhaul != ''
-            - If year is mentioned, also add year filter
-            """)
+            # Replace any date range in template
+            import re
+            template = re.sub(
+                r'\d{4}-\d{2}-\d{2}\'?\s+AND\s+\'?\d{4}-\d{2}-\d{2}',
+                f"{first_day}' AND '{last_day}",
+                template
+            )
         
-        # Check if date/time is mentioned in question
-        question_lower = question.lower()
-        has_date_context = any(word in question_lower for word in [
-            'วันนี้', 'today', 'เมื่อวาน', 'yesterday',
-            'สัปดาห์', 'week', 'เดือน', 'month', 'ปี', 'year',
-            '2022', '2023', '2024', '2025', '2026',
-            'มกราคม', 'กุมภา', 'มีนา', 'เมษา', 'พฤษภา', 'มิถุนา',
-            'กรกฎา', 'สิงหา', 'กันยา', 'ตุลา', 'พฤศจิกา', 'ธันวา'
-        ])
-        
-        # Build date instruction
-        date_instruction = ""
-        if target_table == 'v_work_force' and not has_date_context:
-            date_instruction = dedent("""
-            📌 DATE FILTER INSTRUCTION:
-            The question does NOT mention any specific date/time period.
-            Therefore, DO NOT add any date filters to the WHERE clause.
-            Show ALL records that match the other criteria.
-            """)
+        # Check if this is planned work
+        is_planned_work = ('วางแผน' in question.lower() or 
+                        'planned' in question.lower())
         
         prompt = dedent(f"""
         You are a SQL query generator. Output ONLY the SQL query with no explanation.
         
-        {employee_instructions}
+        ⚠️ CRITICAL INSTRUCTIONS:
+        1. Use the EXACT SQL template below - it already has the correct dates
+        2. DO NOT change any dates - they are already set correctly
+        3. DO NOT add any WHERE conditions not in the template
+        4. DO NOT add job_description filters unless in the template
+        {"5. This asks for ALL work - DO NOT filter by job type" if is_planned_work else ""}
         
-        DATABASE SCHEMA:
-        ----------------------------------------
         {schema_prompt}
-        ----------------------------------------
         
-        COLUMN USAGE HINTS:
-        {column_hints_str}
-        
-        REFERENCE TEMPLATE (modify as needed):
+        SQL Template (USE EXACTLY):
         ----------------------------------------
         {template}
         ----------------------------------------
         
-        {column_rules}
+        Question: {question}
         
-        {work_force_rules}
-        
-        YOUR TASK: {question}
-        
-        {date_instruction}
-        
-        {hints}
-        
-        GUIDELINES:
-        1. Follow the general structure of the template
-        2. Modify values (dates, names, years) ONLY if mentioned in the question
-        3. Keep the same table and column names
-        4. DO NOT add extra filters that are not in the question
-        5. If the question is simple (like "งาน overhaul"), keep the query simple
-        6. For employee searches, NEVER use customer column - use detail or service_group
+        ⚠️ OUTPUT THE EXACT SQL ABOVE - NO CHANGES!
         
         SQL:
         """).strip()
@@ -2904,6 +2838,7 @@ class PromptManager:
     def _get_target_table(self, intent: str) -> str:
         """Determine target table based on intent"""
         intent_to_table = {
+            'cpa_work': 'v_work_force',
             'sales': 'v_sales',
             'sales_analysis': 'v_sales',
             'customer_history': 'v_sales',
@@ -2929,9 +2864,6 @@ class PromptManager:
         if intent in intent_to_table:
             return intent_to_table[intent]
         
-        # ถ้าไม่รู้จัก ให้ detect จาก keywords (ไม่ใช่ default v_sales)
-        # ส่ง question ไปด้วย - ต้องรับจาก build_sql_prompt
-        # เพื่อความง่าย return None และให้ build_sql_prompt เรียก _detect_table_from_keywords
         return None
 
     # 3. เพิ่ม method กรอง examples ตามตาราง
@@ -3096,17 +3028,22 @@ class PromptManager:
         """).strip()
     
     def _select_best_example(self, question: str, intent: str, entities: Dict) -> str:
-        """Select most relevant example - COMPLETE MAPPING VERSION"""
+        """Select most relevant example - FIXED VERSION with all improvements"""
         question_lower = question.lower()
         
-        # === PHASE 0: Direct Exact Match - เพิ่มคำถามจาก 100 ข้อ ===
+        # === PRIORITY FIX: Direct mapping for work_plan with 'วางแผน' ===
+        if intent == 'work_plan' and 'วางแผน' in question_lower:
+            logger.info("Priority: งานที่วางแผน → work_monthly")
+            return self.SQL_EXAMPLES.get('work_monthly', '')
+        
+        # === PHASE 0: Direct Exact Match ===
         exact_matches = {
             # ข้อ 1-10: รายได้และยอดขาย
             'รายได้รวมทั้งหมดเท่าไหร่': 'total_revenue_all',
             'รายได้ปี 2024': 'total_revenue_year',
             'เปรียบเทียบรายได้ปี 2023 กับ 2024': 'compare_revenue_years',
             'ยอดขาย overhaul ทั้งหมด': 'overhaul_total',
-            'ยอดขาย service ปี 2024': 'service_num',  # ต้องสร้างใหม่
+            'ยอดขาย service ปี 2024': 'service_num',
             'ยอดขาย parts/อะไหล่': 'parts_total',
             'ยอดขาย replacement/เปลี่ยนอุปกรณ์': 'replacement_total',
             'รายได้แต่ละปีเป็นอย่างไร': 'revenue_by_year',
@@ -3119,16 +3056,12 @@ class PromptManager:
             'งานที่มีมูลค่าสูงสุด': 'max_value_work',
             'งานที่มีมูลค่าต่ำสุด': 'min_value_work',
             'รายได้จาก overhaul ปี 2024': 'overhaul_sales_specific',
-            'รายได้จาก service ปี 2023': 'service_revenue_2023',  # ต้องสร้างใหม่
+            'รายได้จาก service ปี 2023': 'service_revenue_2023',
             'มีงานทั้งหมดกี่งาน': 'count_all_jobs',
             'มีงานปี 2024 กี่งาน': 'count_jobs_year',
             'รายได้เฉลี่ยต่องาน': 'average_revenue_per_job',
             'งานที่มีรายได้มากกว่า 1 ล้าน': 'high_value_transactions',
-            'งานที่มีรายได้น้อยกว่า 50,000': 'low_value_transactions',  # ต้องสร้างใหม่
-            'การเติบโตรายได้จาก 2023 เป็น 2024': 'revenue_growth',
-            'สัดส่วนรายได้แต่ละประเภท': 'revenue_proportion',
-            'รายได้สูงสุดต่อปี': 'max_revenue_each_year',
-            'มูลค่ารวมของสินค้าคงคลัง': 'total_inventory_value',
+            'งานที่มีรายได้น้อยกว่า 50,000': 'low_value_transactions',
             
             # ข้อ 26-50: ลูกค้า
             'มีลูกค้าทั้งหมดกี่ราย': 'count_total_customers',
@@ -3140,41 +3073,7 @@ class PromptManager:
             'ลูกค้าที่ใช้บริการบ่อยที่สุด': 'frequent_customers',
             'ลูกค้าที่ใช้บริการ overhaul': 'customers_using_overhaul',
             'ลูกค้าภาครัฐมีใครบ้าง': 'government_customers',
-            'ลูกค้าเอกชนที่ใหญ่ที่สุด': 'private_customers',  # ต้องสร้างใหม่
-            'ข้อมูลลูกค้า': 'customer_specific_history',
-            'ลูกค้าที่เคยใช้บริการแต่ไม่ได้ใช้ปี 2024': 'inactive_customers',
-            'ลูกค้าที่ใช้บริการต่อเนื่องทุกปี': 'continuous_customers',
-            'จำนวนลูกค้าที่ใช้บริการแต่ละปี': 'customers_per_year',  # ต้องสร้างใหม่
-            'ลูกค้าที่เกี่ยวข้องกับ hitachi': 'hitachi_customers',  # ต้องสร้างใหม่
-            'ลูกค้าโรงพยาบาลมีใครบ้าง': 'hospital_customers',
-            'ลูกค้าที่จ่ายมากกว่า 500,000 บาท': 'high_value_customers',
-            'รายได้เฉลี่ยต่อลูกค้า': 'avg_revenue_per_customer',  # ต้องสร้างใหม่
-            'ลูกค้าที่ใช้บริการเฉพาะซื้ออะไหล่': 'parts_only_customers',
-            'ลูกค้าต่างชาติมีใครบ้าง': 'foreign_customers',  # ต้องสร้างใหม่
-            'ลูกค้าที่มีงาน chiller': 'chiller_customers',
-            'เปรียบเทียบรายได้จากลูกค้าใหม่กับลูกค้าเก่า': 'new_vs_returning_customers',
-            
-            # ข้อ 51-70: อะไหล่และสินค้าคงคลัง
-            'มีอะไหล่ทั้งหมดกี่รายการ': 'count_all_parts',
-            'อะไหล่ที่มีสต็อกคงเหลือ': 'parts_in_stock',
-            'อะไหล่ที่หมดสต็อก': 'parts_out_of_stock',
-            'อะไหล่ที่มีราคาแพงที่สุด': 'most_expensive_parts',
-            'อะไหล่ที่มีราคาถูกที่สุด': 'cheapest_parts',  # ต้องสร้างใหม่
-            'อะไหล่ที่มีสต็อกน้อยกว่า 5 ชิ้น': 'low_stock_alert',
-            'อะไหล่ในคลัง a': 'warehouse_specific_parts',
-            'อะไหล่ที่มีรหัส ekac': 'ekac_parts',  # ต้องสร้างใหม่
-            'อะไหล่ที่มีมูลค่ารวมสูงสุด': 'highest_value_items',
-            'ราคาเฉลี่ยของอะไหล่': 'average_part_price',
-            'จำนวนอะไหล่ทั้งหมดที่มีในสต็อก': 'total_stock_quantity',  # ต้องสร้างใหม่
-            'อะไหล่สำหรับ compressor': 'compressor_parts',
-            'อะไหล่ filter มีอะไรบ้าง': 'filter_parts',
-            'อะไหล่ที่ต้องสั่งเติม': 'reorder_parts',  # ต้องสร้างใหม่
-            'มูลค่าสต็อกรวมทั้งหมด': 'total_inventory_value',
-            'อะไหล่ที่ไม่มีการตั้งราคา': 'unpriced_parts',  # ต้องสร้างใหม่
-            'คลังไหนมีอะไหล่มากที่สุด': 'warehouse_comparison',
-            'ข้อมูลอะไหล่รหัส ekac460': 'ekac460_info',  # ต้องสร้างใหม่
-            'อะไหล่ที่ขายเป็น set': 'set_parts',  # ต้องสร้างใหม่
-            'สินค้าที่เพิ่งรับเข้าล่าสุด': 'recently_received',  # ต้องสร้างใหม่
+            'ลูกค้าเอกชนที่ใหญ่ที่สุด': 'private_customers',
             
             # ข้อ 71-90: งานบริการและทีมงาน
             'มีงานทั้งหมดกี่งานในระบบ': 'count_all_works',
@@ -3185,214 +3084,114 @@ class PromptManager:
             'งานที่ทำสำเร็จ': 'successful_works',
             'งานที่ไม่สำเร็จ': 'unsuccessful_works',
             'งานของทีม a': 'team_works',
-            'งานวันนี้มีอะไรบ้าง': 'work_today',
-            'งานสัปดาห์นี้': 'work_this_week',
-            'อัตราความสำเร็จของงาน': 'success_rate',
-            'งานที่เสร็จตรงเวลา': 'on_time_works',
-            'งานที่ทำเกินเวลา': 'overtime_works',
-            'งานทั้งหมดของลูกค้า stanley': 'stanley_works',  # ต้องสร้างใหม่
-            'งาน start up/เริ่มต้นระบบ': 'startup_works_all',
-            'งานสนับสนุนทั่วไป': 'support_works',
-            'งาน cpa': 'cpa_works',
-            'สถิติงานของแต่ละทีม': 'team_statistics',
-            'ระยะเวลาการทำงานแต่ละงาน': 'work_duration',
-            'งาน 10 งานล่าสุด': 'latest_works',
-            
-            # ข้อ 91-100: การวิเคราะห์และรายงาน
-            'สรุปผลประกอบการแต่ละปี': 'annual_performance_summary',
-            'เทรนด์การเติบโตของธุรกิจ': 'growth_trend',
-            'ประเภทงานที่ลูกค้านิยมใช้บริการมากที่สุด': 'popular_service_types',
-            'ลูกค้าที่มีศักยภาพสูง': 'high_potential_customers',
-            'การกระจายรายได้ตามขนาดงาน': 'revenue_distribution',
-            'ประสิทธิภาพการทำงานของแต่ละทีม': 'team_performance',
-            'แนวโน้มยอดขายรายเดือนปี 2024': 'monthly_sales_trend',
-            'ผลตอบแทนจากการลงทุนในแต่ละประเภทบริการ': 'service_roi',
-            'คาดการณ์รายได้ปี 2025 จากเทรนด์': 'revenue_forecast',
-            'รายงานสถานะธุรกิจโดยรวม': 'business_overview',
         }
         
         for pattern, example_name in exact_matches.items():
             if pattern in question_lower:
-                logger.info(f"Exact match found: {example_name} for pattern '{pattern}'")
+                logger.info(f"Exact match: {example_name}")
                 if example_name in self.SQL_EXAMPLES:
                     return self.SQL_EXAMPLES[example_name]
         
         # === PHASE 1: Pattern-Based Priority Rules ===
         
-        # Rule 1: "แยกตาม" = Breakdown query
-        if any(word in question_lower for word in ['แยกตาม', 'แต่ละประเภท', 'breakdown', 'by type']):
+        # Priority 1: งานที่วางแผน
+        if any(word in question_lower for word in ['งานที่วางแผน', 'วางแผน', 'แผนงาน']):
+            if entities.get('months'):
+                logger.info("Priority: planned work + months → work_monthly")
+                return self.SQL_EXAMPLES.get('work_monthly', '')
+        
+        # Priority 2: แยกตามประเภท
+        if any(word in question_lower for word in ['แยกตาม', 'แต่ละประเภท', 'breakdown']):
             if any(word in question_lower for word in ['ประเภทงาน', 'ประเภท', 'type', 'service']):
-                logger.info("Priority rule: แยกตามประเภท → revenue_by_service_type")
+                logger.info("Priority: breakdown by type → revenue_by_service_type")
                 return self.SQL_EXAMPLES.get('revenue_by_service_type', '')
         
-        # Rule 2: Value/Price + Max/Min
+        # Priority 3: มูลค่า + สูง/ต่ำสุด
         if any(word in question_lower for word in ['มูลค่า', 'ราคา', 'value', 'price']):
-            if any(word in question_lower for word in ['สูงสุด', 'มากที่สุด', 'แพงที่สุด', 'highest', 'maximum']):
+            if any(word in question_lower for word in ['สูงสุด', 'มากที่สุด', 'แพงที่สุด']):
                 if 'งาน' in question_lower:
-                    logger.info("Priority rule: งาน + มูลค่าสูงสุด → max_value_work")
+                    logger.info("Priority: งาน + มูลค่าสูงสุด → max_value_work")
                     return self.SQL_EXAMPLES.get('max_value_work', '')
                 elif 'อะไหล่' in question_lower or 'parts' in question_lower:
-                    logger.info("Priority rule: อะไหล่ + ราคาสูงสุด → most_expensive_parts")
+                    logger.info("Priority: อะไหล่ + ราคาสูงสุด → most_expensive_parts")
                     return self.SQL_EXAMPLES.get('most_expensive_parts', '')
-            elif any(word in question_lower for word in ['ต่ำสุด', 'น้อยที่สุด', 'ถูกที่สุด', 'lowest', 'minimum']):
+            elif any(word in question_lower for word in ['ต่ำสุด', 'น้อยที่สุด', 'ถูกที่สุด']):
                 if 'งาน' in question_lower:
-                    logger.info("Priority rule: งาน + มูลค่าต่ำสุด → min_value_work")
+                    logger.info("Priority: งาน + มูลค่าต่ำสุด → min_value_work")
                     return self.SQL_EXAMPLES.get('min_value_work', '')
         
-        # Rule 3: Customer history with years
-        if any(word in question_lower for word in ['ซื้อขาย', 'ประวัติ', 'history', 'ย้อนหลัง']):
+        # Priority 4: Customer history
+        if any(word in question_lower for word in ['ซื้อขาย', 'ประวัติ', 'history']):
             if entities.get('customers'):
-                logger.info("Priority rule: Customer history → customer_history")
+                logger.info("Priority: Customer history → customer_history")
                 return self.SQL_EXAMPLES.get('customer_history', '')
         
-        # === PHASE 2: Full EXAMPLE_KEYWORDS Mapping (All 100+ examples) ===
+        # === PHASE 2: Updated EXAMPLE_KEYWORDS with fixes ===
         EXAMPLE_KEYWORDS = {
-            # === REVENUE/SALES EXAMPLES (หมวด 1: ข้อ 1-25) ===
-            'total_revenue_all': ['รายได้รวมทั้งหมด', 'รายได้ทั้งหมด', 'total revenue', 'รายได้รวม'],
-            'total_revenue_year': ['รายได้ปี', 'revenue year', 'รายได้ใน'],
-            'revenue_by_year': ['รายได้แต่ละปี', 'รายได้รายปี', 'annual revenue', 'revenue by year'],
-            'compare_revenue_years': ['เปรียบเทียบรายได้', 'compare revenue', 'เทียบรายได้'],
-            'overhaul_total': ['ยอดขาย overhaul', 'total overhaul', 'overhaul ทั้งหมด'],
-            'overhaul_sales': ['overhaul แต่ละปี', 'overhaul by year'],
-            'overhaul_sales_all': ['overhaul รวม', 'ยอด overhaul', 'overhaul revenue'],
-            'overhaul_sales_specific': ['overhaul ปี', 'overhaul เฉพาะปี'],
-            'service_num': ['ยอด service', 'service revenue', 'บริการ'],
-            'parts_total': ['ยอดขาย parts', 'ยอดอะไหล่', 'parts revenue'],
-            'replacement_total': ['ยอดขาย replacement', 'ยอดเปลี่ยน', 'replacement revenue'],
-            'average_annual_revenue': ['รายได้เฉลี่ยต่อปี', 'average annual', 'เฉลี่ยต่อปี'],
-            'year_min_revenue': ['ปีที่มีรายได้ต่ำสุด', 'ปีไหนรายได้น้อยสุด', 'lowest year'],
-            'year_max_revenue': ['ปีที่มีรายได้สูงสุด', 'ปีไหนรายได้มากสุด', 'highest year'],
-            'max_value_work': ['งานที่มีมูลค่าสูงสุด', 'มูลค่าสูงสุด', 'งานมูลค่าสูง', 'highest value work'],
-            'min_value_work': ['งานที่มีมูลค่าต่ำสุด', 'มูลค่าต่ำสุด', 'งานมูลค่าต่ำ', 'lowest value work'],
-            'average_revenue_per_job': ['รายได้เฉลี่ยต่องาน', 'average per job', 'เฉลี่ยต่องาน'],
-            'high_value_transactions': ['งานมูลค่าสูง', 'มากกว่า 1 ล้าน', 'high value'],
-            'revenue_growth': ['การเติบโตรายได้', 'revenue growth', 'อัตราการเติบโต'],
-            'revenue_proportion': ['สัดส่วนรายได้', 'proportion', 'แบ่งสัดส่วน'],
-            'max_revenue_each_year': ['รายได้สูงสุดแต่ละปี', 'max revenue year', 'สูงสุดของแต่ละปี'],
-            'total_inventory_value': ['มูลค่าสินค้าคงคลัง', 'inventory value', 'มูลค่ารวม'],
-            'all_years_revenue_comparison': ['เปรียบเทียบรายได้ทุกปี', 'compare all years'],
-            'average_work_value': ['ค่าเฉลี่ย', 'average value'],
-            'sales_analysis': ['วิเคราะห์การขาย', 'sales analysis'],
+
+            'cpa_works': [
+                'งาน cpa', 'cpa ทั้งหมด', 'งาน cpa work',
+                'job_description_cpa', 'cpa jobs'
+            ],
+
+            'work_summary_monthly': [
+                'สรุปงาน', 'สรุปงานเดือน', 'work summary', 
+                'monthly summary', 'สรุปงานที่ทำ'
+            ],
+            # Work Force - Fixed keywords
+            'work_monthly': [
+                'งานรายเดือน', 'งานเดือน', 'monthly work', 'แผนงานเดือน',
+                'งานที่วางแผน', 'วางแผน', 'planned work', 'งานของเดือน'  # Added
+            ],
             
-            # === CUSTOMER EXAMPLES (หมวด 2: ข้อ 26-50) ===
-            'count_total_customers': ['จำนวนลูกค้า', 'กี่ลูกค้า', 'มีลูกค้ากี่ราย', 'customer count'],
+            'all_pm_works': [
+                'งาน pm เท่านั้น', 'เฉพาะงาน pm', 'เฉพาะ pm',  # More specific
+                'preventive maintenance', 'บำรุงรักษาเชิงป้องกัน',
+                'งาน pm ทั้งหมด', 'pm work only'
+            ],
+            
+            'work_overhaul': [
+                'งาน overhaul', 'overhaul ที่ทำ', 'overhaul work',
+                'เฉพาะ overhaul', 'งาน overhaul เท่านั้น'
+            ],
+            
+            # Revenue/Sales
+            'total_revenue_all': ['รายได้รวมทั้งหมด', 'รายได้ทั้งหมด', 'total revenue'],
+            'total_revenue_year': ['รายได้ปี', 'revenue year', 'รายได้ใน'],
+            'revenue_by_year': ['รายได้แต่ละปี', 'รายได้รายปี', 'annual revenue'],
+            'year_max_revenue': ['ปีที่มีรายได้สูงสุด', 'ปีไหนรายได้มากสุด'],
+            'year_min_revenue': ['ปีที่มีรายได้ต่ำสุด', 'ปีไหนรายได้น้อยสุด'],
+            'max_value_work': ['งานที่มีมูลค่าสูงสุด', 'มูลค่าสูงสุด', 'งานมูลค่าสูง'],
+            'min_value_work': ['งานที่มีมูลค่าต่ำสุด', 'มูลค่าต่ำสุด', 'งานมูลค่าต่ำ'],
+            
+            # Customers
+            'count_total_customers': ['จำนวนลูกค้า', 'กี่ลูกค้า', 'มีลูกค้ากี่ราย'],
             'top_customers': ['top ลูกค้า', 'ลูกค้าสูงสุด', 'best customers'],
-            'top_customers_no_filter': ['ลูกค้าที่ใช้บริการมาก', 'frequent customers'],
-            'customer_specific_history': ['ประวัติลูกค้า', 'customer history', 'ประวัติการซื้อ'],
             'customer_history': ['ประวัติการใช้บริการ', 'service history'],
             'new_customers_year': ['ลูกค้าใหม่', 'new customers', 'ลูกค้าใหม่ปี'],
-            'new_customers_in_year': ['ลูกค้าใหม่ในปี', 'new in year'],
-            'frequent_customers': ['ลูกค้าที่ใช้บริการบ่อย', 'ลูกค้าประจำ', 'frequent'],
-            'most_frequent_customers': ['ใช้บริการบ่อยที่สุด', 'most frequent'],
-            'government_customers': ['ลูกค้าภาครัฐ', 'กระทรวง', 'government', 'หน่วยงานราชการ'],
-            'hospital_customers': ['ลูกค้าโรงพยาบาล', 'hospital', 'รพ.', 'คลินิก'],
-            'continuous_customers': ['ลูกค้าต่อเนื่อง', 'ใช้บริการต่อเนื่อง', 'loyal customers'],
-            'customers_continuous_years': ['ลูกค้าต่อเนื่องทุกปี', 'every year customer'],
-            'inactive_customers': ['ลูกค้าที่ไม่ได้ใช้บริการ', 'inactive', 'หายไป', 'ไม่กลับมา'],
-            'high_value_customers': ['ลูกค้าที่จ่ายมาก', 'มูลค่าสูง', 'high value', 'จ่ายเยอะ'],
-            'parts_only_customers': ['ลูกค้าที่ซื้อแต่อะไหล่', 'parts only', 'เฉพาะอะไหล่'],
-            'chiller_customers': ['ลูกค้า chiller', 'งาน chiller', 'ชิลเลอร์'],
-            'new_vs_returning_customers': ['เปรียบเทียบลูกค้าใหม่กับเก่า', 'new vs returning'],
-            'customers_using_overhaul': ['ลูกค้าที่ใช้ overhaul', 'overhaul customers'],
-            'top_service_customers': ['ลูกค้าที่ใช้ service มาก', 'service customers'],
-            'customer_years_count': ['ซื้อขายมากี่ปี', 'กี่ปีแล้ว', 'how many years'],
-            'top_parts_customers': ['ลูกค้าที่ซื้ออะไหล่มาก', 'top parts customers'],
-            'service_vs_replacement': ['เปรียบเทียบ service กับ replacement'],
-            'solution_customers': ['ลูกค้า solution', 'solution sales'],
             
-            # === SPARE PARTS EXAMPLES (หมวด 3: ข้อ 51-70) ===
-            'count_all_parts': ['จำนวนอะไหล่ทั้งหมด', 'กี่รายการ', 'total parts types'],
+            # Spare Parts
+            'count_all_parts': ['จำนวนอะไหล่ทั้งหมด', 'กี่รายการ', 'total parts'],
             'parts_in_stock': ['อะไหล่ที่มีสต็อก', 'in stock', 'มีในคลัง'],
-            'parts_out_of_stock': ['อะไหล่หมดสต็อก', 'out of stock', 'หมด', 'ไม่มีของ'],
             'most_expensive_parts': ['อะไหล่ราคาแพง', 'expensive parts', 'ราคาสูง'],
-            'low_stock_alert': ['อะไหล่ใกล้หมด', 'low stock', 'เหลือน้อย', 'ต้องสั่ง'],
-            'warehouse_specific_parts': ['อะไหล่ในคลัง', 'คลัง a', 'warehouse a'],
-            'spare_parts_price': ['ราคาอะไหล่', 'spare parts price'],
-            'parts_search_multi': ['ค้นหาอะไหล่', 'search parts'],
-            'average_part_price': ['ราคาเฉลี่ยอะไหล่', 'average price parts'],
-            'compressor_parts': ['อะไหล่ compressor', 'คอมเพรสเซอร์', 'comp'],
-            'filter_parts': ['อะไหล่ filter', 'กรอง', 'ฟิลเตอร์'],
-            'warehouse_comparison': ['เปรียบเทียบคลัง', 'คลังไหนมีมาก', 'warehouse compare'],
-            'inventory_check': ['ตรวจสอบสินค้าคงคลัง', 'inventory', 'stock check'],
-            'highest_value_items': ['สินค้ามูลค่าสูง', 'highest value items'],
-            'warehouse_summary': ['สรุปคลัง', 'warehouse summary'],
-            'low_stock_items': ['ใกล้หมด', 'สต็อกน้อย', 'low stock'],
-            'high_unit_price': ['ราคาต่อหน่วยสูง', 'ราคาแพง', 'expensive'],
-            
-            # === WORK FORCE EXAMPLES (หมวด 4: ข้อ 71-90) ===
-            'count_all_works': ['จำนวนงานทั้งหมดในระบบ', 'work records', 'บันทึกงาน'],
-            'count_works_by_year': ['จำนวนงานแต่ละปี', 'works by year'],
-            'work_monthly': ['งานรายเดือน', 'งานเดือน', 'monthly work', 'แผนงานเดือน'],
-            'work_summary_monthly': ['สรุปงานเดือน', 'monthly summary'],
-            'work_specific_month': ['งานเดือนที่', 'งานเดือนนี้', 'work this month'],
-            'work_plan_date': ['แผนงานวันที่', 'work plan date'],
-            'all_pm_works': ['งาน pm', 'preventive', 'บำรุงรักษา'],
-            'pm_work_summary': ['สรุปงาน pm', 'pm summary'],
-            'work_overhaul': ['งาน overhaul', 'overhaul ที่ทำ', 'overhaul work'],
-            'work_replacement': ['งาน replacement', 'งานเปลี่ยน', 'replacement work'],
-            'replacement_monthly': ['งานเปลี่ยนรายเดือน', 'replacement monthly'],
-            'successful_works': ['งานที่สำเร็จ', 'successful', 'งานเสร็จ'],
-            'successful_work_monthly': ['งานสำเร็จรายเดือน', 'successful monthly'],
-            'unsuccessful_works': ['งานที่ไม่สำเร็จ', 'failed', 'งานล้มเหลว'],
-            'work_today': ['งานวันนี้', 'today work', 'วันนี้มีงานอะไร'],
-            'work_this_week': ['งานสัปดาห์นี้', 'this week', 'อาทิตย์นี้'],
-            'success_rate': ['อัตราความสำเร็จ', 'success rate', 'เปอร์เซ็นต์สำเร็จ'],
-            'on_time_works': ['งานตรงเวลา', 'on time', 'ทันเวลา', 'ไม่ล่าช้า'],
-            'kpi_reported_works': ['งานที่มี kpi', 'kpi report'],
-            'overtime_works': ['งานเกินเวลา', 'overtime', 'ล่าช้า', 'delay'],
-            'startup_works': ['งาน startup', 'start up', 'เริ่มระบบ'],
-            'startup_works_all': ['งาน startup ทั้งหมด', 'all startup'],
-            'support_works': ['งาน support', 'งานสนับสนุน', 'support all'],
-            'cpa_works': ['งาน cpa', 'cpa'],
-            'team_statistics': ['สถิติทีม', 'team stats', 'ผลงานทีม'],
-            'team_specific_works': ['งานของทีม', 'team work'],
-            'team_works': ['งานของทีม', 'team a', 'ทีม a'],
-            'work_duration': ['ระยะเวลาทำงาน', 'duration', 'ใช้เวลา'],
-            'min_duration_work': ['งานที่ใช้เวลาน้อยสุด', 'ใช้เวลาน้อยที่สุด', 'shortest duration'],
-            'max_duration_work': ['งานที่ใช้เวลานานสุด', 'ใช้เวลานานที่สุด', 'longest duration'],
-            'long_duration_works': ['ใช้เวลานาน', 'หลายวัน', 'งานนาน'],
-            'latest_works': ['งานล่าสุด', 'latest', 'งานใหม่ล่าสุด'],
-            'repair_history': ['ประวัติการซ่อม', 'repair history'],
-            
-            # === ANALYTICAL EXAMPLES (หมวด 5: ข้อ 91-100) ===
-            'annual_performance_summary': ['สรุปผลประกอบการ', 'annual summary', 'สรุปรายปี'],
-            'growth_trend': ['เทรนด์การเติบโต', 'growth trend', 'แนวโน้ม'],
-            'popular_service_types': ['ประเภทงานที่นิยม', 'popular service', 'บริการยอดนิยม'],
-            'high_potential_customers': ['ลูกค้าที่มีศักยภาพ', 'potential', 'ลูกค้าดี'],
-            'revenue_distribution': ['การกระจายรายได้', 'distribution', 'กระจาย'],
-            'team_performance': ['ประสิทธิภาพทีม', 'team performance', 'ผลงานทีม'],
-            'monthly_sales_trend': ['แนวโน้มรายเดือน', 'monthly trend', 'ยอดขายรายเดือน'],
-            'service_roi': ['roi', 'ผลตอบแทน', 'return on investment'],
-            'revenue_forecast': ['คาดการณ์รายได้', 'forecast', 'พยากรณ์', 'ปีหน้า'],
-            'business_overview': ['สถานะธุรกิจรวม', 'overview', 'ภาพรวม', 'สรุปทั้งหมด'],
-            'quarterly_summary': ['ไตรมาส', 'quarterly', 'รายไตรมาส', 'quarter'],
-            'sales_yoy_growth': ['เติบโต', 'อัตราการเติบโต', 'growth', 'yoy', 'year over year'],
+            'low_stock_alert': ['อะไหล่ใกล้หมด', 'low stock', 'เหลือน้อย'],
         }
         
-        # === PHASE 3: Smart Scoring with Required/Forbidden Words ===
-        # === PHASE 3: Simple Scoring (Backward Compatible) ===
+        # === PHASE 3: Smart Scoring with penalties ===
         best_matches = []
         
         for example_name, keywords in EXAMPLE_KEYWORDS.items():
             score = 0
             matched_keywords = []
             
-            # Handle both list and dict format
-            if isinstance(keywords, dict):
-                # New format with config - extract just keywords
-                keyword_list = keywords.get('keywords', [])
-            else:
-                # Old format - simple list
-                keyword_list = keywords
-            
-            for keyword in keyword_list:
+            for keyword in keywords:
                 keyword_lower = keyword.lower()
                 
                 # Exact phrase match
                 if keyword_lower in question_lower:
                     score += 20
                     matched_keywords.append(keyword)
-                # All words match (สำหรับ multi-word keywords)
+                # All words match
                 elif len(keyword_lower.split()) > 1:
                     if all(word in question_lower for word in keyword_lower.split() if len(word) > 2):
                         score += 12
@@ -3402,14 +3201,19 @@ class PromptManager:
                     score += 3
                     matched_keywords.append(keyword)
             
-            # === PENALTIES for wrong context ===
+            # === PENALTIES ===
             
-            # Penalty 1: Work examples shouldn't match money queries
+            # Penalty for PM works when not asking for PM
+            if example_name == 'all_pm_works':
+                if not any(word in question_lower for word in ['pm', 'บำรุงรักษา', 'preventive']):
+                    score = score * 0.2  # Heavy penalty
+            
+            # Penalty for work examples on money queries
             if 'work' in example_name or 'pm' in example_name:
-                if any(word in question_lower for word in ['มูลค่า', 'ราคา', 'value', 'revenue', 'ยอดขาย']):
+                if any(word in question_lower for word in ['มูลค่า', 'ราคา', 'value', 'revenue']):
                     score = score * 0.3
             
-            # Penalty 2: Single type shouldn't match breakdown queries
+            # Penalty for single type on breakdown queries
             if any(word in question_lower for word in ['แยกตาม', 'แต่ละ', 'breakdown']):
                 if example_name in ['overhaul_sales_all', 'parts_total', 'service_num']:
                     score = score * 0.5
@@ -3422,6 +3226,8 @@ class PromptManager:
             if entities.get('years') and ('year' in example_name or 'annual' in example_name):
                 score += 3
             if entities.get('customers') and 'customer' in example_name:
+                score += 5
+            if entities.get('months') and 'monthly' in example_name:
                 score += 5
             
             if score > 0:
@@ -3437,24 +3243,46 @@ class PromptManager:
                 logger.debug(f"  2. {best_matches[1][1]} (score: {best_matches[1][0]})")
         
         # Return best match
-        if best_matches and best_matches[0][0] > 5:
+        if best_matches and best_matches[0][0] >= 5:
             selected = best_matches[0][1]
             if selected in self.SQL_EXAMPLES:
-                logger.info(f"✓ Selected: {selected} (score: {best_matches[0][0]}, matched: {best_matches[0][2]})")
+                logger.info(f"✓ Selected: {selected} (score: {best_matches[0][0]})")
                 return self.SQL_EXAMPLES[selected]
         
         # === PHASE 4: Intent-based fallback ===
         intent_map = {
-            'customer_history': 'customer_history',
+            # === Work-related (เพิ่มให้ครบ) ===
+            'work_summary': 'work_summary_monthly',
+            'work_plan': 'work_monthly',
+            'work_force': 'work_monthly',
+            'work_analysis': 'work_monthly',
+            'pm_work': 'all_pm_works',           # เพิ่ม
+            'work_overhaul': 'work_overhaul',    # เพิ่ม
+            'work_replacement': 'work_replacement', # เพิ่ม
+            'successful_work': 'successful_works', # เพิ่ม
+            'repair_history': 'repair_history',   # เพิ่ม
+            'cpa_work': 'cpa_works',
+            # === Sales/Revenue ===
             'sales': 'sales_analysis',
             'sales_analysis': 'sales_analysis',
             'revenue': 'revenue_by_year',
-            'work_plan': 'work_monthly',
-            'work_force': 'work_monthly',
+            'revenue_analysis': 'revenue_by_year', # เพิ่ม
+            'overhaul_report': 'overhaul_sales',
+            'max_value': 'max_value_work',        # เพิ่ม
+            'min_value': 'min_value_work',        # เพิ่ม
+            
+            # === Customer ===
+            'customer_history': 'customer_history',
+            'top_customers': 'top_customers',
+            'customer_analysis': 'top_customers',  # เพิ่ม
+            'new_customers': 'new_customers_year', # เพิ่ม
+            
+            # === Spare Parts ===
             'spare_parts': 'spare_parts_price',
             'parts_price': 'spare_parts_price',
-            'top_customers': 'top_customers',
-            'overhaul_report': 'overhaul_sales',
+            'inventory': 'inventory_check',        # เพิ่ม
+            'inventory_check': 'inventory_check',  # เพิ่ม
+            'warehouse': 'warehouse_summary',      # เพิ่ม
         }
         
         if intent in intent_map:
@@ -3466,7 +3294,6 @@ class PromptManager:
         # Final fallback
         logger.info("Selected: sales_analysis (final fallback)")
         return self.SQL_EXAMPLES.get('sales_analysis', '')
-
 
     def _detect_context(self, question: str) -> str:
         """Helper method to detect context from question"""
@@ -3488,6 +3315,7 @@ class PromptManager:
         target_table = self._get_target_table(intent)
         hints.append(f"USE TABLE: {target_table}")
 
+        # === EMPLOYEE SEARCH (v_work_force only) ===
         if entities.get('employees') and target_table == 'v_work_force':
             employee = entities['employees'][0]
             hints.append(f"""
@@ -3500,110 +3328,90 @@ class PromptManager:
     3. The detail and service_group columns contain employee/technician names
     4. Show ALL work records related to this employee
     """)
-        # Don't add other hints for employee search
+            # Don't add other hints for employee search
             return '\n'.join(hints)
 
-        # Table-specific hints
-        if target_table == 'v_work_force':
-            # Special handling for v_work_force with year
-            if entities.get('years'):
-                year = entities['years'][0]
-                hints.append(f"Filter: EXTRACT(YEAR FROM date::date) = {year}")
-                hints.append(f"Or use: WHERE date::date BETWEEN '{year}-01-01' AND '{year}-12-31'")
-            else:
-                hints.append("NO YEAR FILTER - Show all records")
+        # === HANDLE BASED ON TABLE TYPE ===
         
-        elif target_table == 'v_sales':
+        if target_table == 'v_sales':
+            # --- v_sales uses 'year' and 'month' columns ---
+            
+            # Year filtering
             if entities.get('years'):
                 years = entities['years']
                 year_str = "', '".join(years)
                 hints.append(f"WHERE year IN ('{year_str}')")
             else:
                 hints.append("NO YEAR SPECIFIED - Query ALL years")
+            
+            # Month filtering (v_sales has 'month' column)
+            if entities.get('months'):
+                # Force everything to string, no leading zeros
+                months = [str(int(str(m))) if str(m).isdigit() else str(m) 
+                        for m in entities['months']]
+                month_list = ','.join([f"'{m}'" for m in months])
+                hints.append(f"AND month IN ({month_list})")
+                hints.append("AND month IS NOT NULL")
         
-        # Year hints - only if years are specified
-        if entities.get('years'):
-            years = entities['years']
-            logger.debug(f"Building SQL hints for years: {years}")
+        elif target_table == 'v_work_force':
+            # --- v_work_force uses 'date' column ---
             
-            year_list = []
-            for year in years:
-                year_str = str(year)
-                year_list.append(year_str)
-                logger.debug(f"Using year: {year_str}")
-            
-            year_str = "', '".join(year_list)
-            
-            if target_table == 'v_sales':
-                hint = f"WHERE year IN ('{year_str}')"
-                hints.append(hint)
-                logger.info(f"Generated year hint: {hint}")
-        else:
-            # No years specified - make it explicit
-            if target_table == 'v_sales' and intent in ['sales', 'sales_analysis', 'revenue', 'top_customers']:
-                hints.append("📌 NO YEAR SPECIFIED = Query ALL available years")
-                hints.append("Example: SELECT SUM(total_revenue) FROM v_sales; -- No WHERE year")
-        
-        # Date hints
-        if entities.get('dates'):
-            date = entities['dates'][0]
-            hints.append(f"WHERE date = '{date}'")
-        
-        # Month range hints
-        if entities.get('months'):
-            months = entities['months']
-            year = int(entities.get('years', ['2025'])[0])
-            
-            if len(months) == 1:
-                month = months[0]
-                last_day = self._get_last_day_of_month(year, month)
-                hints.append(f"WHERE date::date BETWEEN '{year}-{month:02d}-01' "
-                        f"AND '{year}-{month:02d}-{last_day:02d}'")
+            # Year filtering via date
+            if entities.get('years'):
+                year = entities['years'][0]
+                
+                # Month-specific filtering
+                if entities.get('months'):
+                    months = entities['months']
+                    
+                    if len(months) == 1:
+                        month = int(months[0])
+                        last_day = self._get_last_day_of_month(int(year), month)
+                        hints.append(f"WHERE date::date BETWEEN '{year}-{month:02d}-01' "
+                                f"AND '{year}-{month:02d}-{last_day:02d}'")
+                    else:
+                        min_month = min(int(m) for m in months)
+                        max_month = max(int(m) for m in months)
+                        last_day = self._get_last_day_of_month(int(year), max_month)
+                        hints.append(f"WHERE date::date BETWEEN '{year}-{min_month:02d}-01' "
+                                f"AND '{year}-{max_month:02d}-{last_day:02d}'")
+                else:
+                    # Full year
+                    hints.append(f"WHERE EXTRACT(YEAR FROM date::date) = {year}")
             else:
-                min_month = min(months)
-                max_month = max(months)
-                last_day = self._get_last_day_of_month(year, max_month)
-                hints.append(f"WHERE date::date BETWEEN '{year}-{min_month:02d}-01' "
-                        f"AND '{year}-{max_month:02d}-{last_day:02d}'")
-            if entities.get('employees') and target_table == 'v_work_force':
-                employee = entities['employees'][0]
-                hints.append(f"""
-        ⚠️ EMPLOYEE SEARCH:
-        Looking for employee/staff named: {employee}
-        Use: WHERE service_group LIKE '%{employee}%'
-        DO NOT use customer column (that's for customer names)
-        """)
-            
-            return '\n'.join(hints)
-        # Customer hints
+                hints.append("NO YEAR FILTER - Show all records")
+        
+        elif target_table == 'v_spare_part':
+            # v_spare_part doesn't have date/year/month columns
+            hints.append("Note: v_spare_part has no time-based columns")
+        
+        # === CUSTOMER FILTERING (all tables) ===
         if entities.get('customers'):
             customer = entities['customers'][0]
-            # Filter out Thai words that shouldn't be customer names
+            
+            # Filter out Thai phrases that aren't customer names
             excluded_words = [
-                'ที่', 'ทั้งหมด', 'กี่ราย', 'ที่ใช้บริการ', 'ที่ใช้บริ', 
-                'มากที่สุด', 'บ่อยที่สุด', 'น้อยที่สุด', 'สูงสุด', 'ต่ำสุด',
+                'ที่', 'ทั้งหมด', 'กี่ราย', 'ที่ใช้บริการ', 
+                'มากที่สุด', 'บ่อยที่สุด', 'ซื้อมากี่ครั้ง',
                 'ทุกราย', 'แต่ละราย', 'หลายราย', 'บางราย'
             ]
             
-            # Check if the customer string is actually a Thai phrase
             is_thai_phrase = any(word in customer for word in excluded_words)
             
-            if not is_thai_phrase and len(customer) > 2:  # Real customer names are usually longer than 2 chars
+            if not is_thai_phrase and len(customer) > 2:
                 if target_table == 'v_sales':
-                    hints.append(f"WHERE customer_name LIKE '%{customer}%'")
-                else:
-                    hints.append(f"WHERE customer LIKE '%{customer}%'")
+                    hints.append(f"AND customer_name LIKE '%{customer}%'")
+                elif target_table == 'v_work_force':
+                    hints.append(f"AND customer LIKE '%{customer}%'")
             else:
                 logger.warning(f"Ignoring invalid customer filter: '{customer}'")
-                hints.append("# Note: Do not filter by customer name unless explicitly mentioned")
         
-        # Product hints
-        if entities.get('products'):
+        # === PRODUCT FILTERING (v_spare_part only) ===
+        if entities.get('products') and target_table == 'v_spare_part':
             product = entities['products'][0]
-            hints.append(f"WHERE product_name LIKE '%{product}%' OR product_name LIKE '%{product}%'")
+            hints.append(f"WHERE product_name LIKE '%{product}%'")
         
-        return '\n'.join(hints) if hints else ""
-    
+        return '\n'.join(hints) if hints else ""  
 
     def build_response_prompt(self, question: str, results: List[Dict],
                             sql_query: str, locale: str = "th") -> str:

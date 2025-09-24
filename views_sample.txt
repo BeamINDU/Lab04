@@ -1,0 +1,436 @@
+
+==== Schema of v_sales ====
+
+                                        View "public.v_sales"
+      Column      |          Type          | Collation | Nullable | Default | Storage  | Description 
+------------------+------------------------+-----------+----------+---------+----------+-------------
+ id               | integer                |           |          |         | plain    | 
+ year             | character varying(4)   |           |          |         | extended | 
+ job_no           | character varying(100) |           |          |         | extended | 
+ customer_name    | character varying(255) |           |          |         | extended | 
+ description      | character varying(255) |           |          |         | extended | 
+ overhaul_text    | character varying(255) |           |          |         | extended | 
+ replacement_text | character varying(255) |           |          |         | extended | 
+ service_text     | character varying(255) |           |          |         | extended | 
+ parts_text       | character varying(255) |           |          |         | extended | 
+ product_text     | character varying(255) |           |          |         | extended | 
+ solution_text    | character varying(255) |           |          |         | extended | 
+ overhaul_num     | numeric                |           |          |         | main     | 
+ replacement_num  | numeric                |           |          |         | main     | 
+ service_num      | numeric                |           |          |         | main     | 
+ parts_num        | numeric                |           |          |         | main     | 
+ product_num      | numeric                |           |          |         | main     | 
+ solution_num     | numeric                |           |          |         | main     | 
+ total_revenue    | numeric                |           |          |         | main     | 
+View definition:
+ SELECT s.id,
+    s.year,
+    s.job_no,
+    s.customer_name,
+    s.description,
+    s.overhaul AS overhaul_text,
+    s.replacement AS replacement_text,
+    s.service_contact AS service_text,
+    s.parts_all AS parts_text,
+    s.product_all AS product_text,
+    s.solution AS solution_text,
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.overhaul::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.overhaul::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END AS overhaul_num,
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.replacement::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.replacement::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END AS replacement_num,
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.service_contact::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.service_contact::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END AS service_num,
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.parts_all::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.parts_all::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END AS parts_num,
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.product_all::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.product_all::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END AS product_num,
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.solution::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.solution::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END AS solution_num,
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.overhaul::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.overhaul::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END +
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.replacement::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.replacement::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END +
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.service_contact::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.service_contact::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END +
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.parts_all::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.parts_all::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END +
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.product_all::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.product_all::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END +
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.solution::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.solution::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END AS total_revenue
+   FROM sales s;
+
+
+==== Data of v_sales (10 records) ====
+
+ id | year |      job_no      |            customer_name            |              description               | overhaul_text | replacement_text | service_text | parts_text | product_text | solution_text | overhaul_num | replacement_num | service_num | parts_num | product_num | solution_num | total_revenue 
+----+------+------------------+-------------------------------------+----------------------------------------+---------------+------------------+--------------+------------+--------------+---------------+--------------+-----------------+-------------+-----------+-------------+--------------+---------------
+  1 | 2022 | JAE21-03-005     | คลีนิคประกอบโรคศิลป์ฯ                   | งานบำรุงรักษา Dikin รายปี ศรีสมาน          |               |                  |              |            |              |               |            0 |               0 |           0 |         0 |           0 |            0 |             0
+  2 | 2022 | JAE21-07-009 RV. | คลีนิคประกอบโรคศิลป์ฯ                   | งานบำรุงรักษา ชั้น1,6-8, ชั้นใต้ดิน รายปี  สนง. |               |                  | 24000        |            |              |               |            0 |               0 |       24000 |         0 |           0 |            0 |         24000
+  3 | 2022 | JAE21-10-014     | CLARION  ASIA ( THAILAND ) CO.,LTD. | SERVICE YEARLY   6 Times/year X        |               |                  | 58416.67     |            |              |               |            0 |               0 |    58416.67 |         0 |           0 |            0 |      58416.67
+  4 | 2022 | JAE22-01-001-OV  | CLARION  ASIA ( THAILAND ) CO.,LTD. | OVERHAUL COMP.CH-NO.1,COM.4            |               |                  | 199986       |            |              |               |            0 |               0 |      199986 |         0 |           0 |            0 |        199986
+  5 | 2022 | JAE22-01-002-OV  | CLARION  ASIA ( THAILAND ) CO.,LTD. | OVERHAUL COMP.CH-NO.1,COM.5            |               |                  |              |            |              |               |            0 |               0 |           0 |         0 |           0 |            0 |             0
+  6 | 2022 | JAE22-02-003-RE  | คลีนิคประกอบโรคศิลป์ฯ                   | งานซ่อมเครื่อง Hitachi VRF ชี้นใต้ดิน         | 194845        |                  |              |            |              |               |       194845 |               0 |           0 |         0 |           0 |            0 |        194845
+  7 | 2022 | JAE22-03-004-OV  | CLARION  ASIA ( THAILAND ) CO.,LTD. | OVERHAUL COMP.CH-NO.1,COM.4            | 247095        |                  |              |            |              |               |       247095 |               0 |           0 |         0 |           0 |            0 |        247095
+  8 | 2022 | JAE22-06-005-RE  | คลีนิคประกอบโรคศิลป์ฯ                   | งานซ่อมรั่วเครื่องปรับอากาศ คลังยา ศรีสมาน     |               | 21750            |              |            |              |               |            0 |           21750 |           0 |         0 |           0 |            0 |         21750
+  9 | 2022 | JAE22-08-006-SP  | คลีนิคประกอบโรคศิลป์ฯ                   | ขาย Remote   = 10 ชุด                   | 184590        |                  |              |            |              |               |       184590 |               0 |           0 |         0 |           0 |            0 |        184590
+ 10 | 2022 | JAE22-08-007-OV  | CLARION  ASIA ( THAILAND ) CO.,LTD. | OVERHAUL COMP No.3 / CH-NO.1           |               | 11000            |              |            |              |               |            0 |           11000 |           0 |         0 |           0 |            0 |         11000
+(10 rows)
+
+
+==== Schema of v_spare_part ====
+
+                                     View "public.v_spare_part"
+     Column      |          Type          | Collation | Nullable | Default | Storage  | Description 
+-----------------+------------------------+-----------+----------+---------+----------+-------------
+ id              | integer                |           |          |         | plain    | 
+ wh              | character varying(100) |           |          |         | extended | 
+ product_code    | character varying(100) |           |          |         | extended | 
+ product_name    | character varying(100) |           |          |         | extended | 
+ unit            | character varying(100) |           |          |         | extended | 
+ balance_text    | integer                |           |          |         | plain    | 
+ unit_price_text | character varying(100) |           |          |         | extended | 
+ total_text      | character varying(100) |           |          |         | extended | 
+ balance_num     | numeric                |           |          |         | main     | 
+ unit_price_num  | numeric                |           |          |         | main     | 
+ total_num       | numeric                |           |          |         | main     | 
+ description     | character varying(255) |           |          |         | extended | 
+ received        | character varying(100) |           |          |         | extended | 
+View definition:
+ SELECT spare_part1.id,
+    spare_part1.wh,
+    spare_part1.product_code,
+    spare_part1.product_name,
+    spare_part1.unit,
+    spare_part1.balance AS balance_text,
+    spare_part1.unit_price AS unit_price_text,
+    spare_part1.total AS total_text,
+    COALESCE(spare_part1.balance::numeric, 0::numeric) AS balance_num,
+    COALESCE(spare_part1.unit_price::numeric, 0::numeric) AS unit_price_num,
+    COALESCE(spare_part1.total::numeric, 0::numeric) AS total_num,
+    spare_part1.description,
+    spare_part1.received
+   FROM spare_part spare_part1;
+
+
+==== Data of v_spare_part (10 records) ====
+
+ id |     wh     | product_code |          product_name           | unit | balance_text | unit_price_text | total_text | balance_num | unit_price_num | total_num |                             description                              | received 
+----+------------+--------------+---------------------------------+------+--------------+-----------------+------------+-------------+----------------+-----------+----------------------------------------------------------------------+----------
+  1 | 00 คลังกลาง | 17B27237A    | 17B27237A PRINTED CIRCUIT BOARD | EA   |            1 | 5482.29         | 5482.29    |           1 |        5482.29 |   5482.29 | RAS-24,30 FS5Q  เอ ไอ เอส คอลเซ็นเตอร์ คังเซน บ้านอาจารย์สุภาพรรณ  กรุงเทพฯ | ก่อน2018
+  2 | 00 คลังกลาง | 17B29401A    | 17B29401A MOTOR                 | EA   |            1 | 3222.49         | 3222.49    |           1 |        3222.49 |   3222.49 | RAS-24,30 FS5Q  เอ ไอ เอส คอลเซ็นเตอร์ คังเซน บ้านอาจารย์สุภาพรรณ  กรุงเทพฯ | ก่อน2018
+  3 | 00 คลังกลาง | 17B29701A    | FAN MOTOR (P24385)              | EA   |            1 | 5900            | 5900       |           1 |           5900 |      5900 | SET FREE ไม่ทราบรุ่น 2012-2015                                          | ก่อน2018
+  4 | 00 คลังกลาง | 17B31569A    | TRANSFORMER(P24780)             | EA   |            1 | 4097            | 4097       |           1 |           4097 |      4097 |                                                                      | 43970
+  5 | 00 คลังกลาง | 17B32997C    | 17B32997C PRINTED CIRCUIT BOARD | EA   |            1 | 1368.71         | 1368.71    |           1 |        1368.71 |   1368.71 | SET FREE ไม่ทราบรุ่น 2012-2015                                          | ก่อน2018
+  6 | 00 คลังกลาง | 17B32998H    | 17B32998H PRINTED CIRCUIT BOARD | EA   |            3 | 3968.13         | 11904.39   |           3 |        3968.13 |  11904.39 | SET FREE ไม่ทราบรุ่น 2012-2015                                          | ก่อน2018
+  7 | 00 คลังกลาง | 17B32999E    | 17B32999E PRINTED CIRCUIT BOARD | EA   |            2 | 2936.15         | 5872.3     |           2 |        2936.15 |    5872.3 | SET FREE ไม่ทราบรุ่น 2012-2015                                          | ก่อน2018
+  8 | 00 คลังกลาง | 17B33948B    | 17B33948B PRESSURE SW           | EA   |            1 | 1866.14         | 1866.14    |           1 |        1866.14 |   1866.14 | RAS-24,30 FS5Q  เอ ไอ เอส คอลเซ็นเตอร์ คังเซน บ้านอาจารย์สุภาพรรณ  กรุงเทพฯ | ก่อน2018
+  9 | 00 คลังกลาง | 17B46431G    | PRINTED CIRCUIT BOARD           | PCS  |            1 | 4997            | 4997       |           1 |           4997 |      4997 |                                                                      | ก่อน2018
+ 10 | 00 คลังกลาง | 17C46618C    | 17C46618C SENSOR                | EA   |            1 | 188.22          | 188.22     |           1 |         188.22 |    188.22 | RAS-24,30 FS5Q  เอ ไอ เอส คอลเซ็นเตอร์ คังเซน บ้านอาจารย์สุภาพรรณ  กรุงเทพฯ | ก่อน2018
+(10 rows)
+
+
+==== Schema of v_work_force ====
+
+                                           View "public.v_work_force"
+           Column            |          Type           | Collation | Nullable | Default | Storage  | Description 
+-----------------------------+-------------------------+-----------+----------+---------+----------+-------------
+ id                          | integer                 |           |          |         | plain    | 
+ date                        | date                    |           |          |         | plain    | 
+ customer                    | character varying(1000) |           |          |         | extended | 
+ project                     | character varying(1000) |           |          |         | extended | 
+ job_description_pm          | character varying(100)  |           |          |         | extended | 
+ job_description_replacement | character varying(100)  |           |          |         | extended | 
+ job_description_overhaul    | character varying(255)  |           |          |         | extended | 
+ job_description_start_up    | character varying(100)  |           |          |         | extended | 
+ job_description_support_all | character varying(100)  |           |          |         | extended | 
+ job_description_cpa         | character varying(255)  |           |          |         | extended | 
+ detail                      | character varying(255)  |           |          |         | extended | 
+ duration                    | character varying(255)  |           |          |         | extended | 
+ service_group               | character varying(255)  |           |          |         | extended | 
+ success                     | character varying(100)  |           |          |         | extended | 
+ unsuccessful                | character varying(255)  |           |          |         | extended | 
+ failure_reason              | character varying(255)  |           |          |         | extended | 
+ report_kpi_2_days           | character varying(255)  |           |          |         | extended | 
+ report_over_kpi_2_days      | character varying(255)  |           |          |         | extended | 
+View definition:
+ SELECT twd.id,
+    twd.date,
+    twd.customer,
+    twd.project,
+    twd.job_description_pm,
+    twd.job_description_replacement,
+    twd.job_description_overhaul,
+    twd.job_description_start_up,
+    twd.job_description_support_all,
+    twd.job_description_cpa,
+    twd.detail,
+    twd.duration,
+    twd.service_group,
+    twd.success,
+    twd.unsuccessful,
+    twd.failure_reason,
+    twd.report_kpi_2_days,
+    twd.report_over_kpi_2_days
+   FROM template_workforce_data twd;
+
+
+==== Data of v_work_force (10 records) ====
+
+ id |    date    |               customer               |                  project                   | job_description_pm | job_description_replacement | job_description_overhaul | job_description_start_up | job_description_support_all | job_description_cpa |              detail               | duration |        service_group         | success | unsuccessful | failure_reason | report_kpi_2_days | report_over_kpi_2_days 
+----+------------+--------------------------------------+--------------------------------------------+--------------------+-----------------------------+--------------------------+--------------------------+-----------------------------+---------------------+-----------------------------------+----------+------------------------------+---------+--------------+----------------+-------------------+------------------------
+  1 | 2025-01-07 | บริษัท บิลเลี่ยน แอร์ เอ็นเตอร์ไพร์ส จำกัด     | บริษัท ไทยนำโพลีแพค จำกัด จ.สมุทรสาคร           |                    |                             |                          | งาน Start Up             |                             |                     | START UP                          |          | อานนท์ ทวิชชัย อนุรักษ์            | สำเร็จ   |              |                |                   | 
+  2 | 2025-01-07 | SADESA (THAILAND) CO.,LTD            | ซาเดซ่า อยุธยา                               |                    | งานซ่อม                      |                          |                          |                             |                     | ถ่ายน้ำมัน ครั้งที่ 3/6                  |          | อนุรักษ์ ทวิชชัย ปกรณ์             | สำเร็จ   |              |                |                   | 
+  3 | 2025-04-07 | สำนักเทคโนโลยีสารสนเทศ มหาวิทยาลัยขอนแก่น | ม.ขอนแก่น                                   | งานบำรุงรักษา        |                             |                          |                          |                             |                     | งานบำรุงรักษารายปีครั้งที่ 2/3           |          | สุพรรณ จักรกริศน์ อวยชัย          | สำเร็จ   |              |                |                   | 
+  4 | 2025-02-07 | บมจ.ควอลิตี้คอนสตรัคชั่นโปรดัคส์ บางปะอิน     |                                            |                    |                             |                          |                          | งาน Support ฝ่ายขาย          |                     | เทรนนิ่งการใช้งานเครื่อง               |          | อานนท์                        | สำเร็จ   |              |                |                   | 
+  5 | 2025-04-07 | บริษัท เอเล็ตโต้(ประเทศไทย)จำกัด          |                                            |                    | งานซ่อม                      |                          |                          |                             |                     | เปลี่ยน บอร์ด CPU และ Sensor         |          | อนุรักษ์ ปกรณ์ ทวิชัย              | สำเร็จ   |              |                |                   | 
+  6 | 2025-03-07 | บริษัท สหกลอิควิปเมนท์ จำกัด (มหาชน)       |                                            |                    | งานซ่อม                      |                          |                          |                             |                     | เปลี่ยนมอเตอร์ ชั้น 5 ห้อง IT           |          | สุพรรณ จักรกริศน์ อวยชัย          | สำเร็จ   |              |                |                   | 
+  7 | 2025-04-07 | บริษัทเมนลี่ ซิลเวอร์ ดีไซน์ จำกัด            |                                            |                    | งานซ่อม                      |                          |                          |                             |                     | ถ่ายน้ำมัน CH-1 Comp.1               |          | เปรม อำนาจ วโรทร             | สำเร็จ   |              |                |                   | 
+  8 | 2025-06-07 | แคลเรียล เอเชีย                        |                                            |                    | งานซ่อม                      |                          |                          |                             |                     | เปลี่ยนสายพาน OAU และเก็บสายไฟContro |          | อนุรักษ์ ทวิชชัย อำนาจ วโรทร      | สำเร็จ   |              |                |                   | 
+  9 | 2025-05-07 | บริษัท อินสแตนท์ ดักส์ ซัพพลาย จำกัด         | PJ. บริษัท พรีเมียร์สตาร์ช จำกัด (มหาชน)  มุกดาหาร | งานบำรุงรักษา        |                             |                          |                          |                             |                     | งานบำรุงรักษาในประกัน                |          | สุพรรณ จักรกริศน์ อวยชัย          | สำเร็จ   |              |                |                   | 
+ 10 | 2025-12-07 | บริษัทเอส.เอ็น.ดีเวลล้อปเม้นท์ จำกัด         | อาซาฮี                                      |                    | งานซ่อม                      |                          |                          |                             |                     | เปลี่ยนคอม                          |          | อนุรักษ์ อำนาจ วโรทร ปกรณ์ ทวิชชัย | สำเร็จ   |              |                |                   | 
+(10 rows)
+
+
+==== Schema of v_sales ====
+
+                                        View "public.v_sales"
+      Column      |          Type          | Collation | Nullable | Default | Storage  | Description 
+------------------+------------------------+-----------+----------+---------+----------+-------------
+ id               | integer                |           |          |         | plain    | 
+ year             | character varying(4)   |           |          |         | extended | 
+ month            | character varying(4)   |           |          |         | extended | 
+ job_no           | character varying(100) |           |          |         | extended | 
+ customer_name    | character varying(255) |           |          |         | extended | 
+ description      | character varying(255) |           |          |         | extended | 
+ overhaul_text    | character varying(255) |           |          |         | extended | 
+ replacement_text | character varying(255) |           |          |         | extended | 
+ service_text     | character varying(255) |           |          |         | extended | 
+ parts_text       | character varying(255) |           |          |         | extended | 
+ product_text     | character varying(255) |           |          |         | extended | 
+ solution_text    | character varying(255) |           |          |         | extended | 
+ overhaul_num     | numeric                |           |          |         | main     | 
+ replacement_num  | numeric                |           |          |         | main     | 
+ service_num      | numeric                |           |          |         | main     | 
+ parts_num        | numeric                |           |          |         | main     | 
+ product_num      | numeric                |           |          |         | main     | 
+ solution_num     | numeric                |           |          |         | main     | 
+ total_revenue    | numeric                |           |          |         | main     | 
+View definition:
+ SELECT s.id,
+    s.year,
+    s.month,
+    s.job_no,
+    s.customer_name,
+    s.description,
+    s.overhaul AS overhaul_text,
+    s.replacement AS replacement_text,
+    s.service_contact AS service_text,
+    s.parts_all AS parts_text,
+    s.product_all AS product_text,
+    s.solution AS solution_text,
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.overhaul::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.overhaul::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END AS overhaul_num,
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.replacement::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.replacement::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END AS replacement_num,
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.service_contact::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.service_contact::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END AS service_num,
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.parts_all::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.parts_all::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END AS parts_num,
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.product_all::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.product_all::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END AS product_num,
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.solution::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.solution::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END AS solution_num,
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.overhaul::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.overhaul::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END +
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.replacement::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.replacement::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END +
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.service_contact::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.service_contact::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END +
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.parts_all::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.parts_all::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END +
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.product_all::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.product_all::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END +
+        CASE
+            WHEN NULLIF(regexp_replace(TRIM(BOTH FROM s.solution::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text) ~ '^-?\d+(\.\d+)?$'::text THEN NULLIF(regexp_replace(TRIM(BOTH FROM s.solution::text), '[^0-9.\-]'::text, ''::text, 'g'::text), ''::text)::numeric
+            ELSE 0::numeric
+        END AS total_revenue
+   FROM sales s;
+
+
+==== Data of v_sales (10 records) ====
+
+ id | year | month |      job_no      |            customer_name            |              description               | overhaul_text | replacement_text | service_text | parts_text | product_text | solution_text | overhaul_num | replacement_num | service_num | parts_num | product_num | solution_num | total_revenue 
+----+------+-------+------------------+-------------------------------------+----------------------------------------+---------------+------------------+--------------+------------+--------------+---------------+--------------+-----------------+-------------+-----------+-------------+--------------+---------------
+  1 | 2022 |       | JAE21-03-005     | คลีนิคประกอบโรคศิลป์ฯ                   | งานบำรุงรักษา Dikin รายปี ศรีสมาน          |               |                  |              |            |              |               |            0 |               0 |           0 |         0 |           0 |            0 |             0
+  2 | 2022 |       | JAE21-07-009 RV. | คลีนิคประกอบโรคศิลป์ฯ                   | งานบำรุงรักษา ชั้น1,6-8, ชั้นใต้ดิน รายปี  สนง. |               |                  | 24000        |            |              |               |            0 |               0 |       24000 |         0 |           0 |            0 |         24000
+  3 | 2022 |       | JAE21-10-014     | CLARION  ASIA ( THAILAND ) CO.,LTD. | SERVICE YEARLY   6 Times/year X        |               |                  | 58416.67     |            |              |               |            0 |               0 |    58416.67 |         0 |           0 |            0 |      58416.67
+  4 | 2022 |       | JAE22-01-001-OV  | CLARION  ASIA ( THAILAND ) CO.,LTD. | OVERHAUL COMP.CH-NO.1,COM.4            |               |                  | 199986       |            |              |               |            0 |               0 |      199986 |         0 |           0 |            0 |        199986
+  5 | 2022 |       | JAE22-01-002-OV  | CLARION  ASIA ( THAILAND ) CO.,LTD. | OVERHAUL COMP.CH-NO.1,COM.5            |               |                  |              |            |              |               |            0 |               0 |           0 |         0 |           0 |            0 |             0
+  6 | 2022 |       | JAE22-02-003-RE  | คลีนิคประกอบโรคศิลป์ฯ                   | งานซ่อมเครื่อง Hitachi VRF ชี้นใต้ดิน         | 194845        |                  |              |            |              |               |       194845 |               0 |           0 |         0 |           0 |            0 |        194845
+  7 | 2022 |       | JAE22-03-004-OV  | CLARION  ASIA ( THAILAND ) CO.,LTD. | OVERHAUL COMP.CH-NO.1,COM.4            | 247095        |                  |              |            |              |               |       247095 |               0 |           0 |         0 |           0 |            0 |        247095
+  8 | 2022 |       | JAE22-06-005-RE  | คลีนิคประกอบโรคศิลป์ฯ                   | งานซ่อมรั่วเครื่องปรับอากาศ คลังยา ศรีสมาน     |               | 21750            |              |            |              |               |            0 |           21750 |           0 |         0 |           0 |            0 |         21750
+  9 | 2022 |       | JAE22-08-006-SP  | คลีนิคประกอบโรคศิลป์ฯ                   | ขาย Remote   = 10 ชุด                   | 184590        |                  |              |            |              |               |       184590 |               0 |           0 |         0 |           0 |            0 |        184590
+ 10 | 2022 |       | JAE22-08-007-OV  | CLARION  ASIA ( THAILAND ) CO.,LTD. | OVERHAUL COMP No.3 / CH-NO.1           |               | 11000            |              |            |              |               |            0 |           11000 |           0 |         0 |           0 |            0 |         11000
+(10 rows)
+
+
+==== Schema of v_spare_part ====
+
+                                     View "public.v_spare_part"
+     Column      |          Type          | Collation | Nullable | Default | Storage  | Description 
+-----------------+------------------------+-----------+----------+---------+----------+-------------
+ id              | integer                |           |          |         | plain    | 
+ wh              | character varying(100) |           |          |         | extended | 
+ product_code    | character varying(100) |           |          |         | extended | 
+ product_name    | character varying(100) |           |          |         | extended | 
+ unit            | character varying(100) |           |          |         | extended | 
+ balance_text    | integer                |           |          |         | plain    | 
+ unit_price_text | character varying(100) |           |          |         | extended | 
+ total_text      | character varying(100) |           |          |         | extended | 
+ balance_num     | numeric                |           |          |         | main     | 
+ unit_price_num  | numeric                |           |          |         | main     | 
+ total_num       | numeric                |           |          |         | main     | 
+ description     | character varying(255) |           |          |         | extended | 
+ received        | character varying(100) |           |          |         | extended | 
+View definition:
+ SELECT spare_part1.id,
+    spare_part1.wh,
+    spare_part1.product_code,
+    spare_part1.product_name,
+    spare_part1.unit,
+    spare_part1.balance AS balance_text,
+    spare_part1.unit_price AS unit_price_text,
+    spare_part1.total AS total_text,
+    COALESCE(spare_part1.balance::numeric, 0::numeric) AS balance_num,
+    COALESCE(spare_part1.unit_price::numeric, 0::numeric) AS unit_price_num,
+    COALESCE(spare_part1.total::numeric, 0::numeric) AS total_num,
+    spare_part1.description,
+    spare_part1.received
+   FROM spare_part spare_part1;
+
+
+==== Data of v_spare_part (10 records) ====
+
+ id |     wh     | product_code |          product_name           | unit | balance_text | unit_price_text | total_text | balance_num | unit_price_num | total_num |                             description                              | received 
+----+------------+--------------+---------------------------------+------+--------------+-----------------+------------+-------------+----------------+-----------+----------------------------------------------------------------------+----------
+  1 | 00 คลังกลาง | 17B27237A    | 17B27237A PRINTED CIRCUIT BOARD | EA   |            1 | 5482.29         | 5482.29    |           1 |        5482.29 |   5482.29 | RAS-24,30 FS5Q  เอ ไอ เอส คอลเซ็นเตอร์ คังเซน บ้านอาจารย์สุภาพรรณ  กรุงเทพฯ | ก่อน2018
+  2 | 00 คลังกลาง | 17B29401A    | 17B29401A MOTOR                 | EA   |            1 | 3222.49         | 3222.49    |           1 |        3222.49 |   3222.49 | RAS-24,30 FS5Q  เอ ไอ เอส คอลเซ็นเตอร์ คังเซน บ้านอาจารย์สุภาพรรณ  กรุงเทพฯ | ก่อน2018
+  3 | 00 คลังกลาง | 17B29701A    | FAN MOTOR (P24385)              | EA   |            1 | 5900            | 5900       |           1 |           5900 |      5900 | SET FREE ไม่ทราบรุ่น 2012-2015                                          | ก่อน2018
+  4 | 00 คลังกลาง | 17B31569A    | TRANSFORMER(P24780)             | EA   |            1 | 4097            | 4097       |           1 |           4097 |      4097 |                                                                      | 43970
+  5 | 00 คลังกลาง | 17B32997C    | 17B32997C PRINTED CIRCUIT BOARD | EA   |            1 | 1368.71         | 1368.71    |           1 |        1368.71 |   1368.71 | SET FREE ไม่ทราบรุ่น 2012-2015                                          | ก่อน2018
+  6 | 00 คลังกลาง | 17B32998H    | 17B32998H PRINTED CIRCUIT BOARD | EA   |            3 | 3968.13         | 11904.39   |           3 |        3968.13 |  11904.39 | SET FREE ไม่ทราบรุ่น 2012-2015                                          | ก่อน2018
+  7 | 00 คลังกลาง | 17B32999E    | 17B32999E PRINTED CIRCUIT BOARD | EA   |            2 | 2936.15         | 5872.3     |           2 |        2936.15 |    5872.3 | SET FREE ไม่ทราบรุ่น 2012-2015                                          | ก่อน2018
+  8 | 00 คลังกลาง | 17B33948B    | 17B33948B PRESSURE SW           | EA   |            1 | 1866.14         | 1866.14    |           1 |        1866.14 |   1866.14 | RAS-24,30 FS5Q  เอ ไอ เอส คอลเซ็นเตอร์ คังเซน บ้านอาจารย์สุภาพรรณ  กรุงเทพฯ | ก่อน2018
+  9 | 00 คลังกลาง | 17B46431G    | PRINTED CIRCUIT BOARD           | PCS  |            1 | 4997            | 4997       |           1 |           4997 |      4997 |                                                                      | ก่อน2018
+ 10 | 00 คลังกลาง | 17C46618C    | 17C46618C SENSOR                | EA   |            1 | 188.22          | 188.22     |           1 |         188.22 |    188.22 | RAS-24,30 FS5Q  เอ ไอ เอส คอลเซ็นเตอร์ คังเซน บ้านอาจารย์สุภาพรรณ  กรุงเทพฯ | ก่อน2018
+(10 rows)
+
+
+==== Schema of v_work_force ====
+
+                                           View "public.v_work_force"
+           Column            |          Type           | Collation | Nullable | Default | Storage  | Description 
+-----------------------------+-------------------------+-----------+----------+---------+----------+-------------
+ id                          | integer                 |           |          |         | plain    | 
+ date                        | date                    |           |          |         | plain    | 
+ customer                    | character varying(1000) |           |          |         | extended | 
+ project                     | character varying(1000) |           |          |         | extended | 
+ job_description_pm          | character varying(100)  |           |          |         | extended | 
+ job_description_replacement | character varying(100)  |           |          |         | extended | 
+ job_description_overhaul    | character varying(255)  |           |          |         | extended | 
+ job_description_start_up    | character varying(100)  |           |          |         | extended | 
+ job_description_support_all | character varying(100)  |           |          |         | extended | 
+ job_description_cpa         | character varying(255)  |           |          |         | extended | 
+ detail                      | character varying(255)  |           |          |         | extended | 
+ duration                    | character varying(255)  |           |          |         | extended | 
+ service_group               | character varying(255)  |           |          |         | extended | 
+ success                     | character varying(100)  |           |          |         | extended | 
+ unsuccessful                | character varying(255)  |           |          |         | extended | 
+ failure_reason              | character varying(255)  |           |          |         | extended | 
+ report_kpi_2_days           | character varying(255)  |           |          |         | extended | 
+ report_over_kpi_2_days      | character varying(255)  |           |          |         | extended | 
+View definition:
+ SELECT twd.id,
+    twd.date,
+    twd.customer,
+    twd.project,
+    twd.job_description_pm,
+    twd.job_description_replacement,
+    twd.job_description_overhaul,
+    twd.job_description_start_up,
+    twd.job_description_support_all,
+    twd.job_description_cpa,
+    twd.detail,
+    twd.duration,
+    twd.service_group,
+    twd.success,
+    twd.unsuccessful,
+    twd.failure_reason,
+    twd.report_kpi_2_days,
+    twd.report_over_kpi_2_days
+   FROM template_workforce_data twd;
+
+
+==== Data of v_work_force (10 records) ====
+
+ id |    date    |               customer               |                  project                   | job_description_pm | job_description_replacement | job_description_overhaul | job_description_start_up | job_description_support_all | job_description_cpa |              detail               | duration |        service_group         | success | unsuccessful | failure_reason | report_kpi_2_days | report_over_kpi_2_days 
+----+------------+--------------------------------------+--------------------------------------------+--------------------+-----------------------------+--------------------------+--------------------------+-----------------------------+---------------------+-----------------------------------+----------+------------------------------+---------+--------------+----------------+-------------------+------------------------
+  1 | 2025-01-07 | บริษัท บิลเลี่ยน แอร์ เอ็นเตอร์ไพร์ส จำกัด     | บริษัท ไทยนำโพลีแพค จำกัด จ.สมุทรสาคร           |                    |                             |                          | งาน Start Up             |                             |                     | START UP                          |          | อานนท์ ทวิชชัย อนุรักษ์            | สำเร็จ   |              |                |                   | 
+  2 | 2025-01-07 | SADESA (THAILAND) CO.,LTD            | ซาเดซ่า อยุธยา                               |                    | งานซ่อม                      |                          |                          |                             |                     | ถ่ายน้ำมัน ครั้งที่ 3/6                  |          | อนุรักษ์ ทวิชชัย ปกรณ์             | สำเร็จ   |              |                |                   | 
+  3 | 2025-04-07 | สำนักเทคโนโลยีสารสนเทศ มหาวิทยาลัยขอนแก่น | ม.ขอนแก่น                                   | งานบำรุงรักษา        |                             |                          |                          |                             |                     | งานบำรุงรักษารายปีครั้งที่ 2/3           |          | สุพรรณ จักรกริศน์ อวยชัย          | สำเร็จ   |              |                |                   | 
+  4 | 2025-02-07 | บมจ.ควอลิตี้คอนสตรัคชั่นโปรดัคส์ บางปะอิน     |                                            |                    |                             |                          |                          | งาน Support ฝ่ายขาย          |                     | เทรนนิ่งการใช้งานเครื่อง               |          | อานนท์                        | สำเร็จ   |              |                |                   | 
+  5 | 2025-04-07 | บริษัท เอเล็ตโต้(ประเทศไทย)จำกัด          |                                            |                    | งานซ่อม                      |                          |                          |                             |                     | เปลี่ยน บอร์ด CPU และ Sensor         |          | อนุรักษ์ ปกรณ์ ทวิชัย              | สำเร็จ   |              |                |                   | 
+  6 | 2025-03-07 | บริษัท สหกลอิควิปเมนท์ จำกัด (มหาชน)       |                                            |                    | งานซ่อม                      |                          |                          |                             |                     | เปลี่ยนมอเตอร์ ชั้น 5 ห้อง IT           |          | สุพรรณ จักรกริศน์ อวยชัย          | สำเร็จ   |              |                |                   | 
+  7 | 2025-04-07 | บริษัทเมนลี่ ซิลเวอร์ ดีไซน์ จำกัด            |                                            |                    | งานซ่อม                      |                          |                          |                             |                     | ถ่ายน้ำมัน CH-1 Comp.1               |          | เปรม อำนาจ วโรทร             | สำเร็จ   |              |                |                   | 
+  8 | 2025-06-07 | แคลเรียล เอเชีย                        |                                            |                    | งานซ่อม                      |                          |                          |                             |                     | เปลี่ยนสายพาน OAU และเก็บสายไฟContro |          | อนุรักษ์ ทวิชชัย อำนาจ วโรทร      | สำเร็จ   |              |                |                   | 
+  9 | 2025-05-07 | บริษัท อินสแตนท์ ดักส์ ซัพพลาย จำกัด         | PJ. บริษัท พรีเมียร์สตาร์ช จำกัด (มหาชน)  มุกดาหาร | งานบำรุงรักษา        |                             |                          |                          |                             |                     | งานบำรุงรักษาในประกัน                |          | สุพรรณ จักรกริศน์ อวยชัย          | สำเร็จ   |              |                |                   | 
+ 10 | 2025-12-07 | บริษัทเอส.เอ็น.ดีเวลล้อปเม้นท์ จำกัด         | อาซาฮี                                      |                    | งานซ่อม                      |                          |                          |                             |                     | เปลี่ยนคอม                          |          | อนุรักษ์ อำนาจ วโรทร ปกรณ์ ทวิชชัย | สำเร็จ   |              |                |                   | 
+(10 rows)
+

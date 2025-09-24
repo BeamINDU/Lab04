@@ -36,7 +36,7 @@ class ProxyConfig:
         self.use_n8n_workflow = os.getenv('USE_N8N_WORKFLOW', 'false').lower() == 'true'
         self.n8n_base_url = os.getenv('N8N_BASE_URL', 'http://13.250.235.228:5678')  # ใช้ชื่อ container
         self.n8n_webhook_path = 'webhook/siamtemp-chat'  # path ของ webhook ใน n8n
-        self.n8n_timeout = int(os.getenv('N8N_TIMEOUT', '60'))
+        self.n8n_timeout = int(os.getenv('N8N_TIMEOUT', '600'))
         self.n8n_fallback_to_direct = os.getenv('N8N_FALLBACK_TO_DIRECT', 'true').lower() == 'true'
         self.block_system_prompts = os.getenv('BLOCK_SYSTEM_PROMPTS', 'true').lower() == 'true'
         # Tenant configurations
@@ -149,7 +149,7 @@ async def call_main_service(endpoint: str, payload: dict, stream: bool = False):
                     url,
                     json=payload,
                     headers={"Content-Type": "application/json"},
-                    timeout=aiohttp.ClientTimeout(total=60)
+                    timeout=aiohttp.ClientTimeout(total=600)
                 ) as response:
                     if response.status == 200:
                         result = await response.json()

@@ -80,7 +80,7 @@ class ServiceConfig:
         
         # Rate limiting
         self.rate_limit_enabled = os.getenv('RATE_LIMIT_ENABLED', 'false').lower() == 'true'
-        self.max_requests_per_minute = int(os.getenv('MAX_REQUESTS_PER_MINUTE', '60'))
+        self.max_requests_per_minute = int(os.getenv('MAX_REQUESTS_PER_MINUTE', '600'))
         
         # Model settings
         self.sql_model = os.getenv('SQL_MODEL', 'llama3.1:8b')

@@ -250,6 +250,12 @@ class ImprovedIntentDetector:
         """
         question_lower = question.lower().strip()
         
+        if 'cpa' in question_lower and 'งาน' in question_lower:
+            return {'intent': 'cpa_work', 'confidence': 0.95, 'entities': {}}
+        if 'pm' in question_lower and 'งาน' in question_lower:
+            return {'intent': 'pm_work', 'confidence': 0.90, 'entities': {}}
+        if 'overhaul' in question_lower and 'งาน' in question_lower:
+            return {'intent': 'work_overhaul', 'confidence': 0.90, 'entities': {}}
         # Preprocess question
         processed_question = self._preprocess_question(question_lower)
         

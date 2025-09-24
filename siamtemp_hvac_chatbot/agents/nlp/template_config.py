@@ -324,7 +324,7 @@ class TemplateConfig:
         'work_monthly': {
             'table': 'v_work_force',
             'complexity': 'NORMAL',
-            'keywords': ['งานรายเดือน', 'งานเดือน', 'monthly work', 'แผนงานเดือน'],
+            'keywords': ['งานที่วางแผน','แผนงาน','งานรายเดือน', 'งานเดือน', 'monthly work', 'แผนงานเดือน'],
             'has_subquery': False,
             'has_not_in': False,
             'year_adjustment': 'none',
