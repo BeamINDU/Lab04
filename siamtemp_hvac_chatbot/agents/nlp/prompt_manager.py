@@ -2372,6 +2372,20 @@ class PromptManager:
             
             # Convert Buddhist Era years in question
             question = re.sub(r'\b25[67]\d\b', lambda m: str(int(m.group())-543), question)
+            
+            # ============================================
+            # 🔧 FIX 1: CUSTOMER NAME OPTIMIZATION
+            # ============================================
+            original_question = question  # Keep original for logging
+            
+            # If we have customer entities, optimize the question
+            if entities.get('customers'):
+                question = self._optimize_customer_in_question(question, entities)
+                logger.info(f"🔄 Question optimized: '{original_question}' -> '{question}'")
+            
+            # ============================================
+            # EMPLOYEE EXTRACTION
+            # ============================================
             employees = self._extract_employees(question)
             if employees:
                 # Clean up employee names
@@ -2444,6 +2458,176 @@ class PromptManager:
             
             logger.info(f"Selected SQL example: {example_name} for table {target_table}")
             
+            # เพิ่มหลังบรรทัด 103 ใน build_sql_prompt()
+
+            TEMPLATE_TABLE_OVERRIDE = {
+                # ========================================
+                # V_SALES TEMPLATES (ยอดขาย/รายได้)
+                # ========================================
+                'total_revenue_all': 'v_sales',
+                'total_revenue_year': 'v_sales',
+                'revenue_by_year': 'v_sales',
+                'revenue_by_service_type': 'v_sales',
+                'compare_revenue_years': 'v_sales',
+                'year_comparison': 'v_sales',
+                'average_annual_revenue': 'v_sales',
+                'year_max_revenue': 'v_sales',
+                'year_min_revenue': 'v_sales',
+                
+                # Sales Analysis
+                'sales_analysis': 'v_sales',
+                'sales_summary': 'v_sales',
+                'sales_monthly': 'v_sales',
+                'sales_by_month': 'v_sales',
+                
+                # Overhaul Sales
+                'overhaul_sales_specific': 'v_sales',
+                'overhaul_sales': 'v_sales',
+                'overhaul_total': 'v_sales',
+                'overhaul_sales_all': 'v_sales',
+                'overhaul_report': 'v_sales',
+                
+                # Service/Parts Sales
+                'service_revenue': 'v_sales',
+                'service_num': 'v_sales',
+                'parts_total': 'v_sales',
+                'replacement_total': 'v_sales',
+                'product_sales': 'v_sales',
+                'solution_sales': 'v_sales',
+                
+                # Work Value/Amount
+                'max_value_work': 'v_sales',
+                'min_value_work': 'v_sales',
+                'average_revenue_per_job': 'v_sales',
+                'high_value_transactions': 'v_sales',
+                'low_value_transactions': 'v_sales',
+                
+                # Customer Sales
+                'customer_history': 'v_sales',  # Purchase history
+                'customer_sales': 'v_sales',
+                'customer_revenue': 'v_sales',
+                'customer_specific_history': 'v_sales',
+                'top_customers': 'v_sales',
+                'frequent_customers': 'v_sales',
+                'new_customers_year': 'v_sales',
+                'new_customers_in_year': 'v_sales',
+                'inactive_customers': 'v_sales',
+                'customers_using_overhaul': 'v_sales',
+                'continuous_customers': 'v_sales',
+                'customers_continuous_years': 'v_sales',
+                'customer_years_count': 'v_sales',
+                
+                # Customer Counts
+                'count_total_customers': 'v_sales',
+                'count_all_jobs': 'v_sales',
+                'count_jobs_year': 'v_sales',
+                
+                # Government/Private
+                'government_customers': 'v_sales',
+                'private_customers': 'v_sales',
+                
+                # ========================================
+                # V_WORK_FORCE TEMPLATES (งาน/การทำงาน)
+                # ========================================
+                'work_monthly': 'v_work_force',
+                'work_daily': 'v_work_force',
+                'work_summary': 'v_work_force',
+                'work_summary_monthly': 'v_work_force',
+                'work_force_base': 'v_work_force',
+                'work_specific_month': 'v_work_force',
+                'latest_works': 'v_work_force',
+                
+                # Work Types
+                'work_overhaul': 'v_work_force',
+                'work_replacement': 'v_work_force',
+                'work_service': 'v_work_force',
+                'all_pm_works': 'v_work_force',
+                'pm_work': 'v_work_force',
+                
+                # Work Status
+                'successful_works': 'v_work_force',
+                'unsuccessful_works': 'v_work_force',
+                'completed_work': 'v_work_force',
+                'pending_work': 'v_work_force',
+                
+                # Team/Employee
+                'employee_work_history': 'v_work_force',
+                'employee_monthly': 'v_work_force',
+                'team_works': 'v_work_force',
+                'work_team_specific': 'v_work_force',
+                'team_a_works': 'v_work_force',
+                'service_group_search': 'v_work_force',
+                
+                # Repair/Service History
+                'repair_history': 'v_work_force',
+                'customer_repair_history': 'v_work_force',
+                'service_history': 'v_work_force',
+                'maintenance_history': 'v_work_force',
+                
+                # Special Work
+                'cpa_works': 'v_work_force',
+                'government_work': 'v_work_force',
+                'project_work': 'v_work_force',
+                'work_duration': 'v_work_force',
+                
+                # Work Counts
+                'count_all_works': 'v_work_force',
+                
+                # ========================================
+                # V_SPARE_PART TEMPLATES (อะไหล่/สต๊อก)
+                # ========================================
+                'spare_parts_stock': 'v_spare_part',
+                'spare_parts_price': 'v_spare_part',
+                'spare_parts_all': 'v_spare_part',
+                'spare_parts_search': 'v_spare_part',
+                'inventory_check': 'v_spare_part',
+                'inventory_value': 'v_spare_part',
+                'warehouse_summary': 'v_spare_part',
+                'stock_balance': 'v_spare_part',
+                'low_stock_items': 'v_spare_part',
+                'out_of_stock': 'v_spare_part',
+                'parts_by_warehouse': 'v_spare_part',
+                'parts_total_value': 'v_spare_part',
+                
+                # ========================================
+                # BASIC/FALLBACK TEMPLATES
+                # ========================================
+                'basic_query': None,  # Depends on context
+                'simple_select': None,  # Depends on context
+                'custom': None,  # Custom query
+            }
+
+            # Check if template requires specific table
+            if example_name in TEMPLATE_TABLE_OVERRIDE:
+                required_table = TEMPLATE_TABLE_OVERRIDE[example_name]
+                
+                # Only override if we have a specific requirement
+                if required_table and target_table != required_table:
+                    logger.warning(f"🔧 OVERRIDE: Template '{example_name}' requires table '{required_table}' (was: {target_table})")
+                    target_table = required_table
+                    
+                    # Update intent for consistency
+                    if required_table == 'v_sales':
+                        if 'overhaul' in example_name:
+                            intent = 'overhaul_sales'
+                        elif 'customer' in example_name:
+                            intent = 'customer_analysis'
+                        else:
+                            intent = 'sales'
+                            
+                    elif required_table == 'v_work_force':
+                        if 'overhaul' in example_name:
+                            intent = 'work_overhaul'
+                        elif 'employee' in example_name:
+                            intent = 'employee_work'
+                        else:
+                            intent = 'work_force'
+                            
+                    elif required_table == 'v_spare_part':
+                        intent = 'spare_parts'
+                    
+                    logger.info(f"✅ Final configuration: table={target_table}, intent={intent}")
+        
             # ============================================
             # GET TEMPLATE CONFIGURATION
             # ============================================
@@ -2461,6 +2645,14 @@ class PromptManager:
             logger.info(f"Template complexity: {complexity}")
             
             # ============================================
+            # 🔧 FIX 2: CUSTOMER KEYWORD INJECTION
+            # ============================================
+            
+            # Modify example to use customer keyword if applicable
+            if entities.get('customers') and 'customer' in example_name.lower():
+                example = self._inject_customer_keyword(example, entities)
+            
+            # ============================================
             # HANDLE BASED ON COMPLEXITY
             # ============================================
             
@@ -2475,8 +2667,8 @@ class PromptManager:
                         example, entities, question_lower
                     )
                 
-                return self._build_complex_prompt(
-                    modified_example, question, intent, template_config
+                return self._build_complex_prompt_with_customer_hint(
+                    modified_example, question, intent, template_config, entities
                 )
             
             # CASE 2: EXACT TEMPLATES
@@ -2493,7 +2685,7 @@ class PromptManager:
                 if template_config.get('year_adjustment') == 'simple' and entities.get('years'):
                     modified_example = self._apply_simple_year_adjustment(example, entities)
                 
-                return self._build_normal_prompt(
+                return self._build_normal_prompt_with_customer_hint(
                     modified_example, question, intent, entities, target_table
                 )
                 
@@ -2503,13 +2695,164 @@ class PromptManager:
             logger.error(traceback.format_exc())
             return self._get_fallback_prompt(question)
 
+    # ============================================
+    # 🆕 HELPER METHODS FOR CUSTOMER OPTIMIZATION
+    # ============================================
 
-    def _apply_smart_year_adjustment(self, template: str, entities: Dict, 
-                                    question_lower: str) -> str:
-        """Apply smart year adjustment for complex templates"""
-        if not entities.get('years'):
-            return template
+    def _optimize_customer_in_question(self, question: str, entities: Dict) -> str:
+        """
+        Replace long company names with keywords in the question
+        This is the ROOT CAUSE FIX!
+        """
+        if not entities.get('customers'):
+            return question
+        
+        modified = question
+        
+        # Get the best keyword
+        keyword = self._get_best_customer_keyword(entities['customers'])
+        
+        # Known long names to replace
+        replacements = {
+            'บริษัทบิโก้ ปราจีนบุรี (ไทยแลนด์) จำกัด': 'บิโก้',
+            'บริษัท ซีพี ออลล์ จำกัด (มหาชน)': 'ซีพี',
+            'บริษัท สยามแม็คโคร จำกัด (มหาชน)': 'แม็คโคร',
+            'บริษัท เซ็นทรัล รีเทล คอร์ปอเรชั่น จำกัด (มหาชน)': 'เซ็นทรัล',
+            'บริษัท โฮม โปรดักส์ เซ็นเตอร์ จำกัด (มหาชน)': 'โฮมโปร',
+        }
+        
+        # Replace known long names
+        for long_name, short_name in replacements.items():
+            if long_name in modified:
+                modified = modified.replace(long_name, short_name)
+                logger.info(f"🔄 Replaced '{long_name}' with '{short_name}'")
+        
+        # Generic pattern replacement
+        patterns = [
+            r'บริษัท[^จ]{10,}(?:จำกัด|จก\.)',
+            r'บ\.[^จ]{10,}(?:จำกัด|จก\.)',
+            r'หจก\.[^ม]{10,}',
+            r'บมจ\.[^ม]{10,}',
+        ]
+        
+        for pattern in patterns:
+            matches = re.findall(pattern, modified)
+            for match in matches:
+                if len(match) > 20:  # Only replace long names
+                    modified = modified.replace(match, keyword)
+                    logger.info(f"🔄 Replaced long name with '{keyword}'")
+        
+        return modified
+
+    def _get_best_customer_keyword(self, customers: List[str]) -> str:
+        """
+        Select the best keyword from customer list
+        """
+        if not customers:
+            return ""
+        
+        # Priority 1: Known keywords
+        known_keywords = ['บิโก้', 'โลตัส', 'แม็คโคร', 'ซีพี', 'เซ็นทรัล', 'โฮมโปร']
+        for customer in customers:
+            for keyword in known_keywords:
+                if keyword in customer:
+                    return keyword
+        
+        # Priority 2: Shortest clean name
+        cleaned = []
+        for customer in customers:
+            # Remove company markers
+            clean = customer
+            for marker in ['บริษัท', 'บ.', 'จำกัด', 'จก.', 'มหาชน', '(ไทยแลนด์)', '(ประเทศไทย)']:
+                clean = clean.replace(marker, '').strip()
             
+            if clean and len(clean) > 2:
+                cleaned.append(clean)
+        
+        if cleaned:
+            return min(cleaned, key=len)
+        
+        # Priority 3: Shortest original
+        return min(customers, key=len)
+
+    def _inject_customer_keyword(self, example: str, entities: Dict) -> str:
+        """
+        Inject customer keyword into SQL template
+        """
+        if not entities.get('customers'):
+            return example
+        
+        keyword = self._get_best_customer_keyword(entities['customers'])
+        
+        # Replace placeholder patterns
+        patterns = [
+            (r"customer_name LIKE '%[^'%]{15,}%'", f"customer_name LIKE '%{keyword}%'"),
+            (r"customer_name = '[^']{15,}'", f"customer_name LIKE '%{keyword}%'"),
+            (r"WHERE customer_name LIKE '%X%'", f"WHERE customer_name LIKE '%{keyword}%'"),
+        ]
+        
+        modified = example
+        for pattern, replacement in patterns:
+            modified = re.sub(pattern, replacement, modified)
+        
+        return modified
+
+    def _build_complex_prompt_with_customer_hint(self, template: str, question: str, 
+                                                intent: str, config: Dict, entities: Dict) -> str:
+        """
+        Build complex prompt with customer keyword hint
+        """
+        # Get base prompt
+        base_prompt = self._build_complex_prompt(template, question, intent, config)
+        
+        # Add customer hint if applicable
+        if entities.get('customers'):
+            keyword = self._get_best_customer_keyword(entities['customers'])
+            customer_hint = f"""
+            
+            🔍 CUSTOMER SEARCH INSTRUCTION:
+            ================================
+            The customer mentioned is: {entities['customers'][0]}
+            USE THIS for search: WHERE customer_name LIKE '%{keyword}%'
+            DO NOT use the full company name with suffixes like "จำกัด" or "(ไทยแลนด์)"
+            """
+            base_prompt += customer_hint
+        
+        return base_prompt
+
+    def _build_normal_prompt_with_customer_hint(self, template: str, question: str,
+                                            intent: str, entities: Dict, target_table: str) -> str:
+        """
+        Build normal prompt with customer keyword hint
+        """
+        # Get base prompt
+        base_prompt = self._build_normal_prompt(template, question, intent, entities, target_table)
+        
+        # Add customer hint if applicable
+        if entities.get('customers'):
+            keyword = self._get_best_customer_keyword(entities['customers'])
+            customer_hint = f"""
+            
+            🔍 CUSTOMER SEARCH RULE:
+            ========================
+            Extracted customer: {entities['customers']}
+            ✅ CORRECT: WHERE customer_name LIKE '%{keyword}%'
+            ❌ WRONG: WHERE customer_name LIKE '%บริษัท...จำกัด%'
+            
+            Always use the shortest keyword for customer search.
+            """
+            
+            # Insert hint before the final SQL instruction
+            base_prompt = base_prompt.replace("SQL:", customer_hint + "\n\nSQL:")
+        
+        return base_prompt
+
+    def _apply_smart_year_adjustment(self, template: str, entities: Dict, question_lower: str) -> str:
+        # ตรวจสอบก่อนใช้
+        if not entities or 'years' not in entities or not entities['years']:
+            logger.warning("No year entities for adjustment")
+            return template
+        
         target_year = entities['years'][0]
         modified = template
         
@@ -2712,28 +3055,38 @@ class PromptManager:
         return 'custom'
 
 
-    def _should_use_exact_template(self, example_name: str, question: str) -> bool:
-        """Determine if we should use the template exactly without modification"""
+    def _should_use_exact_template(self, template_name: str, question: str = None) -> bool:
+        """
+        Determine if template should be used exactly without modification
+        Combines both centralized config and pattern matching
+        """
         
-        # List of examples that should ALWAYS be used exactly
-        exact_use_examples = {
-            'max_value_work': ['งานที่มีมูลค่าสูงสุด', 'มูลค่าสูงสุด'],
-            'min_value_work': ['งานที่มีมูลค่าต่ำสุด', 'มูลค่าต่ำสุด'],
-            'year_max_revenue': ['ปีที่มีรายได้สูงสุด', 'ปีไหนรายได้สูงสุด'],
-            'year_min_revenue': ['ปีที่มีรายได้ต่ำสุด', 'ปีไหนรายได้ต่ำสุด'],
-            'total_revenue_all': ['รายได้รวมทั้งหมด', 'รายได้ทั้งหมด'],
-            'count_total_customers': ['จำนวนลูกค้า', 'มีลูกค้ากี่ราย'],
-            'count_all_jobs': ['จำนวนงาน', 'มีงานกี่งาน'],
-        }
+        # 1. Check centralized config first (จาก TemplateConfig)
+        if TemplateConfig.is_exact_template(template_name):
+            logger.debug(f"Template {template_name} marked as EXACT in config")
+            return True
         
-        question_lower = question.lower()
-        
-        if example_name in exact_use_examples:
-            patterns = exact_use_examples[example_name]
-            for pattern in patterns:
-                if pattern in question_lower:
-                    logger.info(f"Exact template use triggered for {example_name} by pattern '{pattern}'")
-                    return True
+        # 2. Check pattern-based rules (Business Logic สำคัญ!)
+        if question:
+            question_lower = question.lower()
+            
+            # These patterns require exact template usage
+            exact_use_patterns = {
+                'max_value_work': ['งานที่มีมูลค่าสูงสุด', 'มูลค่าสูงสุด'],
+                'min_value_work': ['งานที่มีมูลค่าต่ำสุด', 'มูลค่าต่ำสุด'],
+                'year_max_revenue': ['ปีที่มีรายได้สูงสุด', 'ปีไหนรายได้สูงสุด'],
+                'year_min_revenue': ['ปีที่มีรายได้ต่ำสุด', 'ปีไหนรายได้ต่ำสุด'],
+                'total_revenue_all': ['รายได้รวมทั้งหมด', 'รายได้ทั้งหมด'],
+                'count_total_customers': ['จำนวนลูกค้า', 'มีลูกค้ากี่ราย'],
+                'count_all_jobs': ['จำนวนงาน', 'มีงานกี่งาน'],
+            }
+            
+            if template_name in exact_use_patterns:
+                patterns = exact_use_patterns[template_name]
+                for pattern in patterns:
+                    if pattern in question_lower:
+                        logger.info(f"Exact template triggered for {template_name} by pattern '{pattern}'")
+                        return True
         
         return False
 
@@ -2789,82 +3142,188 @@ class PromptManager:
         return hints[:5]  # Limit hints
     
     def _detect_table_from_keywords(self, question: str) -> str:
-        """Detect table from question keywords - FIXED priority detection"""
-        q_lower = question.lower()
+        """
+        Detect table from keywords when intent mapping fails
+        Enhanced version with better context detection
+        """
+        question_lower = question.lower()
         
-        # Priority 1: Money/Value/Revenue keywords → v_sales (สูงสุด)
-        money_keywords = [
-            'มูลค่า', 'ราคา', 'รายได้', 'ยอดขาย', 'revenue', 
-            'บาท', 'ค่า', 'จ่าย', 'value', 'amount', 'cost',
-            'สูงสุด', 'ต่ำสุด', 'มากที่สุด', 'น้อยที่สุด',  # เพิ่ม min/max
-            'รวม', 'total', 'sum', 'ยอดรวม'
+        # ========================================
+        # PRIORITY 1: Money/Sales indicators
+        # ========================================
+        sales_keywords = [
+            'ยอดขาย', 'รายได้', 'มูลค่า', 'ราคา', 'revenue', 
+            'sales', 'income', 'price', 'cost', 'บาท', 'เงิน',
+            'ค่า', 'จ่าย', 'รับ', 'กำไร', 'ขาดทุน'
         ]
-        if any(kw in q_lower for kw in money_keywords):
-            logger.info(f"Detected money/value keywords in '{question[:50]}...' → v_sales")
+        if any(word in question_lower for word in sales_keywords):
+            logger.info(f"Detected sales/money keywords → v_sales")
             return 'v_sales'
         
-        # Priority 2: Parts/Inventory keywords → v_spare_part
-        parts_keywords = [
-            'อะไหล่', 'สต็อก', 'คลัง', 'spare', 'part', 'inventory',
-            'balance', 'unit_price', 'warehouse', 'wh', 'สินค้า',
-            'product_code', 'product_name', 'จำนวนคงเหลือ'
+        # ========================================
+        # PRIORITY 2: Work/Operations indicators
+        # ========================================
+        work_keywords = [
+            'งาน', 'ทำงาน', 'การทำงาน', 'work', 'job', 'task',
+            'ซ่อม', 'repair', 'บำรุง', 'maintenance', 'pm',
+            'สำเร็จ', 'successful', 'ไม่สำเร็จ', 'unsuccessful',
+            'ทีม', 'team', 'พนักงาน', 'employee', 'ช่าง', 'technician',
+            'วันที่', 'date', 'เวลา', 'time', 'แผน', 'plan'
         ]
-        if any(kw in q_lower for kw in parts_keywords):
+        
+        # Special check for overhaul context
+        if 'overhaul' in question_lower:
+            # If has sales context → v_sales
+            if any(word in question_lower for word in sales_keywords):
+                logger.info("Overhaul with sales context → v_sales")
+                return 'v_sales'
+            # Otherwise → v_work_force
+            else:
+                logger.info("Overhaul with work context → v_work_force")
+                return 'v_work_force'
+        
+        # General work check
+        if any(word in question_lower for word in work_keywords):
+            logger.info(f"Detected work/operations keywords → v_work_force")
+            return 'v_work_force'
+        
+        # ========================================
+        # PRIORITY 3: Parts/Inventory indicators
+        # ========================================
+        parts_keywords = [
+            'อะไหล่', 'spare', 'part', 'ชิ้นส่วน', 'stock',
+            'คลัง', 'warehouse', 'inventory', 'จำนวน', 'balance'
+        ]
+        if any(word in question_lower for word in parts_keywords):
             logger.info(f"Detected parts/inventory keywords → v_spare_part")
             return 'v_spare_part'
         
-        # Priority 3: Work/Service keywords → v_work_force (ต่ำสุด)
-        # ต้องไม่มี money keywords
-        work_keywords = [
-            'แผนงาน', 'ที่ทำ', 'ที่วางแผน', 'pm', 'ติดตั้ง', 
-            'ทีม', 'ซ่อม', 'บำรุง', 'service_group', 'kpi', 'duration',
-            'สำเร็จ', 'ไม่สำเร็จ', 'failure', 'report', 'วันที่ทำงาน'
-        ]
-        # เช็คว่ามี work keywords และไม่มี money keywords
-        if any(kw in q_lower for kw in work_keywords):
-            # Double check: ถ้ามีคำเกี่ยวกับเงิน ให้ใช้ v_sales
-            if not any(kw in q_lower for kw in money_keywords):
-                logger.info(f"Detected work keywords (no money context) → v_work_force")
-                return 'v_work_force'
-            else:
-                logger.info(f"Detected work + money keywords → v_sales (money priority)")
-                return 'v_sales'
-        
-        # Default: v_sales (เพราะส่วนใหญ่เกี่ยวกับการขาย/รายได้)
-        logger.info(f"No specific keywords detected → v_sales (default)")
+        # ========================================
+        # DEFAULT: Most common use case
+        # ========================================
+        logger.warning(f"No specific keywords detected → v_sales (default)")
         return 'v_sales'
 
     # 2. แก้ไข _get_target_table ให้ใช้ keyword detection เมื่อไม่รู้จัก intent
     def _get_target_table(self, intent: str) -> str:
-        """Determine target table based on intent"""
-        intent_to_table = {
-            'cpa_work': 'v_work_force',
+        """
+        Map intent to database table - COMPLETE MAPPING
+        Covers all possible intents in the system
+        """
+        intent_table_map = {
+            # ========================================
+            # SALES & REVENUE (v_sales)
+            # ========================================
             'sales': 'v_sales',
             'sales_analysis': 'v_sales',
-            'customer_history': 'v_sales',
-            'overhaul_report': 'v_sales',
-            'top_customers': 'v_sales',
             'revenue': 'v_sales',
-            'annual_revenue': 'v_sales',
-            'work_plan': 'v_work_force',
+            'revenue_analysis': 'v_sales',
+            'pricing': 'v_sales',
+            'quotation': 'v_sales',
+            
+            # Overhaul related sales
+            'overhaul_sales': 'v_sales',
+            'overhaul_report': 'v_sales',
+            'overhaul_revenue': 'v_sales',
+            
+            # Service/Parts sales
+            'service_sales': 'v_sales',
+            'parts_sales': 'v_sales',
+            'replacement_sales': 'v_sales',
+            
+            # Customer sales analysis
+            'customer_revenue': 'v_sales',
+            'customer_analysis': 'v_sales',
+            'customer_history': 'v_sales',
+            'top_customers': 'v_sales',
+            'new_customers': 'v_sales',
+            'inactive_customers': 'v_sales',
+            
+            # Value/Amount queries
+            'max_value': 'v_sales',
+            'min_value': 'v_sales',
+            'total_value': 'v_sales',
+            'average_value': 'v_sales',
+            
+            # ========================================
+            # WORK & OPERATIONS (v_work_force)
+            # ========================================
             'work_force': 'v_work_force',
+            'work_plan': 'v_work_force',
             'work_summary': 'v_work_force',
+            'work_analysis': 'v_work_force',
+            'work_schedule': 'v_work_force',
+            
+            # Specific work types
+            'work_overhaul': 'v_work_force',
+            'work_replacement': 'v_work_force',
+            'work_service': 'v_work_force',
+            'pm_work': 'v_work_force',
+            'preventive_maintenance': 'v_work_force',
+            
+            # Work status
+            'successful_work': 'v_work_force',
+            'unsuccessful_work': 'v_work_force',
+            'completed_work': 'v_work_force',
+            'pending_work': 'v_work_force',
+            'customer_repair_history': 'v_work_force',
+            # Team/Employee related
+            'team_work': 'v_work_force',
+            'employee_work': 'v_work_force',
+            'technician_work': 'v_work_force',
+            'staff_performance': 'v_work_force',
+            
+            # Repair/Service history
             'repair_history': 'v_work_force',
-            'pm_summary': 'v_work_force',
-            'startup_summary': 'v_work_force',
-            'successful_works': 'v_work_force',
+            'service_history': 'v_work_force',
+            'maintenance_history': 'v_work_force',
+            'work_history': 'v_work_force',
+            
+            # Special work queries
+            'cpa_work': 'v_work_force',
+            'government_work': 'v_work_force',
+            'project_work': 'v_work_force',
+            
+            # ========================================
+            # SPARE PARTS & INVENTORY (v_spare_part)
+            # ========================================
             'spare_parts': 'v_spare_part',
-            'parts_price': 'v_spare_part',
+            'parts_inventory': 'v_spare_part',
+            'inventory': 'v_spare_part',
             'inventory_check': 'v_spare_part',
-            'inventory_value': 'v_spare_part',
-            'warehouse_summary': 'v_spare_part'
+            'stock_check': 'v_spare_part',
+            'warehouse': 'v_spare_part',
+            
+            # Parts pricing
+            'parts_price': 'v_spare_part',
+            'parts_cost': 'v_spare_part',
+            'parts_value': 'v_spare_part',
+            
+            # Stock management
+            'low_stock': 'v_spare_part',
+            'out_of_stock': 'v_spare_part',
+            'stock_movement': 'v_spare_part',
+            'stock_balance': 'v_spare_part',
+            
+            # ========================================
+            # AMBIGUOUS/GENERAL (Need context)
+            # ========================================
+            'general': None,  # Will use keyword detection
+            'unknown': None,  # Will use keyword detection
+            'greeting': None,  # No table needed
+            'help': None,      # No table needed
         }
         
-        # ถ้ารู้จัก intent ใช้ mapping
-        if intent in intent_to_table:
-            return intent_to_table[intent]
+        # Get mapping
+        table = intent_table_map.get(intent)
         
-        return None
+        # Log mapping result
+        if table:
+            logger.info(f"Intent '{intent}' mapped to table '{table}'")
+        else:
+            logger.warning(f"No table mapping for intent '{intent}', will use keyword detection")
+        
+        return table
 
     # 3. เพิ่ม method กรอง examples ตามตาราง
     def _filter_examples_by_table(self, table: str) -> Dict[str, str]:
@@ -2880,34 +3339,6 @@ class PromptManager:
         
         logger.debug(f"Filtered {len(filtered)} examples for table {table} using TemplateConfig")
         return filtered
-
-
-    # Update _should_use_exact_template to use centralized config
-    def _should_use_exact_template(self, template_name: str, question: str = None) -> bool:
-        """Determine if template should be used exactly (using centralized config)"""
-        
-        # Check centralized config first
-        if TemplateConfig.is_exact_template(template_name):
-            logger.debug(f"Template {template_name} marked as EXACT in config")
-            return True
-        
-        # Optionally check question patterns if needed
-        # (keeping backward compatibility)
-        if question:
-            question_lower = question.lower()
-            exact_patterns = {
-                'total_revenue_all': ['รายได้รวมทั้งหมด', 'รายได้ทั้งหมด'],
-                'count_total_customers': ['จำนวนลูกค้า', 'มีลูกค้ากี่ราย'],
-            }
-            
-            if template_name in exact_patterns:
-                patterns = exact_patterns[template_name]
-                for pattern in patterns:
-                    if pattern in question_lower:
-                        logger.debug(f"Pattern '{pattern}' suggests exact template usage")
-                        return True
-        
-        return False
 
     def _has_exact_matching_example(self, question: str, example_name: str) -> bool:
         """Check if we have an exact matching example for this question type"""
@@ -3030,6 +3461,37 @@ class PromptManager:
     def _select_best_example(self, question: str, intent: str, entities: Dict) -> str:
         """Select most relevant example - FIXED VERSION with all improvements"""
         question_lower = question.lower()
+        if entities.get('employees'):
+            # Log for debugging
+            logger.info(f"🎯 Employee entity found: {entities['employees']}")
+            
+            # Check if employee template exists
+            if 'employee_work_history' in self.SQL_EXAMPLES:
+                logger.info("Using employee_work_history template")
+                return self.SQL_EXAMPLES['employee_work_history']
+            
+            # Fallback: create custom template
+            emp = entities['employees'][0]
+            logger.warning(f"Creating custom template for employee: {emp}")
+            return f"""
+                SELECT date, customer, project, detail, service_group
+                FROM v_work_force  
+                WHERE service_group LIKE '%{emp}%'
+                ORDER BY date DESC
+            """
+        if ('ยอดขาย' in question_lower or 'sales' in question_lower or 'รายงาน' in question_lower) and 'overhaul' in question_lower:
+            logger.info("🎯 Sales/Report + Overhaul → overhaul_sales_specific")
+            return self.SQL_EXAMPLES.get('overhaul_sales_specific', '')
+        
+        # ========================================
+        # PRIORITY 2: Customer with history
+        # ========================================
+        
+        if entities.get('customers'):
+            history_keywords = ['ประวัติ', 'ซ่อม', 'history', 'repair', 'service', 'เคย']
+            if any(kw in question_lower for kw in history_keywords):
+                logger.info(f"🎯 Customer history → customer_history")
+                return self.SQL_EXAMPLES.get('customer_history', '')
         
         # === PRIORITY FIX: Direct mapping for work_plan with 'วางแผน' ===
         if intent == 'work_plan' and 'วางแผน' in question_lower:
@@ -3128,7 +3590,10 @@ class PromptManager:
         
         # === PHASE 2: Updated EXAMPLE_KEYWORDS with fixes ===
         EXAMPLE_KEYWORDS = {
+            'startup_works_all': ['start up', 'startup', 'สตาร์ทอัพ', 'สตาร์ท อัพ'],
 
+            'work_replacement':['งานซ่อม'],
+            
             'cpa_works': [
                 'งาน cpa', 'cpa ทั้งหมด', 'งาน cpa work',
                 'job_description_cpa', 'cpa jobs'

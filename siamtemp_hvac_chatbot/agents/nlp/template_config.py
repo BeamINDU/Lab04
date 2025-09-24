@@ -79,9 +79,9 @@ class TemplateConfig:
             'table': 'v_sales',
             'complexity': 'COMPLEX',
             'keywords': ['ลูกค้าที่ใช้ต่อเนื่องทุกปี', 'every year'],
-            'has_subquery': False,
+            'has_subquery': True,
             'has_not_in': False,
-            'year_adjustment': 'none',
+            'year_adjustment': 'smart',
             'intent': 'customer_analysis',
             'description': 'ลูกค้าที่ใช้บริการต่อเนื่องหลายปี'
         },

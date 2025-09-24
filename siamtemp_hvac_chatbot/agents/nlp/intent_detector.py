@@ -244,18 +244,111 @@ class ImprovedIntentDetector:
     # =================================================================
     
     def detect_intent_and_entities(self, question: str, 
-                                  previous_intent: Optional[str] = None) -> Dict[str, Any]:
+                                previous_intent: Optional[str] = None) -> Dict[str, Any]:
         """
         Enhanced intent detection with better accuracy
+        FIXED: Handle overhaul with sales/work context properly
         """
         question_lower = question.lower().strip()
         
+        # ============================================
+        # PRIORITY CHECKS (ทำก่อนเสมอ)
+        # ============================================
+        
+        # 1. CPA Work
         if 'cpa' in question_lower and 'งาน' in question_lower:
-            return {'intent': 'cpa_work', 'confidence': 0.95, 'entities': {}}
+            return {'intent': 'cpa_work', 'confidence': 0.95, 'entities': self._extract_entities(question, 'cpa_work')}
+        
+        # 2. PM Work
         if 'pm' in question_lower and 'งาน' in question_lower:
-            return {'intent': 'pm_work', 'confidence': 0.90, 'entities': {}}
-        if 'overhaul' in question_lower and 'งาน' in question_lower:
-            return {'intent': 'work_overhaul', 'confidence': 0.90, 'entities': {}}
+            return {'intent': 'pm_work', 'confidence': 0.90, 'entities': self._extract_entities(question, 'pm_work')}
+        
+        # ============================================
+        # 🔧 FIX: OVERHAUL CONTEXT DETECTION
+        # ============================================
+        if 'overhaul' in question_lower:
+            # Check for SALES context FIRST (higher priority)
+            sales_indicators = [
+                'ยอดขาย', 'รายงาน', 'sales', 'รายได้', 
+                'revenue', 'มูลค่า', 'ราคา', 'บาท', 'income'
+            ]
+            
+            # Check for WORK context
+            work_indicators = [
+                'การทำงาน', 'งานที่ทำ', 'work', 'ทำอะไร', 
+                'รายละเอียด', 'detail', 'วันที่', 'date'
+            ]
+            
+            # Priority 1: Sales context wins
+            if any(word in question_lower for word in sales_indicators):
+                return {
+                    'intent': 'overhaul_sales',  # ✅ Sales intent
+                    'confidence': 0.95,
+                    'entities': self._extract_entities(question, 'overhaul_sales')
+                }
+            
+            # Priority 2: Explicit work context
+            elif any(word in question_lower for word in work_indicators):
+                return {
+                    'intent': 'work_overhaul',  # Work intent
+                    'confidence': 0.90,
+                    'entities': self._extract_entities(question, 'work_overhaul')
+                }
+            
+            # Priority 3: Just "งาน overhaul" without other context
+            elif 'งาน' in question_lower:
+                # Default to work unless has "รายงาน"
+                if 'รายงาน' in question_lower:
+                    return {
+                        'intent': 'overhaul_sales',  # รายงาน = sales report
+                        'confidence': 0.85,
+                        'entities': self._extract_entities(question, 'overhaul_sales')
+                    }
+                else:
+                    return {
+                        'intent': 'work_overhaul',
+                        'confidence': 0.85,
+                        'entities': self._extract_entities(question, 'work_overhaul')
+                    }
+            
+            # Priority 4: Just "overhaul" alone - check other context
+            else:
+                # Default to sales for standalone "overhaul"
+                return {
+                    'intent': 'overhaul_sales',
+                    'confidence': 0.80,
+                    'entities': self._extract_entities(question, 'overhaul_sales')
+                }
+        
+        # ============================================
+        # OTHER SPECIFIC PATTERNS
+        # ============================================
+        
+        # Employee queries
+        employee_patterns = ['พนักงานชื่อ', 'ช่างชื่อ', 'ทีมของ', 'การทำงานของ']
+        if any(pattern in question_lower for pattern in employee_patterns):
+            entities = self._extract_entities(question, 'employee_work')
+            if entities.get('employees'):
+                return {
+                    'intent': 'employee_work',
+                    'confidence': 0.95,
+                    'entities': entities
+                }
+        
+        # Customer history
+        if any(word in question_lower for word in ['ประวัติ', 'history', 'เคย', 'ซ่อม']):
+            entities = self._extract_entities(question, 'customer_history')
+            if entities.get('customers'):
+                return {
+                    'intent': 'customer_history',
+                    'confidence': 0.90,
+                    'entities': entities
+                }
+        
+        # ============================================
+        # NORMAL PROCESSING (existing logic)
+        # ============================================
+        
         # Preprocess question
         processed_question = self._preprocess_question(question_lower)
         
@@ -281,7 +374,7 @@ class ImprovedIntentDetector:
             'original_question': question,
             'processed_question': processed_question
         }
-    
+
     def _preprocess_question(self, question_lower: str) -> str:
         """Preprocess question for better matching"""
         # Remove extra spaces
