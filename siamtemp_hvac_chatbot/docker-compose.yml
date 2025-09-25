@@ -80,6 +80,7 @@ services:
       - ENABLE_PARALLEL=true
       - ENABLE_CLEANING=true
       - ENABLE_VALIDATION=true
+      - ENABLE_STREAMING=true
       - LOG_LEVEL=INFO
       
     ports:
@@ -116,7 +117,7 @@ services:
       # ========== เพิ่ม n8n Configuration ==========
       - USE_N8N_WORKFLOW=true 
       - N8N_BASE_URL=http://13.250.235.228:5678
-      - N8N_TIMEOUT=60
+      - N8N_TIMEOUT=600
       - N8N_FALLBACK_TO_DIRECT=true
       - N8N_WEBHOOK_PATH=webhook/siamtemp-chat
     ports:

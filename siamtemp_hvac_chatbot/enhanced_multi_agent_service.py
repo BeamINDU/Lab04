@@ -87,7 +87,7 @@ class ServiceConfig:
         self.nl_model = os.getenv('NL_MODEL', 'llama3.2-vision:11b-instruct-q4_K_M')
         
         # Feature flags
-        self.enable_streaming = os.getenv('ENABLE_STREAMING', 'false').lower() == 'true'
+        self.enable_streaming = os.getenv('ENABLE_STREAMING', 'true').lower() == 'true'
         self.enable_metrics = os.getenv('ENABLE_METRICS', 'true').lower() == 'true'
         self.enable_cors = os.getenv('ENABLE_CORS', 'true').lower() == 'true'
 
@@ -351,11 +351,8 @@ async def chat_endpoint(
 @app.post("/v1/chat/stream", tags=["Chat"])
 async def chat_stream_endpoint(request: ChatRequest):
     """
-    Streaming chat endpoint for real-time responses
+    Fixed streaming endpoint with proper OpenAI format
     """
-    if not config.enable_streaming:
-        raise HTTPException(status_code=400, detail="Streaming is not enabled")
-    
     async def generate():
         try:
             # Process question
@@ -365,27 +362,83 @@ async def chat_stream_endpoint(request: ChatRequest):
                 user_id=request.user_id
             )
             
-            # Stream response in chunks
             answer = result.get('answer', '')
-            chunk_size = 50
             
+            # ✅ Send initial chunk with role
+            initial_chunk = {
+                "id": f"chatcmpl-{int(time.time())}",
+                "object": "chat.completion.chunk",
+                "created": int(time.time()),
+                "model": "siamtemp-ai",
+                "choices": [{
+                    "index": 0,
+                    "delta": {"role": "assistant", "content": ""},
+                    "finish_reason": None
+                }]
+            }
+            yield f"data: {json.dumps(initial_chunk)}\n\n"
+            
+            # ✅ Stream content in chunks
+            chunk_size = 50
             for i in range(0, len(answer), chunk_size):
                 chunk = answer[i:i + chunk_size]
-                yield json.dumps({'chunk': chunk, 'done': False}) + '\n'
-                await asyncio.sleep(0.05)  # Small delay for streaming effect
+                
+                content_chunk = {
+                    "id": f"chatcmpl-{int(time.time())}",
+                    "object": "chat.completion.chunk", 
+                    "created": int(time.time()),
+                    "model": "siamtemp-ai",
+                    "choices": [{
+                        "index": 0,
+                        "delta": {"content": chunk},
+                        "finish_reason": None
+                    }]
+                }
+                yield f"data: {json.dumps(content_chunk)}\n\n"
+                await asyncio.sleep(0.05)
             
-            # Send completion signal
-            yield json.dumps({
-                'done': True,
-                'sql_query': result.get('sql_query'),
-                'results_count': result.get('results_count', 0)
-            }) + '\n'
+            # ✅ Send completion chunk
+            final_chunk = {
+                "id": f"chatcmpl-{int(time.time())}",
+                "object": "chat.completion.chunk",
+                "created": int(time.time()), 
+                "model": "siamtemp-ai",
+                "choices": [{
+                    "index": 0,
+                    "delta": {},
+                    "finish_reason": "stop"
+                }]
+            }
+            yield f"data: {json.dumps(final_chunk)}\n\n"
+            yield "data: [DONE]\n\n"
             
         except Exception as e:
-            yield json.dumps({'error': str(e), 'done': True}) + '\n'
+            logger.error(f"Streaming error: {e}")
+            # ✅ Send error in proper format
+            error_chunk = {
+                "id": f"chatcmpl-{int(time.time())}",
+                "object": "chat.completion.chunk",
+                "created": int(time.time()),
+                "model": "siamtemp-ai", 
+                "choices": [{
+                    "index": 0,
+                    "delta": {"content": f"เกิดข้อผิดพลาด: {str(e)}"},
+                    "finish_reason": "stop"
+                }]
+            }
+            yield f"data: {json.dumps(error_chunk)}\n\n"
+            yield "data: [DONE]\n\n"
     
-    return StreamingResponse(generate(), media_type="application/x-ndjson")
-
+    # ✅ ใช้ text/event-stream media type
+    return StreamingResponse(
+        generate(), 
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
 # =============================================================================
 # CONVERSATION HISTORY ENDPOINTS
 # =============================================================================

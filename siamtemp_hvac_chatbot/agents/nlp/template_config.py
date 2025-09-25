@@ -354,15 +354,44 @@ class TemplateConfig:
             'description': 'แผนงานในวันที่ระบุ'
         },
         
+    'customer_repair_history': {
+        'table': 'v_work_force',
+        'complexity': 'NORMAL',
+        'keywords': [
+            'ประวัติการซ่อม', 'ประวัติซ่อม', 'repair history',
+            'ซ่อมอะไรบ้าง', 'ลูกค้าซ่อม'
+        ],
+        'has_subquery': False,
+        'has_not_in': False,
+        'year_adjustment': 'none',
+        'intent': 'repair_history',
+        'description': 'ประวัติการซ่อมของลูกค้าเฉพาะราย'
+    },
+    
         'repair_history': {
             'table': 'v_work_force',
             'complexity': 'NORMAL',
-            'keywords': ['ประวัติการซ่อม', 'repair history', 'ประวัติซ่อม'],
+            'keywords': [
+                'ประวัติการซ่อม', 'repair history', 'งานซ่อม', 'การซ่อมแซม'
+            ],
             'has_subquery': False,
             'has_not_in': False,
             'year_adjustment': 'none',
             'intent': 'repair_history',
-            'description': 'ประวัติการซ่อมบำรุง'
+            'description': 'ประวัติการซ่อมทั้งหมด'
+        },
+        
+        'service_history': {
+            'table': 'v_work_force',
+            'complexity': 'NORMAL',
+            'keywords': [
+                'ประวัติบริการ', 'service history', 'งานบริการ'
+            ],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'none',
+            'intent': 'service_history', 
+            'description': 'ประวัติการบริการ'
         },
         
         'min_duration_work': {
@@ -1406,6 +1435,61 @@ class TemplateConfig:
             'year_adjustment': 'none',
             'intent': 'work_analysis',
             'description': 'งานล่าสุด'
+        },
+        'monthly_transaction_count': {
+            'table': 'v_sales',
+            'complexity': 'NORMAL',
+            'keywords': [
+                'ซื้อมากี่ครั้ง', 'มีลูกค้าซื้อกี่', 'transaction count',
+                'จำนวนการซื้อ', 'ครั้งการซื้อ', 'เดือนมีลูกค้าซื้อกี่ครั้ง'
+            ],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'simple',
+            'intent': 'transaction_analysis',
+            'description': 'นับจำนวนการซื้อขายในเดือน/ปีที่ระบุ'
+        },
+        
+        'customer_transaction_frequency': {
+            'table': 'v_sales',
+            'complexity': 'NORMAL',
+            'keywords': [
+                'ลูกค้าซื้อกี่ครั้ง', 'frequency customer', 'ลูกค้าซื้อบ่อย',
+                'ความถี่ลูกค้า', 'customer frequency'
+            ],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'simple',
+            'intent': 'customer_analysis',
+            'description': 'ความถี่การซื้อของแต่ละลูกค้า'
+        },
+        
+        'total_transaction_count': {
+            'table': 'v_sales',
+            'complexity': 'EXACT',
+            'keywords': [
+                'transaction ทั้งหมด', 'การซื้อขายทั้งหมด', 'total transaction',
+                'รวมการซื้อขาย', 'ซื้อขายรวม'
+            ],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'none',
+            'intent': 'general_count',
+            'description': 'จำนวนการซื้อขายทั้งหมดในระบบ'
+        },
+        
+        'yearly_transaction_summary': {
+            'table': 'v_sales',
+            'complexity': 'NORMAL',
+            'keywords': [
+                'สรุปการซื้อขายปี', 'transaction summary year', 'ซื้อขายปี',
+                'yearly transaction', 'รายงานการซื้อขายประจำปี'
+            ],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'simple',
+            'intent': 'yearly_analysis',
+            'description': 'สรุปการซื้อขายรายปี'
         }
     }
     

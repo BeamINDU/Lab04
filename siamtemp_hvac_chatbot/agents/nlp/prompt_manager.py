@@ -341,6 +341,41 @@ class PromptManager:
         """
         """Load actual production SQL examples"""
         return {
+            'monthly_transaction_count': dedent("""
+                SELECT 
+                    COUNT(DISTINCT customer_name) AS unique_customers,
+                    COUNT(*) AS total_transactions,
+                    SUM(total_revenue) AS total_revenue
+                FROM v_sales 
+                WHERE year = '2025' AND month = '8';
+            """).strip(),
+            
+            'customer_transaction_frequency': dedent("""
+                SELECT 
+                    customer_name,
+                    COUNT(*) AS transaction_count,
+                    SUM(total_revenue) AS total_revenue
+                FROM v_sales 
+                WHERE year = '2025' AND month = '8'
+                GROUP BY customer_name
+                ORDER BY transaction_count DESC;
+            """).strip(),
+            
+            'yearly_transaction_summary': dedent("""
+                SELECT 
+                    year,
+                    COUNT(DISTINCT customer_name) AS unique_customers,
+                    COUNT(*) AS total_transactions
+                FROM v_sales
+                WHERE year = '2025'
+                GROUP BY year;
+            """).strip(),
+            
+            'total_transaction_count': dedent("""
+                SELECT COUNT(*) AS total_transactions
+                FROM v_sales;
+            """).strip(),
+
             # Customer History - ประวัติลูกค้า
             'customer_history': dedent("""
                 SELECT year AS year_label,
@@ -625,15 +660,60 @@ class PromptManager:
                 LIMIT 10;
             """).strip(),
 
-            # Repair History - ประวัติการซ่อม
-            'repair_history': dedent("""
-                SELECT customer, detail, service_group
-                FROM v_work_force
-                WHERE customer LIKE '%STANLEY%'
-                ORDER BY date DESC
-                LIMIT 100;
+                # Repair History - ประวัติการซ่อม
+            'customer_repair_history': dedent("""
+                SELECT 
+                    customer,
+                    date,
+                    detail,
+                    service_group,
+                FROM v_work_force 
+                WHERE customer LIKE '%{customer}%'
+                ORDER BY date DESC;
             """).strip(),
-
+            
+            'repair_history': dedent("""
+                SELECT 
+                    customer,
+                    date,
+                    detail,
+                    service_group,
+                    CASE 
+                        WHEN success IS NOT NULL THEN 'สำเร็จ'
+                        WHEN unsuccessful IS NOT NULL THEN 'ไม่สำเร็จ'
+                        ELSE 'ดำเนินการ'
+                    END as status
+                FROM v_work_force 
+                WHERE detail LIKE '%ซ่อม%' OR detail LIKE '%repair%'
+                ORDER BY date DESC;
+            """).strip(),
+            
+            'service_history': dedent("""
+                SELECT 
+                    customer,
+                    date,
+                    detail,
+                    service_group,
+                    job_description_pm,
+                    job_description_replacement,
+                    job_description_overhaul
+                FROM v_work_force 
+                WHERE customer LIKE '%{customer}%'
+                ORDER BY date DESC;
+            """).strip(),
+            
+            'maintenance_history': dedent("""
+                SELECT 
+                    customer,
+                    date,
+                    detail,
+                    service_group,
+                FROM v_work_force 
+                WHERE job_description_pm = true 
+                OR detail LIKE '%บำรุงรักษา%'
+                OR detail LIKE '%maintenance%'
+                ORDER BY date DESC;
+            """).strip(),
             # Work Plan Specific Date - แผนงานวันที่เฉพาะ
             'work_plan_date': dedent("""
                 SELECT id, date, customer, project,
@@ -3020,6 +3100,21 @@ class PromptManager:
         is_planned_work = ('วางแผน' in question.lower() or 
                         'planned' in question.lower())
         
+        # ✅ NEW: Extract customer names for protection instruction
+        customer_protection = ""
+        if entities.get('customers'):
+            customer_names = entities['customers']
+            customer_list = "', '".join(customer_names)
+            customer_protection = f"""
+            
+    🚫 CRITICAL - DO NOT CHANGE COMPANY NAMES:
+    Company names mentioned: '{customer_list}'
+    - DO NOT correct, modify, or "fix" any company names
+    - DO NOT change Thai spelling (แซด stays แซด, NOT ซาด)  
+    - DO NOT normalize foreign transliterations
+    - Use names EXACTLY as provided in the question
+            """
+        
         prompt = dedent(f"""
         You are a SQL query generator. Output ONLY the SQL query with no explanation.
         
@@ -3029,6 +3124,7 @@ class PromptManager:
         3. DO NOT add any WHERE conditions not in the template
         4. DO NOT add job_description filters unless in the template
         {"5. This asks for ALL work - DO NOT filter by job type" if is_planned_work else ""}
+        {customer_protection}
         
         {schema_prompt}
         
@@ -3590,56 +3686,434 @@ class PromptManager:
         
         # === PHASE 2: Updated EXAMPLE_KEYWORDS with fixes ===
         EXAMPLE_KEYWORDS = {
-            'startup_works_all': ['start up', 'startup', 'สตาร์ทอัพ', 'สตาร์ท อัพ'],
-
-            'work_replacement':['งานซ่อม'],
-            
-            'cpa_works': [
-                'งาน cpa', 'cpa ทั้งหมด', 'งาน cpa work',
-                'job_description_cpa', 'cpa jobs'
-            ],
-
-            'work_summary_monthly': [
-                'สรุปงาน', 'สรุปงานเดือน', 'work summary', 
-                'monthly summary', 'สรุปงานที่ทำ'
-            ],
-            # Work Force - Fixed keywords
-            'work_monthly': [
-                'งานรายเดือน', 'งานเดือน', 'monthly work', 'แผนงานเดือน',
-                'งานที่วางแผน', 'วางแผน', 'planned work', 'งานของเดือน'  # Added
+            # ========================================
+            # CUSTOMER TEMPLATES
+            # ========================================
+            'monthly_transaction_count': [
+                'ซื้อมากี่ครั้ง', 'มีลูกค้าซื้อกี่ครั้ง', 'transaction count',
+                'จำนวนการซื้อ', 'ครั้งการซื้อ', 'frequency purchase',
+                'เดือนมีลูกค้าซื้อกี่ครั้ง', 'มีการซื้อขายกี่ครั้ง'
             ],
             
-            'all_pm_works': [
-                'งาน pm เท่านั้น', 'เฉพาะงาน pm', 'เฉพาะ pm',  # More specific
-                'preventive maintenance', 'บำรุงรักษาเชิงป้องกัน',
-                'งาน pm ทั้งหมด', 'pm work only'
+            'customer_transaction_frequency': [
+                'ลูกค้าซื้อกี่ครั้ง', 'frequency customer', 'ลูกค้าซื้อบ่อย',
+                'ลูกค้าซื้อมากครั้ง', 'customer frequency', 'ความถี่การซื้อ'
+            ],
+            
+            'total_transaction_count': [
+                'การซื้อขายทั้งหมด', 'transaction ทั้งหมด', 'total transaction',
+                'รวมการซื้อขาย', 'ซื้อขายรวม', 'จำนวนรวมทั้งหมด'
+            ],
+            
+            'yearly_transaction_summary': [
+                'สรุปการซื้อขายปี', 'transaction summary year', 'ซื้อขายปี',
+                'รายงานการซื้อขายประจำปี', 'yearly transaction'
+            ],
+
+            'customer_history': [
+                'ประวัติลูกค้า', 'ประวัติการซื้อขาย', 'customer history', 
+                'การซื้อขายย้อนหลัง', 'ข้อมูลลูกค้า', 'รายละเอียดลูกค้า'
+            ],
+            
+            'customer_years_count': [
+                'ซื้อขายมากี่ปี', 'กี่ปีแล้ว', 'how many years', 
+                'ซื้อขายมาแล้วกี่ปี', 'ใช้บริการมากี่ปี', 'years operation'
+            ],
+            
+            'top_customers_no_filter': [
+                'ลูกค้าอันดับต้น', 'top customer', 'ลูกค้าสูงสุด', 
+                'ลูกค้ามากที่สุด', 'ลูกค้าที่ใช้บริการมาก', 'best customer'
+            ],
+            
+            'top_customers_by_year': [
+                'ลูกค้าปี', 'top customer year', 'ลูกค้าปีสูง', 
+                'ลูกค้าอันดับต้นปี', 'ลูกค้าดีที่สุดปี'
+            ],
+            
+            'count_total_customers': [
+                'จำนวนลูกค้า', 'มีลูกค้ากี่ราย', 'total customer', 
+                'นับลูกค้า', 'count customer', 'ลูกค้าทั้งหมด'
+            ],
+            
+            'inactive_customers': [
+                'ลูกค้าไม่ใช้', 'ลูกค้าหยุด', 'inactive customer', 
+                'ลูกค้าเลิก', 'ลูกค้าที่ไม่ได้ใช้บริการ', 'ลูกค้าไม่กลับมา'
+            ],
+            
+            'new_customers_year': [
+                'ลูกค้าใหม่ปี', 'new customer year', 'ลูกค้าใหม่ในปี', 
+                'ลูกค้าที่เพิ่งมา', 'ลูกค้าใหม่'
+            ],
+            
+            'continuous_customers': [
+                'ลูกค้าต่อเนื่อง', 'ลูกค้า loyal', 'continuous customer', 
+                'ลูกค้าประจำ', 'ลูกค้าคงที่'
+            ],
+            
+            # ========================================
+            # REVENUE & SALES TEMPLATES  
+            # ========================================
+            'total_revenue_all': [
+                'รายได้ทั้งหมด', 'total revenue all', 'รายได้รวมทั้งหมด', 
+                'รายได้รวม', 'income all', 'รายได้ปีทั้งหมด'
+            ],
+            
+            'total_revenue_year': [
+                'รายได้ปี', 'revenue year', 'รายได้รวมปี', 
+                'รายได้ของปี', 'income ปี', 'ยอดรวมปี'
+            ],
+            
+            'revenue_by_year': [
+                'รายได้แต่ละปี', 'revenue by year', 'รายได้แยกปี', 
+                'รายได้ปีต่อปี', 'income by year'
+            ],
+            
+            'compare_revenue_years': [
+                'เปรียบเทียบรายได้', 'compare revenue', 'เปรียบเทียบปี', 
+                'รายได้ 2 ปี', 'revenue comparison'
+            ],
+            
+            'year_max_revenue': [
+                'ปีรายได้สูงสุด', 'year max revenue', 'ปีไหนรายได้สูงสุด', 
+                'ปีที่ดีที่สุด', 'highest revenue year'
+            ],
+            
+            'year_min_revenue': [
+                'ปีรายได้ต่ำสุด', 'year min revenue', 'ปีไหนรายได้ต่ำสุด', 
+                'ปีที่แย่ที่สุด', 'lowest revenue year'
+            ],
+            
+            'average_annual_revenue': [
+                'รายได้เฉลี่ย', 'average revenue', 'รายได้เฉลี่ยปี', 
+                'ค่าเฉลี่ยรายได้', 'mean revenue'
+            ],
+            
+            'revenue_by_service_type': [
+                'รายได้แยกประเภท', 'revenue by service', 'รายได้แต่ละประเภท', 
+                'breakdown service', 'แยกตามประเภท'
+            ],
+            
+            # ========================================
+            # OVERHAUL TEMPLATES
+            # ========================================
+            'overhaul_sales_specific': [
+                'ยอดขาย overhaul', 'overhaul sales', 'รายงาน overhaul', 
+                'ขาย overhaul', 'overhaul revenue'
+            ],
+            
+            'overhaul_sales_all': [
+                'overhaul ทั้งหมด', 'total overhaul', 'ยอดขาย overhaul ทั้งหมด', 
+                'overhaul รวม', 'all overhaul'
+            ],
+            
+            'overhaul_report': [
+                'รายงาน overhaul', 'overhaul report', 'สรุป overhaul', 
+                'รายงาน compressor', 'overhaul summary'
             ],
             
             'work_overhaul': [
-                'งาน overhaul', 'overhaul ที่ทำ', 'overhaul work',
-                'เฉพาะ overhaul', 'งาน overhaul เท่านั้น'
+                'งาน overhaul', 'overhaul work', 'งาน compressor', 
+                'งานซ่อม compressor', 'overhaul job'
             ],
             
-            # Revenue/Sales
-            'total_revenue_all': ['รายได้รวมทั้งหมด', 'รายได้ทั้งหมด', 'total revenue'],
-            'total_revenue_year': ['รายได้ปี', 'revenue year', 'รายได้ใน'],
-            'revenue_by_year': ['รายได้แต่ละปี', 'รายได้รายปี', 'annual revenue'],
-            'year_max_revenue': ['ปีที่มีรายได้สูงสุด', 'ปีไหนรายได้มากสุด'],
-            'year_min_revenue': ['ปีที่มีรายได้ต่ำสุด', 'ปีไหนรายได้น้อยสุด'],
-            'max_value_work': ['งานที่มีมูลค่าสูงสุด', 'มูลค่าสูงสุด', 'งานมูลค่าสูง'],
-            'min_value_work': ['งานที่มีมูลค่าต่ำสุด', 'มูลค่าต่ำสุด', 'งานมูลค่าต่ำ'],
+            # ========================================
+            # WORK FORCE TEMPLATES
+            # ========================================
+            'work_monthly': [
+                'งานเดือน', 'work monthly', 'งานรายเดือน', 
+                'งานที่วางแผน', 'แผนงานเดือน', 'monthly work'
+            ],
             
-            # Customers
-            'count_total_customers': ['จำนวนลูกค้า', 'กี่ลูกค้า', 'มีลูกค้ากี่ราย'],
-            'top_customers': ['top ลูกค้า', 'ลูกค้าสูงสุด', 'best customers'],
-            'customer_history': ['ประวัติการใช้บริการ', 'service history'],
-            'new_customers_year': ['ลูกค้าใหม่', 'new customers', 'ลูกค้าใหม่ปี'],
+            'work_plan': [
+                'งานที่วางแผน', 'work plan', 'แผนงาน', 
+                'planned work', 'งานแผน'
+            ],
             
-            # Spare Parts
-            'count_all_parts': ['จำนวนอะไหล่ทั้งหมด', 'กี่รายการ', 'total parts'],
-            'parts_in_stock': ['อะไหล่ที่มีสต็อก', 'in stock', 'มีในคลัง'],
-            'most_expensive_parts': ['อะไหล่ราคาแพง', 'expensive parts', 'ราคาสูง'],
-            'low_stock_alert': ['อะไหล่ใกล้หมด', 'low stock', 'เหลือน้อย'],
+            'work_replacement': [
+                'งานซ่อม', 'replacement work', 'งาน replacement', 
+                'งานเปลี่ยน', 'replacement job'
+            ],
+            
+            'successful_work_monthly': [
+                'งานสำเร็จ', 'งานเสร็จ', 'successful work', 
+                'completed work', 'งานที่สำเร็จ'
+            ],
+            
+            'pm_work_summary': [
+                'งาน pm', 'preventive maintenance', 'บำรุงรักษาเชิงป้องกัน', 
+                'pm work', 'maintenance work'
+            ],
+            
+            'startup_works_all': [
+                'start up', 'startup', 'สตาร์ทอัพ', 
+                'สตาร์ท อัพ', 'งาน startup', 'เริ่มเครื่อง'
+            ],
+            
+            'cpa_works': [
+                'งาน cpa', 'cpa ทั้งหมด', 'งาน cpa work',
+                'job_description_cpa', 'cpa jobs', 'cpa work'
+            ],
+            
+            'kpi_reported_works': [
+                'kpi', 'รายงาน kpi', 'งาน kpi', 
+                'kpi work', 'report kpi'
+            ],
+            
+            'team_specific_works': [
+                'งานทีม', 'งานสุพรรณ', 'งานช่าง', 
+                'team work', 'ทีม a', 'service group'
+            ],
+            
+            'replacement_monthly': [
+                'งาน replacement', 'งานเปลี่ยน', 'replacement เดือน', 
+                'replacement monthly', 'งานเปลี่ยนรายเดือน'
+            ],
+            
+            'long_duration_works': [
+                'ใช้เวลานาน', 'หลายวัน', 'งานนาน', 
+                'long duration', 'งานใช้เวลานาน'
+            ],
+            
+            'count_all_works': [
+                'จำนวนงาน', 'มีงานกี่งาน', 'count work', 
+                'นับงาน', 'งานทั้งหมด', 'total work'
+            ],
+            
+            'employee_work_history': [
+                'งานของพนักงาน', 'employee work', 'งานช่าง', 
+                'พนักงานชื่อ', 'ช่างชื่อ', 'ทีมของ'
+            ],
+            
+            # ========================================
+            # REPAIR & SERVICE TEMPLATES
+            # ========================================
+            'customer_repair_history': [
+                'ประวัติการซ่อม', 'ประวัติซ่อม', 'repair history',
+                'ซ่อมอะไรบ้าง', 'เคยซ่อม', 'การซ่อมแซม',
+                'ลูกค้าซ่อม', 'ประวัติงานซ่อม', 'customer repair'
+            ],
+            
+            'repair_history': [
+                'ประวัติการซ่อม', 'repair history', 'ประวัติซ่อมแซม',
+                'งานซ่อม', 'การซ่อม', 'maintenance record'
+            ],
+            
+            'service_history': [
+                'ประวัติบริการ', 'service history', 'ประวัติการบริการ',
+                'งานบริการ', 'การบริการ', 'บริการอะไรบ้าง'
+            ],
+            
+            'maintenance_history': [
+                'ประวัติบำรุงรักษา', 'maintenance history', 'งานบำรุงรักษา',
+                'การบำรุง', 'pm history', 'preventive maintenance'
+            ],
+            
+            # ========================================
+            # SPARE PARTS TEMPLATES
+            # ========================================
+            'spare_parts_price': [
+                'ราคาอะไหล่', 'spare parts price', 'ราคา parts', 
+                'อะไหล่ราคา', 'price spare'
+            ],
+            
+            'spare_parts_stock': [
+                'สต็อกอะไหล่', 'spare parts stock', 'คลังอะไหล่', 
+                'สต๊อค parts', 'inventory parts'
+            ],
+            
+            'spare_parts_all': [
+                'อะไหล่ทั้งหมด', 'all spare parts', 'parts ทั้งหมด', 
+                'อะไหล่รวม', 'total parts'
+            ],
+            
+            'inventory_check': [
+                'ตรวจสอบคลัง', 'inventory check', 'เช็คสต็อก', 
+                'ดูคลัง', 'check stock'
+            ],
+            
+            'inventory_value': [
+                'มูลค่าคลัง', 'inventory value', 'คลังมูลค่า', 
+                'ราคาคลัง', 'value inventory'
+            ],
+            
+            'warehouse_summary': [
+                'สรุปคลัง', 'warehouse summary', 'มูลค่าแต่ละคลัง', 
+                'คลังแยก', 'สรุป warehouse'
+            ],
+            
+            'low_stock_items': [
+                'ใกล้หมด', 'สต็อกน้อย', 'สินค้าเหลือน้อย', 
+                'low stock', 'อะไหล่ใกล้หมด'
+            ],
+            
+            'out_of_stock': [
+                'หมดสต็อก', 'out of stock', 'สินค้าหมด', 
+                'stock หมด', 'อะไหล่หมด'
+            ],
+            
+            'high_unit_price': [
+                'ราคาต่อหน่วยสูง', 'ราคาแพง', 'expensive parts', 
+                'high price', 'อะไหล่แพง'
+            ],
+            
+            'highest_value_items': [
+                'สินค้ามูลค่าสูง', 'มูลค่าสูงสุดคลัง', 'highest value item', 
+                'อะไหล่มูลค่าสูง', 'expensive inventory'
+            ],
+            
+            'parts_by_warehouse': [
+                'อะไหล่แยกคลัง', 'parts by warehouse', 'คลังแยก', 
+                'แต่ละคลัง', 'warehouse breakdown'
+            ],
+            
+            'parts_total_value': [
+                'มูลค่ารวมอะไหล่', 'total parts value', 'ราคารวม parts', 
+                'มูลค่าอะไหล่ทั้งหมด', 'total inventory value'
+            ],
+            
+            # ========================================
+            # SALES ANALYSIS TEMPLATES
+            # ========================================
+            'sales_analysis': [
+                'วิเคราะห์การขาย', 'sales analysis', 'วิเคราะห์ยอดขาย', 
+                'การวิเคราะห์ขาย', 'analyze sales'
+            ],
+            
+            'sales_summary': [
+                'สรุปการขาย', 'sales summary', 'สรุปยอดขาย', 
+                'รายงานการขาย', 'sales report'
+            ],
+            
+            'sales_by_month': [
+                'ยอดขายรายเดือน', 'sales by month', 'ขายแยกเดือน', 
+                'monthly sales', 'ขายเดือน'
+            ],
+            
+            'top_parts_customers': [
+                'ลูกค้าซื้ออะไหล่', 'ลูกค้า parts สูง', 'top parts customer', 
+                'ลูกค้าอะไหล่', 'customer parts'
+            ],
+            
+            'service_vs_replacement': [
+                'เปรียบเทียบ service replacement', 'service กับ replacement', 
+                'service vs replacement', 'เปรียบเทียบบริการ'
+            ],
+            
+            'solution_sales': [
+                'ยอด solution', 'solution สูง', 'ลูกค้า solution', 
+                'solution sales', 'ขาย solution'
+            ],
+            
+            'quarterly_summary': [
+                'ไตรมาส', 'quarterly', 'รายไตรมาส', 
+                'quarter', 'สรุปไตรมาส'
+            ],
+            
+            # ========================================
+            # PRICING TEMPLATES
+            # ========================================
+            'pricing_standard': [
+                'ราคา standard', 'เสนอราคา standard', 'standard price', 
+                'งาน standard', 'quotation standard'
+            ],
+            
+            'pricing_summary': [
+                'สรุปราคา', 'price summary', 'รายการราคา', 
+                'เสนอราคาทั้งหมد', 'quotation summary'
+            ],
+            
+            # ========================================
+            # GOVERNMENT & SPECIAL CUSTOMER TEMPLATES
+            # ========================================
+            'government_customers': [
+                'ลูกค้าภาครัฐ', 'government customer', 'หน่วยงานราชการ', 
+                'ลูกค้าราชการ', 'gov customer'
+            ],
+            
+            'private_customers': [
+                'ลูกค้าเอกชน', 'private customer', 'ลูกค้าเอกชนใหญ่', 
+                'private sector', 'เอกชนใหญ่'
+            ],
+            
+            # ========================================
+            # VALUE & AMOUNT TEMPLATES  
+            # ========================================
+            'max_value_work': [
+                'งานมูลค่าสูงสุด', 'งานที่มีมูลค่าสูงสุด', 'highest value work', 
+                'งานแพงที่สุด', 'most expensive work'
+            ],
+            
+            'min_value_work': [
+                'งานมูลค่าต่ำสุด', 'งานที่มีมูลค่าต่ำสุด', 'lowest value work', 
+                'งานถูกที่สุด', 'cheapest work'
+            ],
+            
+            'total_value_all': [
+                'มูลค่ารวมทั้งหมด', 'total value all', 'ราคารวมทั้งหมด', 
+                'มูลค่าทั้งหมด', 'grand total'
+            ],
+            
+            # ========================================
+            # YEARLY ANALYSIS TEMPLATES
+            # ========================================
+            'year_comparison': [
+                'เปรียบเทียบปี', 'year comparison', 'เปรียบเทียบรายปี', 
+                'ปีต่อปี', 'compare year'
+            ],
+            
+            'year_analysis': [
+                'วิเคราะห์ปี', 'year analysis', 'วิเคราะห์รายปี', 
+                'การวิเคราะห์ปี', 'analyze year'
+            ],
+            
+            # ========================================
+            # MONTHLY ANALYSIS TEMPLATES
+            # ========================================
+            'monthly_summary': [
+                'สรุปรายเดือน', 'monthly summary', 'สรุปเดือน', 
+                'รายงานเดือน', 'monthly report'
+            ],
+            
+            'work_specific_month': [
+                'งานเดือนกันยายน', 'งานเดือนเฉพาะ', 'work specific month', 
+                'งานเดือนที่ระบุ', 'monthly work specific'
+            ],
+            
+            # ========================================
+            # SUCCESS & PERFORMANCE TEMPLATES
+            # ========================================
+            'successful_works': [
+                'งานที่สำเร็จ', 'งานสำเร็จ', 'successful work', 
+                'งานเสร็จ', 'completed work'
+            ],
+            
+            'unsuccessful_works': [
+                'งานที่ไม่สำเร็จ', 'งานไม่สำเร็จ', 'unsuccessful work', 
+                'งานล้มเหลว', 'failed work'
+            ],
+            
+            # ========================================
+            # PRODUCT & PARTS TEMPLATES
+            # ========================================
+            'product_sales': [
+                'ยอดขายสินค้า', 'product sales', 'ขายสินค้า', 
+                'product revenue', 'รายได้สินค้า'
+            ],
+            
+            'parts_sales': [
+                'ยอดขายอะไหล่', 'parts sales', 'ขายอะไหล่', 
+                'spare parts sales', 'รายได้อะไหล่'
+            ],
+            
+            'replacement_sales': [
+                'ยอดขาย replacement', 'replacement sales', 'ขาย replacement', 
+                'งานเปลี่ยนขาย', 'replacement revenue'
+            ],
+            
+            'service_sales': [
+                'ยอดขายบริการ', 'service sales', 'ขายบริการ', 
+                'service revenue', 'รายได้บริการ'
+            ],
         }
         
         # === PHASE 3: Smart Scoring with penalties ===
