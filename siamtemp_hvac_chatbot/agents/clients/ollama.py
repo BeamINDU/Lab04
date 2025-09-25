@@ -34,9 +34,9 @@ class SimplifiedOllamaClient:
             'stream': False,  # 
             'temperature': 0.1,
             'top_p': 0.9,
-            'max_tokens': 2000,
+            'max_tokens': 10000,
             'options': {
-                'num_predict': 2000,
+                'num_predict': 10000,
                 'temperature': 0.1
             }
         }

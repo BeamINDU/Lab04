@@ -246,8 +246,8 @@ class ImprovedIntentDetector:
     def detect_intent_and_entities(self, question: str, 
                                 previous_intent: Optional[str] = None) -> Dict[str, Any]:
         """
-        Enhanced intent detection with better accuracy
-        FIXED: Handle overhaul with sales/work context properly
+        FINAL FIX: Enhanced intent detection with proper entity extraction
+        Addresses both customer detection and intent mapping issues
         """
         question_lower = question.lower().strip()
         
@@ -264,7 +264,50 @@ class ImprovedIntentDetector:
             return {'intent': 'pm_work', 'confidence': 0.90, 'entities': self._extract_entities(question, 'pm_work')}
         
         # ============================================
-        # 🔧 FIX: OVERHAUL CONTEXT DETECTION
+        # 3. REPAIR HISTORY DETECTION (FIXED)
+        # ============================================
+        repair_patterns = [
+            'ประวัติการซ่อม', 'ซ่อมอะไรบ้าง', 'repair history',
+            'ประวัติบริการ', 'service history', 'มีประวัติการซ่อม',
+            'เคยซ่อมอะไร', 'บริการอะไรบ้าง'
+        ]
+
+        if any(pattern in question_lower for pattern in repair_patterns):
+            # ✅ FIX: Extract entities before returning
+            entities = self._extract_entities(question, 'customer_repair_history')
+            return {
+                'intent': 'customer_repair_history', 
+                'confidence': 0.95,
+                'entities': entities  # ✅ ต้องมี entities!
+            }
+        
+        # ============================================
+        # 4. CUSTOMER HISTORY DETECTION (ENHANCED)
+        # ============================================
+        customer_history_patterns = [
+            'ประวัติ', 'history', 'เคย.*ใช้', 'เคย.*ซื้อ', 
+            'การซื้อขาย.*ย้อนหลัง', 'มีการซื้อขาย', 'ซื้อขาย.*ปี'
+        ]
+        
+        if any(re.search(pattern, question_lower) for pattern in customer_history_patterns):
+            entities = self._extract_entities(question, 'customer_history')
+            if entities.get('customers'):
+                # ✅ Differentiate between repair and sales history
+                if any(word in question_lower for word in ['ซ่อม', 'repair', 'service', 'บริการ']):
+                    return {
+                        'intent': 'customer_repair_history',
+                        'confidence': 0.92,
+                        'entities': entities
+                    }
+                else:
+                    return {
+                        'intent': 'customer_history', 
+                        'confidence': 0.90,
+                        'entities': entities
+                    }
+        
+        # ============================================
+        # 5. OVERHAUL CONTEXT DETECTION
         # ============================================
         if 'overhaul' in question_lower:
             # Check for SALES context FIRST (higher priority)
@@ -282,7 +325,7 @@ class ImprovedIntentDetector:
             # Priority 1: Sales context wins
             if any(word in question_lower for word in sales_indicators):
                 return {
-                    'intent': 'overhaul_sales',  # ✅ Sales intent
+                    'intent': 'overhaul_sales',
                     'confidence': 0.95,
                     'entities': self._extract_entities(question, 'overhaul_sales')
                 }
@@ -290,17 +333,16 @@ class ImprovedIntentDetector:
             # Priority 2: Explicit work context
             elif any(word in question_lower for word in work_indicators):
                 return {
-                    'intent': 'work_overhaul',  # Work intent
+                    'intent': 'work_overhaul',
                     'confidence': 0.90,
                     'entities': self._extract_entities(question, 'work_overhaul')
                 }
             
             # Priority 3: Just "งาน overhaul" without other context
             elif 'งาน' in question_lower:
-                # Default to work unless has "รายงาน"
                 if 'รายงาน' in question_lower:
                     return {
-                        'intent': 'overhaul_sales',  # รายงาน = sales report
+                        'intent': 'overhaul_sales',
                         'confidence': 0.85,
                         'entities': self._extract_entities(question, 'overhaul_sales')
                     }
@@ -311,9 +353,8 @@ class ImprovedIntentDetector:
                         'entities': self._extract_entities(question, 'work_overhaul')
                     }
             
-            # Priority 4: Just "overhaul" alone - check other context
+            # Priority 4: Just "overhaul" alone
             else:
-                # Default to sales for standalone "overhaul"
                 return {
                     'intent': 'overhaul_sales',
                     'confidence': 0.80,
@@ -321,7 +362,7 @@ class ImprovedIntentDetector:
                 }
         
         # ============================================
-        # OTHER SPECIFIC PATTERNS
+        # 6. OTHER SPECIFIC PATTERNS
         # ============================================
         
         # Employee queries
@@ -334,26 +375,9 @@ class ImprovedIntentDetector:
                     'confidence': 0.95,
                     'entities': entities
                 }
-        repair_patterns = [
-            'ประวัติการซ่อม', 'ซ่อมอะไรบ้าง', 'repair history',
-            'ประวัติบริการ', 'service history'
-        ]
-
-        if any(pattern in question_lower for pattern in repair_patterns):
-            return {'intent': 'customer_repair_history', 'confidence': 0.95}
-        
-        # Customer history
-        if any(word in question_lower for word in ['ประวัติ', 'history', 'เคย', 'ซ่อม']):
-            entities = self._extract_entities(question, 'customer_history')
-            if entities.get('customers'):
-                return {
-                    'intent': 'customer_history',
-                    'confidence': 0.90,
-                    'entities': entities
-                }
         
         # ============================================
-        # NORMAL PROCESSING (existing logic)
+        # 7. NORMAL PROCESSING (existing logic)
         # ============================================
         
         # Preprocess question
@@ -373,14 +397,79 @@ class ImprovedIntentDetector:
             best_intent, confidence, entities, processed_question
         )
         
+        # ============================================
+        # 8. FINAL VALIDATION & EMERGENCY FALLBACK
+        # ============================================
+        
+        # Critical validation for customer-related intents
+        if final_intent in ['customer_history', 'customer_repair_history']:
+            if not entities.get('customers'):
+                logger.warning(f"⚠️ {final_intent} intent but no customers found!")
+                
+                # Try emergency customer extraction
+                emergency_customers = self._emergency_customer_extraction(question)
+                if emergency_customers:
+                    entities['customers'] = emergency_customers
+                    logger.info(f"🚨 Emergency extraction found: {emergency_customers}")
+                else:
+                    logger.warning("⚠️ No customers found even with emergency extraction")
+                    # Keep the intent but mark as low confidence
+                    final_confidence = max(final_confidence - 0.2, 0.3)
+        
         return {
             'intent': final_intent,
             'confidence': final_confidence,
             'entities': entities,
             'scores': intent_scores,
-            'original_question': question,
-            'processed_question': processed_question
+            'debug_info': {
+                'original_question': question,
+                'processed_question': processed_question,
+                'customers_found': len(entities.get('customers', [])),
+                'emergency_extraction_used': bool(entities.get('customers')) and final_intent in ['customer_history', 'customer_repair_history']
+            }
         }
+
+    def _emergency_customer_extraction(self, question: str) -> List[str]:
+        """
+        Emergency customer extraction for failed cases
+        Enhanced patterns for Thai/foreign mixed names
+        """
+        logger.info("🚨 Starting emergency customer extraction...")
+        
+        emergency_patterns = [
+            # Pattern 1: บริษัท + ทุกอย่างจนถึง action words
+            r'บริษัท\s*([^,\.\?!]{3,30}?)(?:\s+(?:มี|เคย|ซ่อม|ประวัติ|บริการ)|$)',
+            
+            # Pattern 2: คลีนิค + ทุกอย่างจนถึง action words  
+            r'คลีนิค\s*([^,\.\?!]{3,30}?)(?:\s+(?:มี|เคย|ซ่อม|ประวัติ|บริการ)|$)',
+            
+            # Pattern 3: Thai/foreign mixed names directly
+            r'(แซด\s*คูโรดา|ซาด\s*คูโรดา|แซดคูโรดา|ซาดคูโรดา)',
+            
+            # Pattern 4: Common business names
+            r'(STANLEY|CLARION|HONDA|AGC|HITACHI)\s+(?:มี|เคย|ประวัติ)',
+            
+            # Pattern 5: Generic company extraction before action
+            r'([A-Z]{2,}(?:\s+[A-Z][a-z]+)*)\s+(?:มี|เคย|ประวัติ)',
+        ]
+        
+        customers = []
+        for i, pattern in enumerate(emergency_patterns):
+            matches = re.findall(pattern, question, re.IGNORECASE)
+            for match in matches:
+                clean = match.strip()
+                if len(clean) > 2:
+                    customers.append(clean)
+                    logger.info(f"🚨 Emergency pattern {i+1} found: '{clean}'")
+        
+        # Add hardcoded known problematic names
+        known_problematic = ['แซด คูโรดา']
+        for name in known_problematic:
+            if name in question.lower():
+                customers.append(name)
+                logger.info(f"🚨 Known problematic name found: '{name}'")
+        
+        return list(set(customers))
 
     def _preprocess_question(self, question_lower: str) -> str:
         """Preprocess question for better matching"""
@@ -691,90 +780,75 @@ class ImprovedIntentDetector:
         return list(set(products))
     
     def _extract_customers(self, question: str) -> List[str]:
+        """
+        FIXED: Enhanced customer extraction with robust Thai/foreign name handling
+        Addresses the specific issue: "บริษัทแซด คูโรดา" not being detected
+        """
+        
+        # Early exit for non-customer queries
         non_customer_patterns = [
-            # Count/frequency questions
             r'มีลูกค้า.*กี่', r'ลูกค้า.*กี่', r'จำนวนลูกค้า',
-            r'ซื้อ.*กี่ครั้ง', r'ซื้อมา.*กี่', r'มี.*การซื้อขาย.*กี่',
-            
-            # Summary/aggregate questions  
-            r'ลูกค้า.*ทั้งหมด', r'รวม.*ลูกค้า', r'total.*customer',
-            r'ลูกค้า.*สูงสุด', r'top.*customer', r'อันดับ.*ลูกค้า',
-            
-            # General questions about customers
-            r'ลูกค้า.*ใหม่', r'ลูกค้า.*เก่า', r'ลูกค้า.*มาก',
-            r'customer.*new', r'customer.*old', r'customer.*most',
-            
-            # Analysis questions
-            r'วิเคราะห์.*ลูกค้า', r'เปรียบเทียบ.*ลูกค้า', r'รายงาน.*ลูกค้า'
+            r'ซื้อ.*กี่ครั้ง', r'ลูกค้า.*ทั้งหมด', r'รวม.*ลูกค้า'
         ]
         
         question_lower = question.lower()
         logger.info(f"🔍 Question lower: '{question_lower}'")
-        # Check if this is a non-customer query
+        
         for pattern in non_customer_patterns:
             if re.search(pattern, question_lower):
-                logger.info(f"🚫 EARLY EXIT: Non-customer query detected - pattern: {pattern}")
+                logger.info(f"🚫 EARLY EXIT: Non-customer query detected")
                 return []
         
-        # Additional word-based filtering
-        non_customer_words = [
-            'กี่ราย', 'กี่คน', 'กี่บริษัท', 'กี่ครั้ง',
-            'ทั้งหมด', 'รวม', 'total', 'count',
-            'มากที่สุด', 'สูงสุด', 'ดีที่สุด',
-            'เปรียบเทียบ', 'วิเคราะห์', 'รายงาน'
-        ]
-        
-        if any(word in question_lower for word in non_customer_words):
-            logger.info(f"🚫 EARLY EXIT: Found non-customer indicator words")
-            return []
-        
-        # ========================================
-        # PROCEED WITH NORMAL CUSTOMER EXTRACTION
-        # ========================================
-        
         customers = []
-        question_original = question  # Keep original for case-sensitive
+        question_original = question
         
-        # ========== KNOWN CUSTOMERS FROM DATABASE ==========
+        # ========================================
+        # PHASE 1: ENHANCED KNOWN CUSTOMERS DATABASE
+        # ========================================
+        
         known_customers = {
             # คลีนิค variations
-            'คลีนิคประกอบโรคศิลป์': ['คลีนิคประกอบโรคศิลป์ฯ', 'คลีนิคการประกอบโรคศิลปะ', 'คลีนิคประกอบโรคศิลปะ'],
+            'คลีนิคประกอบโรคศิลป์': [
+                'คลีนิคประกอบโรคศิลป์ฯ', 'คลีนิคการประกอบโรคศิลปะ', 
+                'คลีนิคประกอบโรคศิลปะ'
+            ],
+            
+            # ✅ FIX: Add missing Thai/foreign companies
+            'แซด คูโรดา': ['แซด คูโรดา', 'แซดคูโรดา', 'SADEKURODA'],
             
             # English companies
-            'CLARION': ['CLARION', 'CLARION ASIA', 'CLARION ASIA (THAILAND)', 'CLARION ASIA ( THAILAND ) CO.,LTD.'],
+            'CLARION': ['CLARION', 'CLARION ASIA', 'CLARION ASIA (THAILAND)'],
             'STANLEY': ['STANLEY', 'STANLEY ELECTRIC'],
-            'HONDA': ['HONDA', 'HONDA AUTOMOBILE', 'ฮอนด้า', 'ฮอนด้า ลาดกระบัง'],
+            'HONDA': ['HONDA', 'HONDA AUTOMOBILE', 'ฮอนด้า'],
             'SADESA': ['SADESA', 'Sadesa', 'SADESA (THAILAND)', 'ซาเดซ่า'],
             'AGC': ['AGC', 'เอจีซี', 'บริษัทเอจีซี แฟลทกลาส'],
-            'IRPC': ['IRPC', 'IRPC Public', 'IRPC PUBLIC'],
-            'DENSO': ['DENSO', 'DENSO (THAILAND)', 'เดนโซ่'],
-            'SEIKO': ['SEIKO', 'SEIKO INSTRUMENTS'],
-            'HITACHI': ['HITACHI', 'ฮิตาชิ', 'Hitachi Astemo', 'บริษัท ฮิตาชิ แอสเตโม'],
             
-            # Thai companies
-            'ชินอิทซึ': ['ชินอิทซึ แมกเนติค', 'ชินอิทซึ แม็คเนติคส์', 'ชินอิทซึ แม็กเนติค'],
-            'สหกล': ['สหกลอิควิปเมนท์', 'สหกลอิควีปเม้นท์', 'สหกลอิควิปเมนต์'],
+            # Thai companies with foreign names
+            'ชินอิทซึ': ['ชินอิทซึ แมกเนติค', 'ชินอิทซึ แม็คเนติคส์'],
+            'สหกล': ['สหกลอิควิปเมนท์', 'สหกลอิควีปเม้นท์'],
             
-            # Government
-            'กระทรวงกลาโหม': ['สำนักงานปลัดกระทรวงกลาโหม', 'สำนักปลัดกระทรวงกลาโหม', 'กลาโหม'],
+            # Government entities
+            'กระทรวงกลาโหม': ['สำนักงานปลัดกระทรวงกลาโหม', 'กลาโหม'],
             'การไฟฟ้า': ['การไฟฟ้านครหลวง', 'การไฟฟ้าฝ่ายผลิต'],
         }
         
-        # Check for known customers first
+        # Check for known customers first (with fuzzy matching)
         for key, variations in known_customers.items():
             for variation in variations:
-                if variation.lower() in question_lower:
-                    customers.append(variation)
-                    if key not in customers:
-                        customers.append(key)
+                # ✅ Case-insensitive and space-tolerant matching
+                variation_clean = re.sub(r'\s+', ' ', variation.lower().strip())
+                question_clean = re.sub(r'\s+', ' ', question_lower.strip())
+                
+                if variation_clean in question_clean:
+                    customers.extend([variation, key])
+                    logger.info(f"✅ Found known customer via fuzzy match: {variation} -> {key}")
         
-        # If we found known customers, return early
         if customers:
-            logger.info(f"✅ Found known customers: {customers}")
-            return customers
+            logger.info(f"✅ Found known customers: {list(set(customers))}")
+            return list(set(customers))
         
         # ========================================
-        # SPECIFIC CUSTOMER NAME EXTRACTION
+        # PHASE 2: ENHANCED PATTERN EXTRACTION
         # ========================================
         
         # Only extract if there are clear customer indicators
@@ -791,94 +865,127 @@ class ImprovedIntentDetector:
             logger.info(f"🚫 No customer indicators found")
             return []
         
-        # ========== PATTERN EXTRACTION ==========
-        
-        # Pattern 1: บริษัท/บ./บจก./บมจ.
+        # ✅ ENHANCED Pattern 1: บริษัท (with flexible suffix handling)
         thai_company_patterns = [
-            r'บริษัท\s*([^\s].{2,30}?)(?:\s+(?:จำกัด|จก\.|ฯ)|$)',
-            r'บ\.\s*([^\s].{2,20}?)(?:\s+(?:จก\.|จำกัด|ฯ)|$)',
-            r'บจก\.\s*([^\s].{2,20})',
-            r'บมจ\.\s*([^\s].{2,20})',
+            # Original patterns with required suffixes
+            r'บริษัท\s*([^\s].{2,30}?)(?:\s+(?:จำกัด|จก\.|ฯ))',
+            r'บ\.\s*([^\s].{2,20}?)(?:\s+(?:จก\.|จำกัด|ฯ))',
+            
+            # ✅ NEW: Flexible patterns without required suffixes
+            r'บริษัท\s*([^\s][^,\.\?!]{2,30}?)(?=\s+(?:มี|ได้|เคย|ซ่อม|ประวัติ|กี่)|$)',
+            r'บ\.\s*([^\s][^,\.\?!]{2,20}?)(?=\s+(?:มี|ได้|เคย|ซ่อม|ประวัติ|กี่)|$)',
+            
+            # ✅ NEW: Thai/foreign mixed names
+            r'บริษัท\s*([ก-๙A-Za-z\s]{3,25})(?=\s|$)',
         ]
         
         for pattern in thai_company_patterns:
             matches = re.findall(pattern, question, re.IGNORECASE)
             for match in matches:
                 clean = match.strip()
-                # Exclude non-company words
-                if not any(word in clean.lower() for word in ['มี', 'ได้', 'ไหม', 'กี่', 'ทั้งหมด', 'การ']):
-                    if len(clean) > 2:
-                        customers.append(clean)
+                # ✅ Better validation (allow Thai/foreign mixed names)
+                if (len(clean) > 2 and 
+                    not any(word in clean.lower() for word in ['มี', 'ได้', 'ไหม', 'กี่', 'ทั้งหมด', 'การ', 'ซื้อ', 'ขาย'])):
+                    customers.append(clean)
+                    logger.info(f"✅ Extracted via Thai company pattern: '{clean}'")
         
-        # Pattern 2: English Company Names (more restrictive)
-        if re.search(r'\b[A-Z]{3,}', question):  # Only if there are caps
+        # ✅ ENHANCED Pattern 2: English Company Names (more flexible)
+        if re.search(r'\b[A-Z]{2,}', question):  # At least 2 caps
             eng_patterns = [
-                r'\b([A-Z][A-Za-z0-9\s\-&.,()]+(?:CO\.|LTD\.|LIMITED|INC\.|CORP\.))',
-                r'\b([A-Z]{3,}(?:\s+[A-Z]+)*)\b',
+                r'\b([A-Z][A-Za-z0-9\s\-&.,()]{2,30}(?:CO\.|LTD\.|LIMITED|INC\.|CORP\.))',
+                r'\b([A-Z]{2,}(?:\s+[A-Z]+)*)\b',  # Multiple caps
+                r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b'  # Title case
             ]
             
             for pattern in eng_patterns:
                 matches = re.findall(pattern, question_original)
                 for match in matches:
-                    if match.upper() not in ['HVAC', 'FCU', 'AHU', 'VRF', 'THE', 'AND', 'PM']:
-                        customers.append(match)
-
-
+                    clean = match.strip()
+                    # Enhanced exclusion list
+                    if (clean.upper() not in ['HVAC', 'FCU', 'AHU', 'VRF', 'THE', 'AND', 'PM', 'OR', 'BUT'] and
+                        len(clean) > 2):
+                        customers.append(clean)
+                        logger.info(f"✅ Extracted via English pattern: '{clean}'")
+        
+        # ✅ ENHANCED Pattern 3: Thai foreign names (without company prefix)
         if 'บริษัท' in question and not customers:
-            # More aggressive extraction for Thai foreign names
-            pattern = r'บริษัท\s*([ก-๙]+(?:\s+[ก-๙]+)*)'
-            matches = re.findall(pattern, question)
-            for match in matches:
-                clean_name = match.strip()
-                # Filter out common words
-                if clean_name not in ['มี', 'ได้', 'ไหม', 'การ', 'ประวัติ', 'ซ่อม', 'บ้าง']:
-                    if len(clean_name) > 3:
+            # More aggressive extraction for Thai/foreign mixed names
+            thai_foreign_patterns = [
+                r'บริษัท\s*([ก-๙A-Za-z\s]+)',  # Allow mixed Thai/English
+                r'บริษัท\s*([^\s][^ๆ]{2,25})',  # General pattern
+            ]
+            
+            for pattern in thai_foreign_patterns:
+                matches = re.findall(pattern, question)
+                for match in matches:
+                    clean_name = match.strip()
+                    # Enhanced filtering
+                    excluded_words = ['มี', 'ได้', 'ไหม', 'การ', 'ประวัติ', 'ซ่อม', 'บ้าง', 'อะไร', 'เท่า', 'ไหร่']
+                    if (clean_name not in excluded_words and 
+                        len(clean_name) > 3 and
+                        not any(word in clean_name.lower() for word in excluded_words)):
                         customers.append(clean_name)
-                        logger.info(f"✅ Extracted Thai foreign name: {clean_name}")
+                        logger.info(f"✅ Extracted Thai foreign name: '{clean_name}'")
         
-        # ✅ EMERGENCY fallback for "แซด คูโรดา" type
-        if not customers and 'แซด คูโรดา' in question:
-            customers.append('แซด คูโรดา')
-            logger.info("✅ Emergency fallback: แซด คูโรดา")
-
-        # Pattern 3: คลีนิค (specific extraction)
-        if 'คลีนิค' in question:
-            clinic_match = re.search(r'(คลีนิค[ก-๙]*[^กี่ทั้งหมดการซื้อขาย]*)', question)
-            if clinic_match:
-                clinic_name = clinic_match.group(1).strip()
-                # Make sure it's not part of a counting question
-                if not any(word in clinic_name for word in ['กี่', 'ทั้งหมด', 'การ', 'ซื้อ', 'ขาย']):
-                    customers.append(clinic_name)
+        # ✅ ENHANCED Emergency fallbacks for common problematic names
+        emergency_fallbacks = [
+            ('แซด คูโรดา', ['แซด คูโรดา', 'แซดคูโรดา']),
+            ('ชินอิทซึ', ['ชินอิทซึ', 'SHINETSU']),
+            ('สหกล', ['สหกล', 'สหกลอิควิป']),
+        ]
         
-        # ========== CLEAN AND VALIDATE ==========
+        if not customers:
+            for canonical_name, variations in emergency_fallbacks:
+                for variant in variations:
+                    if variant in question:
+                        customers.append(canonical_name)
+                        logger.info(f"✅ Emergency fallback: {variant} -> {canonical_name}")
+                        break
+        
+        # ✅ Pattern 4: คลีนิค (enhanced)
+        if 'คลีนิค' in question and not customers:
+            clinic_patterns = [
+                r'(คลีนิค[ก-๙\s]+?)(?=\s+(?:มี|เคย|ได้|ซ่อม|ประวัติ|กี่)|$)',
+                r'(คลีนิค[^กี่ทั้งหมดการซื้อขาย]{3,30}?)(?=\s|$)',
+            ]
+            
+            for pattern in clinic_patterns:
+                matches = re.findall(pattern, question)
+                for match in matches:
+                    clinic_name = match.strip()
+                    if len(clinic_name) > 6:  # คลีนิค = 6 chars + name
+                        customers.append(clinic_name)
+                        logger.info(f"✅ Extracted clinic: '{clinic_name}'")
+        
+        # ========================================
+        # PHASE 3: CLEAN AND VALIDATE
+        # ========================================
+        
         cleaned_customers = []
-        
         for customer in customers:
             clean = customer.strip()
-            clean = re.sub(r'\s+', ' ', clean)
+            clean = re.sub(r'\s+', ' ', clean)  # Normalize spaces
             clean = clean.rstrip(',.;:?!-')
             
             # Final validation
             if (len(clean) > 2 and 
                 not any(bad_word in clean.lower() for bad_word in 
-                    ['กี่ครั้ง', 'ทั้งหมด', 'มากที่สุด', 'การซื้อขาย', 'วิเคราะห์'])):
+                    ['กี่ครั้ง', 'ทั้งหมด', 'มากที่สุด', 'การซื้อขาย', 'วิเคราะห์', 'มีอะไร'])):
                 cleaned_customers.append(clean)
         
-        # Remove duplicates
+        # Remove duplicates while preserving order
         cleaned_customers = list(dict.fromkeys(cleaned_customers))
         
         # ========================================
-        # NO AGGRESSIVE FALLBACK - SAFER APPROACH
+        # LOGGING AND RETURN
         # ========================================
         
-        # Log results
         if cleaned_customers:
-            logger.info(f"✅ Found customers: {cleaned_customers}")
+            logger.info(f"✅ Final extracted customers: {cleaned_customers}")
         else:
-            logger.info(f"ℹ️ No specific customers found - treating as general query")
+            logger.info(f"ℹ️ No customers extracted - will be treated as general query")
         
         return cleaned_customers
-
 
 
     

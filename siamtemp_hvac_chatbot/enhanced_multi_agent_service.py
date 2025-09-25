@@ -353,6 +353,8 @@ async def chat_stream_endpoint(request: ChatRequest):
     """
     Fixed streaming endpoint with proper OpenAI format
     """
+    if not config.enable_streaming:
+        raise HTTPException(status_code=400, detail="Streaming is not enabled")
     async def generate():
         try:
             # Process question
@@ -394,7 +396,7 @@ async def chat_stream_endpoint(request: ChatRequest):
                         "finish_reason": None
                     }]
                 }
-                yield f"data: {json.dumps(content_chunk)}\n\n"
+                yield f"data: {json.dumps(content_chunk, ensure_ascii=False)}\n\n"
                 await asyncio.sleep(0.05)
             
             # ✅ Send completion chunk

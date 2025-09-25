@@ -1490,6 +1490,430 @@ class TemplateConfig:
             'year_adjustment': 'simple',
             'intent': 'yearly_analysis',
             'description': 'สรุปการซื้อขายรายปี'
+        },
+        # ========================================
+        # MISSING TEMPLATE_METADATA ENTRIES
+        # Add these to your TEMPLATE_METADATA dictionary:
+        # ========================================
+
+        'frequent_customers': {
+            'table': 'v_sales',
+            'complexity': 'NORMAL',
+            'keywords': ['ลูกค้าที่ใช้บริการบ่อย', 'frequent customers', 'ลูกค้าใช้บริการบ่อยที่สุด'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'none',
+            'intent': 'customer_analysis',
+            'description': 'ลูกค้าที่ใช้บริการบ่อยที่สุด'
+        },
+
+        'count_all_parts': {
+            'table': 'v_spare_part',
+            'complexity': 'EXACT',
+            'keywords': ['จำนวนอะไหล่ทั้งหมด', 'count all parts', 'อะไหล่ทั้งหมดกี่รายการ'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'none',
+            'intent': 'inventory',
+            'description': 'จำนวนอะไหล่ทั้งหมดในระบบ'
+        },
+
+        'most_expensive_parts': {
+            'table': 'v_spare_part',
+            'complexity': 'NORMAL',
+            'keywords': ['อะไหล่แพงที่สุด', 'most expensive', 'ราคาสูงสุด'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'none',
+            'intent': 'spare_parts',
+            'description': 'อะไหล่ที่มีราคาแพงที่สุด'
+        },
+
+        'low_stock_alert': {
+            'table': 'v_spare_part',
+            'complexity': 'NORMAL',
+            'keywords': ['อะไหล่ใกล้หมด', 'low stock alert', 'แจ้งเตือนสต็อกต่ำ'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'none',
+            'intent': 'inventory',
+            'description': 'อะไหล่ที่ใกล้หมด (< 5 ชิ้น)'
+        },
+
+        'warehouse_specific_parts': {
+            'table': 'v_spare_part',
+            'complexity': 'NORMAL',
+            'keywords': ['อะไหล่ในคลังเฉพาะ', 'warehouse specific', 'คลัง a'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'none',
+            'intent': 'inventory',
+            'description': 'อะไหล่ในคลังเฉพาะ'
+        },
+
+        'average_part_price': {
+            'table': 'v_spare_part',
+            'complexity': 'NORMAL',
+            'keywords': ['ราคาเฉลี่ยอะไหล่', 'average part price', 'ค่าเฉลี่ยราคา'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'none',
+            'intent': 'spare_parts',
+            'description': 'ราคาเฉลี่ยของอะไหล่'
+        },
+
+        'compressor_parts': {
+            'table': 'v_spare_part',
+            'complexity': 'NORMAL',
+            'keywords': ['อะไหล่คอมเพรสเซอร์', 'compressor parts', 'คอมเพรสเซอร์'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'none',
+            'intent': 'spare_parts',
+            'description': 'อะไหล่สำหรับคอมเพรสเซอร์'
+        },
+
+        'filter_parts': {
+            'table': 'v_spare_part',
+            'complexity': 'NORMAL',
+            'keywords': ['อะไหล่ filter', 'filter parts', 'กรอง'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'none',
+            'intent': 'spare_parts',
+            'description': 'อะไหล่ประเภทกรอง'
+        },
+
+        'warehouse_comparison': {
+            'table': 'v_spare_part',
+            'complexity': 'NORMAL',
+            'keywords': ['เปรียบเทียบคลัง', 'warehouse comparison', 'เปรียบเทียบแต่ละคลัง'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'none',
+            'intent': 'inventory',
+            'description': 'เปรียบเทียบคลังสินค้า'
+        },
+
+        'maintenance_history': {
+            'table': 'v_work_force',
+            'complexity': 'NORMAL',
+            'keywords': ['ประวัติบำรุงรักษา', 'maintenance history', 'pm history'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'none',
+            'intent': 'maintenance_history',
+            'description': 'ประวัติการบำรุงรักษา'
+        },
+
+        'parts_search_multi': {
+            'table': 'v_spare_part',
+            'complexity': 'NORMAL',
+            'keywords': ['ค้นหาอะไหล่หลายคำ', 'search multiple parts', 'หาหลายรายการ'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'none',
+            'intent': 'spare_parts',
+            'description': 'ค้นหาอะไหล่ด้วยหลายเงื่อนไข'
+        },
+
+        # === ANALYTICAL QUERIES ===
+        'annual_performance_summary': {
+            'table': 'v_sales',
+            'complexity': 'COMPLEX',
+            'keywords': ['สรุปผลประกอบการรายปี', 'annual performance', 'สรุปรายปี'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'none',
+            'intent': 'overview',
+            'description': 'สรุปผลประกอบการรายปี'
+        },
+
+        'growth_trend': {
+            'table': 'v_sales',
+            'complexity': 'COMPLEX',
+            'keywords': ['เทรนด์การเติบโต', 'growth trend', 'แนวโน้มการเติบโต'],
+            'has_subquery': True,
+            'has_not_in': False,
+            'year_adjustment': 'none',
+            'intent': 'revenue_analysis',
+            'description': 'เทรนด์การเติบโตของธุรกิจ'
+        },
+
+        'popular_service_types': {
+            'table': 'v_sales',
+            'complexity': 'COMPLEX',
+            'keywords': ['ประเภทงานที่นิยม', 'popular service', 'บริการยอดนิยม'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'simple',
+            'intent': 'sales_analysis',
+            'description': 'ประเภทบริการที่ได้รับความนิยม'
+        },
+
+        'high_potential_customers': {
+            'table': 'v_sales',
+            'complexity': 'NORMAL',
+            'keywords': ['ลูกค้าที่มีศักยภาพ', 'potential customers', 'ลูกค้าดี'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'none',
+            'intent': 'customer_analysis',
+            'description': 'ลูกค้าที่มีศักยภาพสูง'
+        },
+
+        'revenue_distribution': {
+            'table': 'v_sales',
+            'complexity': 'NORMAL',
+            'keywords': ['การกระจายรายได้', 'revenue distribution', 'กระจาย'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'simple',
+            'intent': 'revenue_analysis',
+            'description': 'การกระจายของรายได้'
+        },
+
+        'team_performance': {
+            'table': 'v_work_force',
+            'complexity': 'NORMAL',
+            'keywords': ['ประสิทธิภาพทีม', 'team performance', 'ผลงานทีม'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'none',
+            'intent': 'work_analysis',
+            'description': 'ประสิทธิภาพการทำงานของทีม'
+        },
+
+        'monthly_sales_trend': {
+            'table': 'v_work_force',
+            'complexity': 'COMPLEX',
+            'keywords': ['แนวโน้มรายเดือน', 'monthly trend', 'ยอดขายรายเดือน'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'simple',
+            'intent': 'sales_analysis',
+            'description': 'แนวโน้มยอดขายรายเดือน'
+        },
+
+        'service_roi': {
+            'table': 'v_sales',
+            'complexity': 'COMPLEX',
+            'keywords': ['roi', 'ผลตอบแทน', 'return on investment'],
+            'has_subquery': True,
+            'has_not_in': False,
+            'year_adjustment': 'simple',
+            'intent': 'revenue_analysis',
+            'description': 'ผลตอบแทนจากการลงทุน'
+        },
+
+        'revenue_forecast': {
+            'table': 'v_sales',
+            'complexity': 'COMPLEX',
+            'keywords': ['คาดการณ์รายได้', 'forecast', 'พยากรณ์', 'ปีหน้า'],
+            'has_subquery': True,
+            'has_not_in': False,
+            'year_adjustment': 'smart',
+            'intent': 'revenue_analysis',
+            'description': 'คาดการณ์รายได้'
+        },
+
+        'top_parts_customers': {
+            'table': 'v_sales',
+            'complexity': 'NORMAL',
+            'keywords': ['ลูกค้าซื้ออะไหล่มาก', 'top parts customers', 'ลูกค้าอะไหล่'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'simple',
+            'intent': 'customer_analysis',
+            'description': 'ลูกค้าที่ซื้ออะไหล่มากที่สุด'
+        },
+
+        'service_vs_replacement': {
+            'table': 'v_sales',
+            'complexity': 'NORMAL',
+            'keywords': ['เปรียบเทียบ service กับ replacement', 'service vs replacement'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'simple',
+            'intent': 'sales_analysis',
+            'description': 'เปรียบเทียบ service กับ replacement'
+        },
+
+        'solution_customers': {
+            'table': 'v_sales',
+            'complexity': 'NORMAL',
+            'keywords': ['ลูกค้า solution', 'solution sales', 'solution customers'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'simple',
+            'intent': 'customer_analysis',
+            'description': 'ลูกค้าที่ใช้บริการ solution'
+        },
+
+        # === MORE MISSING ENTRIES ===
+        'min_value_customer': {
+            'table': 'v_sales',
+            'complexity': 'NORMAL',
+            'keywords': ['ลูกค้าจ่ายน้อยที่สุด', 'min customer value'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'simple',
+            'intent': 'customer_analysis',
+            'description': 'ลูกค้าที่จ่ายเงินน้อยที่สุด'
+        },
+
+        'average_customer_value': {
+            'table': 'v_sales',
+            'complexity': 'NORMAL',
+            'keywords': ['มูลค่าเฉลี่ยต่อลูกค้า', 'average customer spend'],
+            'has_subquery': True,
+            'has_not_in': False,
+            'year_adjustment': 'simple',
+            'intent': 'customer_analysis',
+            'description': 'มูลค่าเฉลี่ยของลูกค้า'
+        },
+
+        'top_revenue_customers': {
+            'table': 'v_sales',
+            'complexity': 'NORMAL',
+            'keywords': ['ลูกค้ารายได้สูงสุด', 'highest revenue customers'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'simple',
+            'intent': 'customer_analysis',
+            'description': 'ลูกค้าที่สร้างรายได้สูงสุด'
+        },
+
+        'low_revenue_customers': {
+            'table': 'v_sales',
+            'complexity': 'NORMAL',
+            'keywords': ['ลูกค้ารายได้ต่ำ', 'low revenue customers'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'simple',
+            'intent': 'customer_analysis',
+            'description': 'ลูกค้าที่สร้างรายได้ต่ำ'
+        },
+
+        'customer_lifetime_value': {
+            'table': 'v_sales',
+            'complexity': 'NORMAL',
+            'keywords': ['มูลค่าตลอดชีวิตลูกค้า', 'customer lifetime value', 'clv'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'none',
+            'intent': 'customer_analysis',
+            'description': 'มูลค่าตลอดชีวิตของลูกค้า'
+        },
+
+        'seasonal_analysis': {
+            'table': 'v_sales',
+            'complexity': 'NORMAL',
+            'keywords': ['วิเคราะห์ตามฤดูกาล', 'seasonal trend'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'simple',
+            'intent': 'sales_analysis',
+            'description': 'วิเคราะห์ยอดขายตามฤดูกาล'
+        },
+
+        'product_mix_analysis': {
+            'table': 'v_sales',
+            'complexity': 'NORMAL',
+            'keywords': ['วิเคราะห์ส่วนผสมสินค้า', 'product mix'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'simple',
+            'intent': 'sales_analysis',
+            'description': 'วิเคราะห์ส่วนผสมของสินค้า'
+        },
+
+        'market_penetration': {
+            'table': 'v_sales',
+            'complexity': 'NORMAL',
+            'keywords': ['การเจาะตลาด', 'market penetration'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'simple',
+            'intent': 'market_analysis',
+            'description': 'การวิเคราะห์การเจาะตลาด'
+        },
+
+        'parts_consumption_rate': {
+            'table': 'v_spare_part',
+            'complexity': 'NORMAL',
+            'keywords': ['อัตราการใช้อะไหล่', 'consumption rate'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'none',
+            'intent': 'inventory',
+            'description': 'อัตราการใช้อะไหล่'
+        },
+
+        'inventory_turnover': {
+            'table': 'v_spare_part',
+            'complexity': 'NORMAL',
+            'keywords': ['การหมุนเวียนสต็อก', 'inventory turnover'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'none',
+            'intent': 'inventory',
+            'description': 'การหมุนเวียนของสินค้าคงคลัง'
+        },
+
+        'dead_stock_analysis': {
+            'table': 'v_spare_part',
+            'complexity': 'NORMAL',
+            'keywords': ['สต็อกตาย', 'dead stock', 'สินค้าไม่เคลื่อนไหว'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'none',
+            'intent': 'inventory',
+            'description': 'วิเคราะห์สินค้าคงคลังที่ไม่เคลื่อนไหว'
+        },
+
+        'work_efficiency': {
+            'table': 'v_work_force',
+            'complexity': 'NORMAL',
+            'keywords': ['ประสิทธิภาพการทำงาน', 'work efficiency'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'none',
+            'intent': 'work_analysis',
+            'description': 'ประสิทธิภาพการทำงาน'
+        },
+
+        'technician_performance': {
+            'table': 'v_work_force',
+            'complexity': 'NORMAL',
+            'keywords': ['ผลงานช่าง', 'technician performance'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'none',
+            'intent': 'work_analysis',
+            'description': 'ผลงานของช่างแต่ละคน'
+        },
+
+        'project_completion_rate': {
+            'table': 'v_work_force',
+            'complexity': 'COMPLEX',
+            'keywords': ['อัตราความสำเร็จโครงการ', 'project completion'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'none',
+            'intent': 'work_analysis',
+            'description': 'อัตราความสำเร็จของโครงการ'
+        },
+
+        'downtime_analysis': {
+            'table': 'v_work_force',
+            'complexity': 'NORMAL',
+            'keywords': ['วิเคราะห์เวลาหยุด', 'downtime analysis'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'none',
+            'intent': 'work_analysis',
+            'description': 'วิเคราะห์เวลาหยุดทำงาน'
         }
     }
     

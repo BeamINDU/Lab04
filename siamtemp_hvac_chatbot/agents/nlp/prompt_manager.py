@@ -1486,8 +1486,9 @@ class PromptManager:
 
         # คำถามข้อ 73: งาน PM ทั้งหมด
         'all_pm_works': dedent("""
-            select * from public.v_work_force  
-            where job_description_pm is not null 
+            SELECT date,customer ,project ,job_description_pm ,detail ,service_group  
+            FROM public.v_work_force 
+            WHERE job_description_pm IS NOT NULL;
         """).strip(),
         
         # คำถามข้อ 74: งาน Overhaul (work context)
@@ -2007,7 +2008,7 @@ class PromptManager:
     'service_num': dedent("""
         SELECT SUM(service_num) as total_service
         FROM v_sales
-        WHERE year = '2024'
+        WHERE year IN ('2022','2023','2024','2025')
         AND service_num > 0;
     """).strip(),
 
@@ -3071,9 +3072,28 @@ class PromptManager:
         schema_prompt = self._get_dynamic_schema_prompt(target_table)
         hints = self._build_sql_hints(entities, intent)
         
-        # === FIX: Handle date replacement for monthly queries ===
+        # === FIX 1: Handle multiple years replacement ===
+        if entities.get('years') and len(entities['years']) > 1:
+            years_list = "', '".join(map(str, entities['years']))
+            years_clause = f"year IN ('{years_list}')"
+            
+            # Replace year patterns in template
+            template = re.sub(
+                r"year\s*=\s*'[^']*'", 
+                years_clause, 
+                template
+            )
+            template = re.sub(
+                r"year\s*IN\s*\([^)]+\)", 
+                years_clause, 
+                template
+            )
+            
+            logger.info(f"🔄 Replaced years clause: {years_clause}")
+        
+        # === FIX 2: Handle date replacement for monthly queries ===
         if intent in ['work_summary', 'work_plan'] and entities.get('months'):
-            # Replace dates in template dynamically
+            # Get month and year variables
             month = entities['months'][0]
             year = entities.get('years', ['2025'])[0]
             
@@ -3089,42 +3109,27 @@ class PromptManager:
                 last_day = f"{year}-{month_int:02d}-{last_day_num:02d}"
             
             # Replace any date range in template
-            import re
             template = re.sub(
                 r'\d{4}-\d{2}-\d{2}\'?\s+AND\s+\'?\d{4}-\d{2}-\d{2}',
                 f"{first_day}' AND '{last_day}",
                 template
             )
+            
+            logger.info(f"🔄 Replaced date range: {first_day} to {last_day}")
         
         # Check if this is planned work
         is_planned_work = ('วางแผน' in question.lower() or 
                         'planned' in question.lower())
         
-        # ✅ NEW: Extract customer names for protection instruction
-        customer_protection = ""
-        if entities.get('customers'):
-            customer_names = entities['customers']
-            customer_list = "', '".join(customer_names)
-            customer_protection = f"""
-            
-    🚫 CRITICAL - DO NOT CHANGE COMPANY NAMES:
-    Company names mentioned: '{customer_list}'
-    - DO NOT correct, modify, or "fix" any company names
-    - DO NOT change Thai spelling (แซด stays แซด, NOT ซาด)  
-    - DO NOT normalize foreign transliterations
-    - Use names EXACTLY as provided in the question
-            """
-        
         prompt = dedent(f"""
         You are a SQL query generator. Output ONLY the SQL query with no explanation.
         
         ⚠️ CRITICAL INSTRUCTIONS:
-        1. Use the EXACT SQL template below - it already has the correct dates
-        2. DO NOT change any dates - they are already set correctly
+        1. Use the EXACT SQL template below - it already has the correct dates/years
+        2. DO NOT change any dates or year conditions - they are already set correctly
         3. DO NOT add any WHERE conditions not in the template
         4. DO NOT add job_description filters unless in the template
         {"5. This asks for ALL work - DO NOT filter by job type" if is_planned_work else ""}
-        {customer_protection}
         
         {schema_prompt}
         
@@ -3400,7 +3405,179 @@ class PromptManager:
             'out_of_stock': 'v_spare_part',
             'stock_movement': 'v_spare_part',
             'stock_balance': 'v_spare_part',
-            
+
+            'transaction_count': 'v_sales',
+            'transaction_frequency': 'v_sales',
+            'transaction_summary': 'v_sales',
+            'high_value_transactions': 'v_sales',
+            'low_value_transactions': 'v_sales',
+            'customer_transaction_frequency': 'v_sales',
+            'monthly_transaction': 'v_sales',
+            'yearly_transaction': 'v_sales',
+            'total_transaction': 'v_sales',
+
+            # Revenue analysis
+            'revenue_growth': 'v_sales',
+            'revenue_comparison': 'v_sales',
+            'revenue_by_year': 'v_sales',
+            'revenue_by_service': 'v_sales',
+            'revenue_proportion': 'v_sales',
+            'revenue_distribution': 'v_sales',
+            'revenue_forecast': 'v_sales',
+            'annual_revenue': 'v_sales',
+            'max_revenue': 'v_sales',
+            'min_revenue': 'v_sales',
+            'average_revenue': 'v_sales',
+            'total_revenue': 'v_sales',
+            'yoy_growth': 'v_sales',
+
+            # Customer segmentation
+            'government_customers': 'v_sales',
+            'private_customers': 'v_sales',
+            'hospital_customers': 'v_sales',
+            'foreign_customers': 'v_sales',
+            'hitachi_customers': 'v_sales',
+            'chiller_customers': 'v_sales',
+            'frequent_customers': 'v_sales',
+            'high_value_customers': 'v_sales',
+            'high_potential_customers': 'v_sales',
+            'continuous_customers': 'v_sales',
+            'new_vs_returning_customers': 'v_sales',
+            'customer_specific_history': 'v_sales',
+            'parts_only_customers': 'v_sales',
+            'customers_using_overhaul': 'v_sales',
+
+            # Service type analysis
+            'overhaul_total': 'v_sales',
+            'overhaul_analysis': 'v_sales',
+            'service_total': 'v_sales',
+            'service_analysis': 'v_sales',
+            'parts_total': 'v_sales',
+            'parts_analysis': 'v_sales',
+            'replacement_total': 'v_sales',
+            'replacement_analysis': 'v_sales',
+            'product_sales': 'v_sales',
+            'solution_sales': 'v_sales',
+            'service_vs_replacement': 'v_sales',
+            'popular_service_types': 'v_sales',
+            'service_roi': 'v_sales',
+
+            # Job/Work value analysis
+            'count_all_jobs': 'v_sales',
+            'count_jobs_year': 'v_sales',
+            'max_value_work': 'v_sales',
+            'min_value_work': 'v_sales',
+            'average_work_value': 'v_sales',
+            'job_analysis': 'v_sales',
+
+            # Time-based analysis
+            'quarterly_summary': 'v_sales',
+            'monthly_sales_trend': 'v_sales',
+            'customers_per_year': 'v_sales',
+
+            # Performance metrics
+            'business_overview': 'v_sales',
+            'annual_performance_summary': 'v_sales',
+            'growth_trend': 'v_sales',
+
+            # ========================================
+            # WORK FORCE ADDITIONS (v_work_force)
+            # ========================================
+            'work_monthly': 'v_work_force',
+            'work_summary_monthly': 'v_work_force',
+            'work_plan_date': 'v_work_force',
+            'work_specific_month': 'v_work_force',
+            'work_today': 'v_work_force',
+            'work_this_week': 'v_work_force',
+            'latest_works': 'v_work_force',
+
+            # Work duration analysis
+            'work_duration': 'v_work_force',
+            'min_duration_work': 'v_work_force',
+            'max_duration_work': 'v_work_force',
+            'long_duration_works': 'v_work_force',
+
+            # Work types
+            'pm_works_all': 'v_work_force',
+            'startup_works': 'v_work_force',
+            'support_works': 'v_work_force',
+            'cpa_works': 'v_work_force',
+            'kpi_works': 'v_work_force',
+            'replacement_monthly': 'v_work_force',
+
+            # Work performance
+            'success_rate': 'v_work_force',
+            'on_time_works': 'v_work_force',
+            'overtime_works': 'v_work_force',
+            'kpi_reported_works': 'v_work_force',
+
+            # Team analysis
+            'team_statistics': 'v_work_force',
+            'team_performance': 'v_work_force',
+            'team_specific_works': 'v_work_force',
+            'employee_work_history': 'v_work_force',
+
+            # Work counting
+            'count_all_works': 'v_work_force',
+            'count_works_by_year': 'v_work_force',
+
+            # Customer-specific work
+            'stanley_works': 'v_work_force',
+            'customer_sales_and_service': 'v_work_force',
+
+            # ========================================
+            # SPARE PARTS ADDITIONS (v_spare_part)
+            # ========================================
+            'spare_parts_price': 'v_spare_part',
+            'spare_parts_stock': 'v_spare_part',
+            'spare_parts_all': 'v_spare_part',
+            'parts_search_multi': 'v_spare_part',
+
+            # Inventory management
+            'inventory_value': 'v_spare_part',
+            'total_inventory_value': 'v_spare_part',
+            'warehouse_summary': 'v_spare_part',
+            'warehouse_comparison': 'v_spare_part',
+            'warehouse_specific_parts': 'v_spare_part',
+
+            # Stock status
+            'parts_in_stock': 'v_spare_part',
+            'parts_out_of_stock': 'v_spare_part',
+            'low_stock_alert': 'v_spare_part',
+            'low_stock_items': 'v_spare_part',
+            'reorder_parts': 'v_spare_part',
+
+            # Parts analysis
+            'count_all_parts': 'v_spare_part',
+            'most_expensive_parts': 'v_spare_part',
+            'cheapest_parts': 'v_spare_part',
+            'high_unit_price': 'v_spare_part',
+            'highest_value_items': 'v_spare_part',
+            'average_part_price': 'v_spare_part',
+            'unpriced_parts': 'v_spare_part',
+
+            # Specific parts
+            'compressor_parts': 'v_spare_part',
+            'filter_parts': 'v_spare_part',
+            'ekac_parts': 'v_spare_part',
+            'ekac460_info': 'v_spare_part',
+            'set_parts': 'v_spare_part',
+
+            # Stock quantity
+            'total_stock_quantity': 'v_spare_part',
+            'recently_received': 'v_spare_part',
+
+            # ========================================
+            # CROSS-TABLE QUERIES (Need special handling)
+            # ========================================
+            'customer_sales_and_service': 'v_sales',  # Requires both v_sales and v_work_force
+
+            # ========================================
+            # ANALYTICAL QUERIES (Primary table based on focus)
+            # ========================================
+            'performance_analysis': 'v_work_force',  # Focus on work performance
+            'roi_analysis': 'v_sales',              # Focus on revenue ROI
+            'trend_analysis': 'v_sales',            # Usually revenue trends
             # ========================================
             # AMBIGUOUS/GENERAL (Need context)
             # ========================================
@@ -3583,11 +3760,6 @@ class PromptManager:
         # PRIORITY 2: Customer with history
         # ========================================
         
-        if entities.get('customers'):
-            history_keywords = ['ประวัติ', 'ซ่อม', 'history', 'repair', 'service', 'เคย']
-            if any(kw in question_lower for kw in history_keywords):
-                logger.info(f"🎯 Customer history → customer_history")
-                return self.SQL_EXAMPLES.get('customer_history', '')
         
         # === PRIORITY FIX: Direct mapping for work_plan with 'วางแผน' ===
         if intent == 'work_plan' and 'วางแผน' in question_lower:
@@ -3626,7 +3798,6 @@ class PromptManager:
             'top 10 ลูกค้าที่ใช้บริการมากที่สุด': 'top_customers',
             'ลูกค้าที่มียอดการใช้บริการสูงสุด': 'top_customers',
             'ประวัติการใช้บริการของ stanley': 'customer_specific_history',
-            'ประวัติการใช้บริการของ clarion': 'customer_specific_history',
             'ลูกค้าใหม่ปี 2024': 'new_customers_year',
             'ลูกค้าที่ใช้บริการบ่อยที่สุด': 'frequent_customers',
             'ลูกค้าที่ใช้บริการ overhaul': 'customers_using_overhaul',
@@ -3678,11 +3849,6 @@ class PromptManager:
                     logger.info("Priority: งาน + มูลค่าต่ำสุด → min_value_work")
                     return self.SQL_EXAMPLES.get('min_value_work', '')
         
-        # Priority 4: Customer history
-        if any(word in question_lower for word in ['ซื้อขาย', 'ประวัติ', 'history']):
-            if entities.get('customers'):
-                logger.info("Priority: Customer history → customer_history")
-                return self.SQL_EXAMPLES.get('customer_history', '')
         
         # === PHASE 2: Updated EXAMPLE_KEYWORDS with fixes ===
         EXAMPLE_KEYWORDS = {
@@ -3839,7 +4005,7 @@ class PromptManager:
                 'completed work', 'งานที่สำเร็จ'
             ],
             
-            'pm_work_summary': [
+            'all_pm_works': [
                 'งาน pm', 'preventive maintenance', 'บำรุงรักษาเชิงป้องกัน', 
                 'pm work', 'maintenance work'
             ],
@@ -4114,6 +4280,415 @@ class PromptManager:
                 'ยอดขายบริการ', 'service sales', 'ขายบริการ', 
                 'service revenue', 'รายได้บริการ'
             ],
+            'average_revenue_per_transaction': [
+            'รายได้เฉลี่ยต่องาน', 'average revenue per transaction', 'ค่าเฉลี่ยต่องาน',
+            'รายได้เฉลี่ยแต่ละงาน', 'avg revenue per job', 'เฉลี่ยต่อการทำงาน'
+        ],
+
+        'high_value_transactions': [
+            'งานมูลค่าสูง', 'high value transaction', 'งานราคาแพง',
+            'งานมูลค่าสูงสุด', 'expensive transaction', 'งานมูลค่าสูงกว่า'
+        ],
+
+        'max_revenue_by_year': [
+            'รายได้สูงสุดแต่ละปี', 'max revenue by year', 'รายได้สูงสุดรายปี',
+            'รายได้สูงสุดของปี', 'highest revenue each year'
+        ],
+
+        'all_years_revenue_comparison': [
+            'เปรียบเทียบรายได้ทุกปี', 'all years revenue comparison', 'รายได้ทุกปี',
+            'เปรียบเทียบรายได้แต่ละปี', 'compare all years revenue'
+        ],
+
+        'average_work_value': [
+            'ค่าเฉลี่ยงาน', 'average work value', 'มูลค่าเฉลี่ยงาน',
+            'ราคาเฉลี่ยงาน', 'avg work value', 'ค่าเฉลี่ยของงาน'
+        ],
+
+        'new_customers_in_year': [
+            'ลูกค้าใหม่ในปี', 'new customers in year', 'ลูกค้าใหม่ปีนี้',
+            'ลูกค้าใหม่ของปี', 'new customer specific year'
+        ],
+
+        'customers_using_overhaul': [
+            'ลูกค้าใช้ overhaul', 'customers using overhaul', 'ลูกค้า overhaul',
+            'ลูกค้าทำ overhaul', 'overhaul customers'
+        ],
+
+        'customers_continuous_years': [
+            'ลูกค้าใช้บริการต่อเนื่อง', 'customers continuous years', 'ลูกค้าติดต่อกันหลายปี',
+            'ลูกค้าต่อเนื่องหลายปี', 'continuous service customers'
+        ],
+
+        'top_service_customers': [
+            'ลูกค้า service มากที่สุด', 'top service customers', 'ลูกค้าใช้บริการมาก',
+            'ลูกค้า service สูงสุด', 'customers top service'
+        ],
+
+        'most_frequent_customers': [
+            'ลูกค้าใช้บริการบ่อยที่สุด', 'most frequent customers', 'ลูกค้าใช้บริการบ่อย',
+            'ลูกค้าความถี่สูง', 'frequent service customers'
+        ],
+
+        'work_plan_date': [
+            'แผนงานวันที่', 'work plan date', 'งานวันที่เฉพาะ',
+            'แผนงานวันเฉพาะ', 'specific date work plan'
+        ],
+
+        'work_summary_monthly': [
+            'สรุปงานเดือน', 'work summary monthly', 'สรุปงานรายเดือน',
+            'รายงานงานเดือน', 'monthly work summary'
+        ],
+
+        'parts_search_multi': [
+            'ค้นหาอะไหล่หลายคำ', 'parts search multiple', 'ค้นหา parts หลายคำ',
+            'search parts multi', 'หาอะไหล่หลายคำ'
+        ],
+
+        'sales_yoy_growth': [
+            'การเติบโต year over year', 'sales yoy growth', 'เปรียบเทียบปีต่อปี',
+            'yoy growth', 'การเติบโตรายปี'
+        ],
+
+        'customer_sales_and_service': [
+            'ลูกค้าขายและบริการ', 'customer sales and service', 'ลูกค้าทั้งขายและซ่อม',
+            'customer both sales service', 'ลูกค้าครบวงจร'
+        ],
+
+        'min_duration_work': [
+            'งานใช้เวลาน้อยสุด', 'min duration work', 'งานเสร็จเร็วสุด',
+            'งานใช้เวลาต่ำสุด', 'shortest duration work'
+        ],
+
+        'max_duration_work': [
+            'งานใช้เวลามากสุด', 'max duration work', 'งานใช้เวลานานสุด',
+            'งานใช้เวลาสูงสุด', 'longest duration work'
+        ],
+
+        'count_works_by_year': [
+            'จำนวนงานแต่ละปี', 'count works by year', 'นับงานรายปี',
+            'จำนวนงานรายปี', 'work count by year'
+        ],
+
+        'overhaul_total': [
+            'overhaul ทั้งหมด', 'overhaul total', 'ยอดรวม overhaul',
+            'รวม overhaul', 'total overhaul all'
+        ],
+
+        'parts_total': [
+            'parts ทั้งหมด', 'parts total', 'ยอดรวม parts',
+            'รวม parts', 'total parts all'
+        ],
+
+        'replacement_total': [
+            'replacement ทั้งหมด', 'replacement total', 'ยอดรวม replacement',
+            'รวม replacement', 'total replacement all'
+        ],
+
+        'count_all_jobs': [
+            'จำนวนงานทั้งหมด', 'count all jobs', 'นับงานทั้งหมด',
+            'งานทั้งหมดกี่งาน', 'total jobs count'
+        ],
+
+        'count_jobs_year': [
+            'จำนวนงานปีเฉพาะ', 'count jobs year', 'นับงานในปี',
+            'งานปีนี้กี่งาน', 'jobs count specific year'
+        ],
+
+        'average_revenue_per_job': [
+            'รายได้เฉลี่ยต่องาน', 'average revenue per job', 'ค่าเฉลี่ยต่องาน',
+            'รายได้เฉลี่ยแต่ละงาน', 'avg revenue job'
+        ],
+
+        'revenue_growth': [
+            'การเติบโตรายได้', 'revenue growth', 'เติบโตรายได้',
+            'การเพิ่มขึ้นรายได้', 'income growth'
+        ],
+
+        'revenue_proportion': [
+            'สัดส่วนรายได้', 'revenue proportion', 'อัตราส่วนรายได้',
+            'เปอร์เซ็นต์รายได้', 'revenue percentage'
+        ],
+
+        'max_revenue_each_year': [
+            'รายได้สูงสุดต่อปี', 'max revenue each year', 'รายได้สูงสุดแต่ละปี',
+            'รายได้สูงสุดของแต่ละปี', 'highest revenue per year'
+        ],
+
+        'total_inventory_value': [
+            'มูลค่ารวมสินค้าคงคลัง', 'total inventory value', 'มูลค่าคลังรวม',
+            'ราคาคลังทั้งหมด', 'total stock value'
+        ],
+
+        'customer_specific_history': [
+            'ประวัติลูกค้าเฉพาะราย', 'customer specific history', 'ประวัติลูกค้าเฉพาะ',
+            'ข้อมูลลูกค้าราย', 'individual customer history'
+        ],
+
+        'frequent_customers': [
+            'ลูกค้าที่ใช้บริการบ่อย', 'frequent customers', 'ลูกค้าใช้บริการบ่อยที่สุด',
+            'ลูกค้าความถี่สูง', 'high frequency customers'
+        ],
+
+        'hospital_customers': [
+            'ลูกค้าโรงพยาบาล', 'hospital customers', 'ลูกค้าสถานพยาบาล',
+            'โรงพยาบาลลูกค้า', 'medical customers'
+        ],
+
+        'high_value_customers': [
+            'ลูกค้าจ่ายเงินมาก', 'high value customers', 'ลูกค้ามูลค่าสูง',
+            'ลูกค้าใช้เงินเยอะ', 'big spending customers'
+        ],
+
+        'parts_only_customers': [
+            'ลูกค้าซื้อแต่ parts', 'parts only customers', 'ลูกค้าอะไหล่อย่างเดียว',
+            'ลูกค้าเฉพาะ parts', 'customers parts only'
+        ],
+
+        'chiller_customers': [
+            'ลูกค้าชิลเลอร์', 'chiller customers', 'ลูกค้า chiller',
+            'ลูกค้าระบบทำความเย็น', 'cooling system customers'
+        ],
+
+        'new_vs_returning_customers': [
+            'ลูกค้าใหม่ vs เก่า', 'new vs returning customers', 'เปรียบเทียบลูกค้าใหม่เก่า',
+            'ลูกค้าใหม่กับเก่า', 'new versus old customers'
+        ],
+
+        'count_all_parts': [
+            'จำนวนอะไหล่ทั้งหมด', 'count all parts', 'นับอะไหล่ทั้งหมด',
+            'อะไหล่ทั้งหมดกี่รายการ', 'total parts count'
+        ],
+
+        'parts_in_stock': [
+            'อะไหล่ที่มีสต็อก', 'parts in stock', 'อะไหล่คงเหลือ',
+            'อะไหล่ที่มี', 'available parts'
+        ],
+
+        'parts_out_of_stock': [
+            'อะไหล่หมดสต็อก', 'parts out of stock', 'อะไหล่หมด',
+            'อะไหล่ไม่มี', 'unavailable parts'
+        ],
+
+        'most_expensive_parts': [
+            'อะไหล่แพงที่สุด', 'most expensive parts', 'อะไหล่ราคาสูงสุด',
+            'อะไหล่ราคาแพง', 'highest price parts'
+        ],
+
+        'low_stock_alert': [
+            'อะไหล่ใกล้หมด', 'low stock alert', 'แจ้งเตือนสต็อกต่ำ',
+            'อะไหล่เหลือน้อย', 'parts running low'
+        ],
+
+        'warehouse_specific_parts': [
+            'อะไหล่ในคลังเฉพาะ', 'warehouse specific parts', 'อะไหล่คลังเฉพาะ',
+            'parts ในคลัง', 'specific warehouse parts'
+        ],
+
+        'average_part_price': [
+            'ราคาเฉลี่ยอะไหล่', 'average part price', 'ค่าเฉลี่ยราคา parts',
+            'ราคา parts เฉลี่ย', 'avg parts price'
+        ],
+
+        'compressor_parts': [
+            'อะไหล่คอมเพรสเซอร์', 'compressor parts', 'parts คอมเพรสเซอร์',
+            'อะไหล่ compressor', 'compressor spare parts'
+        ],
+
+        'filter_parts': [
+            'อะไหล่ filter', 'filter parts', 'อะไหล่กรอง',
+            'parts filter', 'filter spare parts'
+        ],
+
+        'warehouse_comparison': [
+            'เปรียบเทียบคลัง', 'warehouse comparison', 'เปรียบเทียบแต่ละคลัง',
+            'compare warehouse', 'คลังเปรียบเทียบ'
+        ],
+
+        'work_specific_month': [
+            'งานเดือนเฉพาะ', 'work specific month', 'งานในเดือน',
+            'งานเดือนที่กำหนด', 'specific month work'
+        ],
+
+        'all_pm_works': [
+            'งาน PM ทั้งหมด', 'all pm works', 'งาน preventive maintenance ทั้งหมด',
+            'pm works all', 'งานบำรุงรักษาทั้งหมด'
+        ],
+
+        'work_today': [
+            'งานวันนี้', 'work today', 'งานประจำวัน',
+            'งานของวันนี้', 'today work schedule'
+        ],
+
+        'work_this_week': [
+            'งานสัปดาห์นี้', 'work this week', 'งานในสัปดาห์',
+            'งานสัปดาห์ปัจจุบัน', 'current week work'
+        ],
+
+        'success_rate': [
+            'อัตราความสำเร็จ', 'success rate', 'เปอร์เซ็นต์สำเร็จ',
+            'ความสำเร็จงาน', 'work success rate'
+        ],
+
+        'on_time_works': [
+            'งานตรงเวลา', 'on time works', 'งานเสร็จตรงเวลา',
+            'งานไม่เกินเวลา', 'punctual work completion'
+        ],
+
+        'overtime_works': [
+            'งานเกินเวลา', 'overtime works', 'งานล่าช้า',
+            'งานไม่ทันเวลา', 'delayed works'
+        ],
+
+        'support_works': [
+            'งาน support', 'support works', 'งานสนับสนุน',
+            'งานช่วยเหลือ', 'support jobs'
+        ],
+
+        'team_statistics': [
+            'สถิติทีม', 'team statistics', 'สถิติแต่ละทีม',
+            'ข้อมูลทีมงาน', 'team performance stats'
+        ],
+
+        'work_duration': [
+            'ระยะเวลาทำงาน', 'work duration', 'เวลาทำงาน',
+            'ช่วงเวลางาน', 'job duration'
+        ],
+
+        'latest_works': [
+            'งานล่าสุด', 'latest works', 'งานใหม่ล่าสุด',
+            'งานที่ผ่านมา', 'recent works'
+        ],
+
+        'annual_performance_summary': [
+            'สรุปผลประกอบการรายปี', 'annual performance summary', 'สรุปผลงานรายปี',
+            'รายงานประจำปี', 'yearly performance report'
+        ],
+
+        'growth_trend': [
+            'เทรนด์การเติบโต', 'growth trend', 'แนวโน้มการเติบโต',
+            'ทิศทางการเติบโต', 'growth direction'
+        ],
+
+        'popular_service_types': [
+            'ประเภทงานที่นิยม', 'popular service types', 'บริการที่นิยม',
+            'งานที่ได้รับความนิยม', 'most popular services'
+        ],
+
+        'high_potential_customers': [
+            'ลูกค้าที่มีศักยภาพ', 'high potential customers', 'ลูกค้าแนวโน้มดี',
+            'ลูกค้าน่าสนใจ', 'promising customers'
+        ],
+
+        'revenue_distribution': [
+            'การกระจายรายได้', 'revenue distribution', 'การแจกแจงรายได้',
+            'กระจายตัวรายได้', 'income distribution'
+        ],
+
+        'team_performance': [
+            'ประสิทธิภาพทีมงาน', 'team performance', 'ผลงานทีม',
+            'การปฏิบัติงานทีม', 'team efficiency'
+        ],
+
+        'monthly_sales_trend': [
+            'แนวโน้มยอดขายรายเดือน', 'monthly sales trend', 'เทรนด์ขายเดือน',
+            'ทิศทางขายรายเดือน', 'monthly sales direction'
+        ],
+
+        'service_roi': [
+            'ROI ของการบริการ', 'service roi', 'ผลตอบแทนการบริการ',
+            'return on investment service', 'roi งานบริการ'
+        ],
+
+        'revenue_forecast': [
+            'คาดการณ์รายได้', 'revenue forecast', 'พยากรณ์รายได้',
+            'ทำนายรายได้', 'predict revenue'
+        ],
+
+        'business_overview': [
+            'ภาพรวมธุรกิจ', 'business overview', 'สรุปภาพรวม',
+            'รายงานภาพรวม', 'overall business summary'
+        ],
+
+        'service_num': [
+            'ยอด service', 'service num', 'รายได้ service',
+            'ขาย service', 'service revenue'
+        ],
+
+        'service_revenue_2023': [
+            'รายได้ service 2023', 'service revenue 2023', 'ยอดขาย service ปี',
+            'service ปี 2023', 'service income 2023'
+        ],
+
+        'low_value_transactions': [
+            'งานมูลค่าต่ำ', 'low value transactions', 'งานราคาต่ำ',
+            'งานมูลค่าน้อย', 'cheap transactions'
+        ],
+
+        'customers_per_year': [
+            'ลูกค้าต่อปี', 'customers per year', 'จำนวนลูกค้าแต่ละปี',
+            'ลูกค้าแยกปี', 'customers by year'
+        ],
+
+        'hitachi_customers': [
+            'ลูกค้า hitachi', 'hitachi customers', 'งาน hitachi',
+            'ลูกค้าฮิตาชิ', 'hitachi related'
+        ],
+
+        'avg_revenue_per_customer': [
+            'รายได้เฉลี่ยต่อลูกค้า', 'avg revenue per customer', 'ค่าเฉลี่ยลูกค้า',
+            'รายได้เฉลี่ยแต่ละลูกค้า', 'average customer value'
+        ],
+
+        'foreign_customers': [
+            'ลูกค้าต่างชาติ', 'foreign customers', 'ลูกค้าต่างประเทศ',
+            'international customers', 'overseas customers'
+        ],
+
+        'cheapest_parts': [
+            'อะไหล่ถูกที่สุด', 'cheapest parts', 'อะไหล่ราคาต่ำสุด',
+            'อะไหล่ราคาถูก', 'lowest price parts'
+        ],
+
+        'ekac_parts': [
+            'อะไหล่ ekac', 'ekac parts', 'parts ekac',
+            'อะไหล่รหัส ekac', 'ekac code parts'
+        ],
+
+        'total_stock_quantity': [
+            'จำนวนสต็อกรวม', 'total stock quantity', 'สต็อกทั้งหมด',
+            'จำนวนคลังรวม', 'total inventory quantity'
+        ],
+
+        'reorder_parts': [
+            'อะไหล่ต้องสั่งเพิ่ม', 'reorder parts', 'อะไหล่ควรสั่ง',
+            'อะไหล่ต้องเติม', 'parts need reorder'
+        ],
+
+        'unpriced_parts': [
+            'อะไหล่ไม่มีราคา', 'unpriced parts', 'อะไหล่ยังไม่ตั้งราคา',
+            'parts no price', 'อะไหล่ราคาเป็นศูนย์'
+        ],
+
+        'ekac460_info': [
+            'ข้อมูล ekac460', 'ekac460 info', 'อะไหล่ ekac460',
+            'รายละเอียด ekac460', 'ekac460 details'
+        ],
+
+        'set_parts': [
+            'อะไหล่ชุด', 'set parts', 'อะไหล่หน่วยชุด',
+            'parts หน่วย set', 'อะไหล่ที่ขายเป็นชุด'
+        ],
+
+        'recently_received': [
+            'ที่เพิ่งได้รับ', 'recently received', 'เพิ่งเข้าคลัง',
+            'ได้รับล่าสุด', 'latest received'
+        ],
+
+        'stanley_works': [
+            'งาน stanley', 'stanley works', 'งานแสตนเลย์',
+            'stanley jobs', 'ลูกค้า stanley งาน'
+        ]
         }
         
         # === PHASE 3: Smart Scoring with penalties ===
@@ -4191,6 +4766,7 @@ class PromptManager:
         # === PHASE 4: Intent-based fallback ===
         intent_map = {
             # === Work-related (เพิ่มให้ครบ) ===
+            'customer_repair_history': 'customer_repair_history',
             'work_summary': 'work_summary_monthly',
             'work_plan': 'work_monthly',
             'work_force': 'work_monthly',
@@ -4222,6 +4798,176 @@ class PromptManager:
             'inventory': 'inventory_check',        # เพิ่ม
             'inventory_check': 'inventory_check',  # เพิ่ม
             'warehouse': 'warehouse_summary',      # เพิ่ม
+            'monthly_transaction_count': 'monthly_transaction_count',
+            'customer_transaction_frequency': 'customer_transaction_frequency',
+            'total_transaction_count': 'total_transaction_count',
+            'yearly_transaction_summary': 'yearly_transaction_summary',
+
+            # === Revenue Analysis (Missing) ===
+            'total_revenue_all': 'total_revenue_all',
+            'total_revenue_year': 'total_revenue_year',
+            'compare_revenue_years': 'compare_revenue_years',
+            'year_max_revenue': 'year_max_revenue',
+            'year_min_revenue': 'year_min_revenue',
+            'average_annual_revenue': 'average_annual_revenue',
+            'revenue_growth': 'revenue_growth',
+            'revenue_proportion': 'revenue_proportion',
+            'all_years_revenue_comparison': 'all_years_revenue_comparison',
+            'average_revenue_per_transaction': 'average_revenue_per_transaction',
+            'high_value_transactions': 'high_value_transactions',
+            'low_value_transactions': 'low_value_transactions',
+            'revenue_by_service_type': 'revenue_by_service_type',
+            'max_revenue_by_year': 'max_revenue_by_year',
+            'max_revenue_each_year': 'max_revenue_each_year',
+            'sales_yoy_growth': 'sales_yoy_growth',
+            'revenue_forecast': 'revenue_forecast',
+            'revenue_distribution': 'revenue_distribution',
+
+            # === Service Type Analysis ===
+            'overhaul_sales': 'overhaul_sales',
+            'overhaul_sales_all': 'overhaul_sales_all',
+            'overhaul_sales_specific': 'overhaul_sales_specific',
+            'overhaul_total': 'overhaul_total',
+            'service_num': 'service_num',
+            'service_revenue_2023': 'service_revenue_2023',
+            'parts_total': 'parts_total',
+            'replacement_total': 'replacement_total',
+            'service_vs_replacement': 'service_vs_replacement',
+            'popular_service_types': 'popular_service_types',
+            'service_roi': 'service_roi',
+
+            # === Customer Analysis (Missing) ===
+            'count_total_customers': 'count_total_customers',
+            'new_customers_in_year': 'new_customers_in_year',
+            'inactive_customers': 'inactive_customers',
+            'continuous_customers': 'continuous_customers',
+            'customers_continuous_years': 'customers_continuous_years',
+            'customers_using_overhaul': 'customers_using_overhaul',
+            'top_service_customers': 'top_service_customers',
+            'most_frequent_customers': 'most_frequent_customers',
+            'frequent_customers': 'frequent_customers',
+            'government_customers': 'government_customers',
+            'private_customers': 'private_customers',
+            'hospital_customers': 'hospital_customers',
+            'foreign_customers': 'foreign_customers',
+            'hitachi_customers': 'hitachi_customers',
+            'high_value_customers': 'high_value_customers',
+            'parts_only_customers': 'parts_only_customers',
+            'chiller_customers': 'chiller_customers',
+            'new_vs_returning_customers': 'new_vs_returning_customers',
+            'customer_specific_history': 'customer_specific_history',
+            'customers_per_year': 'customers_per_year',
+            'avg_revenue_per_customer': 'avg_revenue_per_customer',
+            'customer_sales_and_service': 'customer_sales_and_service',
+            'customer_years_count': 'customer_years_count',
+            'high_potential_customers': 'high_potential_customers',
+            'top_parts_customers': 'top_parts_customers',
+            'solution_customers': 'solution_customers',
+
+            # === Work Analysis (Missing) ===
+            'work_monthly': 'work_monthly',
+            'work_summary_monthly': 'work_summary_monthly',
+            'work_plan_date': 'work_plan_date',
+            'work_specific_month': 'work_specific_month',
+            'work_today': 'work_today',
+            'work_this_week': 'work_this_week',
+            'latest_works': 'latest_works',
+            'count_all_works': 'count_all_works',
+            'count_works_by_year': 'count_works_by_year',
+            'min_duration_work': 'min_duration_work',
+            'max_duration_work': 'max_duration_work',
+            'long_duration_works': 'long_duration_works',
+            'successful_work_monthly': 'successful_work_monthly',
+            'unsuccessful_works': 'unsuccessful_works',
+            'pm_work_summary': 'pm_work_summary',
+            'startup_works': 'startup_works',
+            'startup_works_all': 'startup_works_all',
+            'kpi_reported_works': 'kpi_reported_works',
+            'team_specific_works': 'team_specific_works',
+            'replacement_monthly': 'replacement_monthly',
+            'success_rate': 'success_rate',
+            'on_time_works': 'on_time_works',
+            'overtime_works': 'overtime_works',
+            'support_works': 'support_works',
+            'team_statistics': 'team_statistics',
+            'work_duration': 'work_duration',
+            'stanley_works': 'stanley_works',
+            'employee_work_history': 'employee_work_history',
+            'team_performance': 'team_performance',
+            'service_history': 'service_history',
+            'maintenance_history': 'maintenance_history',
+
+            # === Job/Work Value Analysis ===
+            'count_all_jobs': 'count_all_jobs',
+            'count_jobs_year': 'count_jobs_year',
+            'average_work_value': 'average_work_value',
+            'average_revenue_per_job': 'average_revenue_per_job',
+
+            # === Spare Parts Analysis (Missing) ===
+            'spare_parts_all': 'spare_parts_all',
+            'parts_search_multi': 'parts_search_multi',
+            'count_all_parts': 'count_all_parts',
+            'parts_in_stock': 'parts_in_stock',
+            'parts_out_of_stock': 'parts_out_of_stock',
+            'most_expensive_parts': 'most_expensive_parts',
+            'cheapest_parts': 'cheapest_parts',
+            'low_stock_alert': 'low_stock_alert',
+            'warehouse_specific_parts': 'warehouse_specific_parts',
+            'average_part_price': 'average_part_price',
+            'compressor_parts': 'compressor_parts',
+            'filter_parts': 'filter_parts',
+            'ekac_parts': 'ekac_parts',
+            'ekac460_info': 'ekac460_info',
+            'set_parts': 'set_parts',
+            'recently_received': 'recently_received',
+            'total_stock_quantity': 'total_stock_quantity',
+            'reorder_parts': 'reorder_parts',
+            'unpriced_parts': 'unpriced_parts',
+
+            # === Inventory Analysis (Missing) ===
+            'total_inventory_value': 'total_inventory_value',
+            'highest_value_items': 'highest_value_items',
+            'warehouse_comparison': 'warehouse_comparison',
+            'low_stock_items': 'low_stock_items',
+            'high_unit_price': 'high_unit_price',
+
+            # === Time-based Analysis ===
+            'quarterly_summary': 'quarterly_summary',
+            'monthly_sales_trend': 'monthly_sales_trend',
+
+            # === Analytical Queries ===
+            'annual_performance_summary': 'annual_performance_summary',
+            'growth_trend': 'growth_trend',
+            'business_overview': 'business_overview',
+
+            # === Alternative mappings for flexibility ===
+            'overhaul_analysis': 'overhaul_sales',
+            'parts_analysis': 'parts_total',
+            'replacement_analysis': 'replacement_total',
+            'service_analysis': 'service_num',
+            'work_efficiency': 'team_performance',
+            'technician_performance': 'employee_work_history',
+            'inventory_value': 'total_inventory_value',
+            'stock_analysis': 'inventory_check',
+            'customer_segmentation': 'high_potential_customers',
+            'market_analysis': 'popular_service_types',
+            'performance_analysis': 'annual_performance_summary',
+            'trend_analysis': 'growth_trend',
+            'roi_analysis': 'service_roi',
+            'forecast_analysis': 'revenue_forecast',
+
+            # === Generic mappings for common intents ===
+            'overview': 'business_overview',
+            'summary': 'annual_performance_summary',
+            'comparison': 'compare_revenue_years',
+            'growth': 'sales_yoy_growth',
+            'trend': 'growth_trend',
+            'performance': 'team_performance',
+            'efficiency': 'success_rate',
+            'value': 'high_value_transactions',
+            'cost': 'average_part_price',
+            'quality': 'success_rate',
+            'productivity': 'team_performance'
         }
         
         if intent in intent_map:

@@ -1,17 +1,15 @@
-# openwebui_proxy.py - Enhanced Version with Advanced Streaming & Monitoring
+# openwebui_proxy.py - Updated with n8n Support
 """
-OpenWebUI Proxy with n8n Workflow Integration, Advanced Streaming & Monitoring
-เพิ่มการรองรับ streaming ที่ดีขึ้นและ monitoring แบบเจาะลึก
+OpenWebUI Proxy with n8n Workflow Integration
+เพิ่มการรองรับ n8n workflow routing
 """
 
 import os
 import json
 import asyncio
 import aiohttp
-import time
 from datetime import datetime
-from typing import Dict, Any, Optional, AsyncGenerator
-from collections import defaultdict, deque
+from typing import Dict, Any, Optional
 import uvicorn
 from fastapi import FastAPI, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,14 +17,11 @@ from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel
 import logging
 
-# Import prompt manager utility
-from prompt_manager import StreamingPromptManager, MonitoringManager
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # =============================================================================
-# ENHANCED CONFIGURATION WITH MONITORING
+# CONFIGURATION WITH N8N SUPPORT
 # =============================================================================
 
 class ProxyConfig:
@@ -37,33 +32,20 @@ class ProxyConfig:
         self.force_tenant = os.getenv('FORCE_TENANT')
         self.port = int(os.getenv('PROXY_PORT', '8001'))
         
-        # ========== N8N Configuration ==========
-        self.use_n8n_workflow = os.getenv('USE_N8N_WORKFLOW', 'true').lower() == 'true'
-        self.n8n_base_url = os.getenv('N8N_BASE_URL', 'http://13.250.235.228:5678')
-        self.n8n_webhook_path = 'webhook/siamtemp-chat'
-        self.n8n_timeout = int(os.getenv('N8N_TIMEOUT', '600'))  # ✅ ปรับเป็น 10 วินาที
+        # ========== เพิ่ม n8n Configuration ==========
+        self.use_n8n_workflow = os.getenv('USE_N8N_WORKFLOW', 'false').lower() == 'true'
+        self.n8n_base_url = os.getenv('N8N_BASE_URL', 'http://13.250.235.228:5678')  # ใช้ชื่อ container
+        self.n8n_webhook_path = 'webhook/siamtemp-chat'  # path ของ webhook ใน n8n
+        self.n8n_timeout = int(os.getenv('N8N_TIMEOUT', '600'))
         self.n8n_fallback_to_direct = os.getenv('N8N_FALLBACK_TO_DIRECT', 'true').lower() == 'true'
         self.block_system_prompts = os.getenv('BLOCK_SYSTEM_PROMPTS', 'true').lower() == 'true'
-        
-        # ========== Enhanced Features ==========
-        self.enable_advanced_monitoring = os.getenv('ENABLE_ADVANCED_MONITORING', 'true').lower() == 'true'
-        self.enable_streaming_optimization = os.getenv('ENABLE_STREAMING_OPTIMIZATION', 'true').lower() == 'true'
-        self.chunk_size = int(os.getenv('STREAMING_CHUNK_SIZE', '25'))
-        self.chunk_delay = float(os.getenv('STREAMING_CHUNK_DELAY', '0.03'))
-        
         # Tenant configurations
         self.tenant_configs = {
-            'company-a': {'name': 'siamtemp Bangkok HQ', 'model': 'siamtemp-ai', 'language': 'th'},
-            'company-b': {'name': 'siamtemp Branch B', 'model': 'siamtemp-ai', 'language': 'th'},
+            'company-a': {'name': 'siamtemp Bangkok HQ', 'model': 'AI', 'language': 'th'},
         }
 
 config = ProxyConfig()
-
-# Initialize enhanced managers
-streaming_manager = StreamingPromptManager(config)
-monitoring_manager = MonitoringManager() if config.enable_advanced_monitoring else None
-
-app = FastAPI(title="OpenWebUI Proxy Enhanced", version="3.0.0")
+app = FastAPI(title="OpenWebUI Proxy", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware, 
@@ -74,261 +56,117 @@ app.add_middleware(
 )
 
 # =============================================================================
-# REQUEST MODELS (เก็บเดิม)
+# REQUEST MODELS
 # =============================================================================
-
-class ChatMessage(BaseModel):
-    role: str
-    content: str
 
 class ChatCompletionRequest(BaseModel):
+    """OpenAI-compatible request format"""
     model: str
-    messages: list[ChatMessage]
-    stream: bool = False
-    max_tokens: Optional[int] = None
-    temperature: Optional[float] = None
+    messages: list
+    temperature: Optional[float] = 0.7
+    max_tokens: Optional[int] = 2000
+    stream: Optional[bool] = False
 
 # =============================================================================
-# ENHANCED N8N WORKFLOW INTEGRATION
+# N8N WORKFLOW INTEGRATION (เพิ่มใหม่)
 # =============================================================================
 
-async def call_n8n_workflow(message: str, tenant_id: str, user_id: str) -> Optional[Dict]:
-    """Enhanced N8N workflow call with monitoring"""
+async def call_n8n_workflow(message: str, tenant_id: str, user_id: str = "default") -> Optional[Dict]:
+    """Call n8n workflow for processing"""
+    
     if not config.use_n8n_workflow:
         return None
     
-    start_time = time.time()
+    webhook_url = f"{config.n8n_base_url}/{config.n8n_webhook_path}"
     
-    try:
-        webhook_url = f"{config.n8n_base_url}/{config.n8n_webhook_path}"
-        payload = {
+    # Prepare payload with body wrapper for n8n
+    payload = {
+        "body": {
             "message": message,
             "tenant_id": tenant_id,
             "user_id": user_id,
             "timestamp": datetime.now().isoformat()
         }
-        
-        # ✅ Monitor N8N call
-        if monitoring_manager:
-            monitoring_manager.record_n8n_attempt(tenant_id)
-        
+    }
+    
+    try:
         logger.info(f"🔄 Calling n8n workflow at: {webhook_url}")
+        logger.debug(f"Sending payload: {json.dumps(payload, indent=2)}")
         
         async with aiohttp.ClientSession() as session:
             async with session.post(
                 webhook_url,
-                json=payload,
+                json=payload,  # ✅ ใช้ json= แค่ครั้งเดียว
                 headers={"Content-Type": "application/json"},
                 timeout=aiohttp.ClientTimeout(total=config.n8n_timeout)
             ) as response:
                 
                 if response.status == 200:
                     result = await response.json()
-                    processing_time = time.time() - start_time
-                    
-                    # ✅ Monitor success
-                    if monitoring_manager:
-                        monitoring_manager.record_n8n_success(tenant_id, processing_time)
-                    
-                    logger.info(f"✅ N8N workflow completed in {processing_time:.2f}s")
+                    logger.info("✅ n8n workflow executed successfully")
                     return result
                 else:
-                    logger.error(f"N8N HTTP error: {response.status}")
-                    if monitoring_manager:
-                        monitoring_manager.record_n8n_error(tenant_id, f"HTTP {response.status}")
+                    logger.error(f"❌ n8n workflow failed: HTTP {response.status}")
+                    if config.n8n_fallback_to_direct:
+                        logger.info("⚠️ Falling back to direct service call")
                     return None
                     
     except asyncio.TimeoutError:
-        processing_time = time.time() - start_time
         logger.error(f"⏱️ n8n workflow timeout after {config.n8n_timeout}s")
-        if monitoring_manager:
-            monitoring_manager.record_n8n_timeout(tenant_id, processing_time)
         return None
-        
     except Exception as e:
-        processing_time = time.time() - start_time
-        logger.error(f"❌ N8N workflow error: {e}")
-        if monitoring_manager:
-            monitoring_manager.record_n8n_error(tenant_id, str(e))
+        logger.error(f"❌ n8n workflow error: {e}")
         return None
 
-# =============================================================================
-# ENHANCED STREAMING RESPONSE
-# =============================================================================
-
-async def generate_enhanced_streaming_response(
-    answer: str, 
-    model: str, 
-    user_message: str,
-    tenant_id: str
-) -> AsyncGenerator[str, None]:
-    """✅ Enhanced streaming with proper OpenAI format"""
-    
-    request_id = f"chatcmpl-{int(time.time() * 1000)}"
-    current_time = int(time.time())
-    
-    # Monitor streaming start
-    if monitoring_manager:
-        monitoring_manager.record_streaming_start(tenant_id, len(answer))
-    
-    try:
-        # ✅ Send initial chunk with role
-        initial_chunk = {
-            "id": request_id,
-            "object": "chat.completion.chunk",
-            "created": current_time,
-            "model": model,
-            "choices": [{
-                "index": 0,
-                "delta": {"role": "assistant", "content": ""},
-                "finish_reason": None
-            }]
-        }
-        yield f"data: {json.dumps(initial_chunk, ensure_ascii=False)}\n\n"
-        
-        # ✅ Stream content in optimized chunks
-        total_chunks = 0
-        for i in range(0, len(answer), config.chunk_size):
-            chunk_text = answer[i:i + config.chunk_size]
-            
-            content_chunk = {
-                "id": request_id,
-                "object": "chat.completion.chunk", 
-                "created": current_time,
-                "model": model,
-                "choices": [{
-                    "index": 0,
-                    "delta": {"content": chunk_text},
-                    "finish_reason": None
-                }]
-            }
-            
-            # ✅ Use ensure_ascii=False for proper Thai support
-            yield f"data: {json.dumps(content_chunk, ensure_ascii=False)}\n\n"
-            total_chunks += 1
-            
-            # Optimized delay
-            await asyncio.sleep(config.chunk_delay)
-        
-        # ✅ Send completion chunk
-        final_chunk = {
-            "id": request_id,
-            "object": "chat.completion.chunk",
-            "created": current_time,
-            "model": model,
-            "choices": [{
-                "index": 0,
-                "delta": {},
-                "finish_reason": "stop"
-            }]
-        }
-        yield f"data: {json.dumps(final_chunk, ensure_ascii=False)}\n\n"
-        yield "data: [DONE]\n\n"
-        
-        # Monitor streaming success
-        if monitoring_manager:
-            monitoring_manager.record_streaming_success(tenant_id, total_chunks)
-        
-        logger.info(f"✅ Streaming completed: {total_chunks} chunks, {len(answer)} chars")
-        
-    except Exception as e:
-        logger.error(f"❌ Streaming error: {e}")
-        
-        # Send error in proper streaming format
-        error_chunk = {
-            "id": request_id,
-            "object": "chat.completion.chunk",
-            "created": current_time,
-            "model": model,
-            "choices": [{
-                "index": 0,
-                "delta": {"content": f"\n\n⚠️ เกิดข้อผิดพลาดในการส่งข้อมูล: {str(e)}"},
-                "finish_reason": "stop"
-            }]
-        }
-        yield f"data: {json.dumps(error_chunk, ensure_ascii=False)}\n\n"
-        yield "data: [DONE]\n\n"
-        
-        # Monitor streaming error
-        if monitoring_manager:
-            monitoring_manager.record_streaming_error(tenant_id, str(e))
 
 # =============================================================================
-# ENHANCED SERVICE CALL FUNCTIONS
+# EXISTING FUNCTIONS (ไม่เปลี่ยน)
 # =============================================================================
 
 async def call_main_service(endpoint: str, payload: dict, stream: bool = False):
-    """Enhanced direct call to main AI service"""
+    """Direct call to main AI service"""
     url = f"{config.main_service_url}{endpoint}"
-    start_time = time.time()
     
     try:
         async with aiohttp.ClientSession() as session:
-            timeout = aiohttp.ClientTimeout(total=120 if stream else 60)
-            
-            async with session.post(
-                url,
-                json=payload,
-                headers={"Content-Type": "application/json"},
-                timeout=timeout
-            ) as response:
-                
-                processing_time = time.time() - start_time
-                
-                if response.status == 200:
-                    result = await response.json()
-                    
-                    # Monitor successful service call
-                    if monitoring_manager:
-                        monitoring_manager.record_service_call_success(
-                            payload.get('tenant_id', 'unknown'),
-                            processing_time,
-                            endpoint
-                        )
-                    
-                    return result
-                else:
-                    error_text = await response.text()
-                    logger.error(f"Service error {response.status}: {error_text}")
-                    
-                    # Monitor service error
-                    if monitoring_manager:
-                        monitoring_manager.record_service_call_error(
-                            payload.get('tenant_id', 'unknown'),
-                            response.status,
-                            endpoint
-                        )
-                    
-                    return {"error": f"Service error: {response.status}"}
+            if stream:
+                async with session.post(
+                    url,
+                    json=payload,
+                    headers={"Content-Type": "application/json"},
+                    timeout=aiohttp.ClientTimeout(total=120)
+                ) as response:
+                    if response.status == 200:
+                        async for line in response.content:
+                            if line:
+                                yield line
+                    else:
+                        logger.error(f"Service error: {response.status}")
+                        error_msg = json.dumps({"error": f"Service error: {response.status}"})
+                        yield error_msg.encode()
+            else:
+                async with session.post(
+                    url,
+                    json=payload,
+                    headers={"Content-Type": "application/json"},
+                    timeout=aiohttp.ClientTimeout(total=600)
+                ) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        yield result
+                    else:
+                        yield {"error": f"Service error: {response.status}"}
                         
-    except asyncio.TimeoutError:
-        processing_time = time.time() - start_time
-        logger.error(f"Service timeout after {processing_time:.1f}s")
-        
-        if monitoring_manager:
-            monitoring_manager.record_service_timeout(
-                payload.get('tenant_id', 'unknown'),
-                processing_time,
-                endpoint
-            )
-        
-        return {"error": f"Service timeout ({processing_time:.1f}s)"}
-        
     except Exception as e:
-        processing_time = time.time() - start_time
         logger.error(f"Service call error: {e}")
-        
-        if monitoring_manager:
-            monitoring_manager.record_service_call_error(
-                payload.get('tenant_id', 'unknown'),
-                str(e),
-                endpoint
-            )
-        
-        return {"error": str(e)}
+        if stream:
+            error_msg = json.dumps({"error": str(e)})
+            yield error_msg.encode()
+        else:
+            yield {"error": str(e)}
 
 # =============================================================================
-# HELPER FUNCTIONS (เก็บเดิม)
+# HELPER FUNCTIONS
 # =============================================================================
 
 def get_tenant_id(x_tenant_id: Optional[str] = None) -> str:
@@ -347,22 +185,28 @@ def extract_user_message(messages: list) -> str:
                 return msg.get("content", "")
     return ""
 
+# =============================================================================
+# MAIN ENDPOINT WITH N8N SUPPORT (แก้ไข)
+# =============================================================================
+
 def is_system_prompt(message: str) -> bool:
     """Detect OpenWebUI system prompts"""
     if not message:
         return False
     
     system_indicators = [
-        "### Task:", "### Guidelines:", "### Output:",
-        "Suggest 3-5 relevant follow-up", "follow_ups",
-        "<chat_history>", "USER:", "ASSISTANT:", "JSON format:"
+        "### Task:",
+        "### Guidelines:",
+        "### Output:",
+        "Suggest 3-5 relevant follow-up",
+        "follow_ups",
+        "<chat_history>",
+        "USER:",
+        "ASSISTANT:",
+        "JSON format:"
     ]
     
     return any(indicator in message for indicator in system_indicators)
-
-# =============================================================================
-# ENHANCED MAIN ENDPOINT
-# =============================================================================
 
 @app.post("/v1/chat/completions")
 async def chat_completions(
@@ -370,33 +214,23 @@ async def chat_completions(
     x_tenant_id: Optional[str] = Header(None),
     x_user_id: Optional[str] = Header(None)
 ):
-    """Enhanced OpenAI-compatible endpoint with monitoring"""
+    """OpenAI-compatible endpoint with n8n workflow support"""
     
     tenant_id = get_tenant_id(x_tenant_id)
     user_id = x_user_id or "openwebui_user"
     tenant_config = config.tenant_configs.get(tenant_id, config.tenant_configs['company-a'])
     
-    start_time = time.time()
-    
-    # Monitor request
-    if monitoring_manager:
-        monitoring_manager.record_request_start(tenant_id, user_id, request.stream)
-    
     try:
-        # Extract message
+        # ✅ Extract message เพียงครั้งเดียว
         user_message = extract_user_message(request.messages)
         if not user_message:
-            if monitoring_manager:
-                monitoring_manager.record_request_error(tenant_id, "No user message")
             raise HTTPException(400, "No user message found")
         
-        # Block system prompts
+        # ✅ Safety check ทันทีหลังได้ message
         if config.block_system_prompts and is_system_prompt(user_message):
-            logger.warning(f"🚫 Blocked system prompt from {user_id}: {user_message[:50]}...")
+            logger.warning(f"🚫 Blocked system prompt from {user_id}: {user_message[:100]}...")
             
-            if monitoring_manager:
-                monitoring_manager.record_blocked_request(tenant_id, "system_prompt")
-            
+            # Return empty response for system prompts
             return {
                 "id": f"chatcmpl-{int(datetime.now().timestamp())}",
                 "object": "chat.completion",
@@ -406,7 +240,7 @@ async def chat_completions(
                     "index": 0,
                     "message": {
                         "role": "assistant",
-                        "content": ""
+                        "content": '{"follow_ups": []}'  # Return empty JSON for follow-up requests
                     },
                     "finish_reason": "stop"
                 }],
@@ -415,7 +249,7 @@ async def chat_completions(
         
         logger.info(f"📨 Valid request for {tenant_id}: {user_message[:50]}...")
         
-        # ========== Try N8N workflow first ==========
+        # ========== Try n8n workflow first (ถ้าเปิดใช้งาน) ==========
         result = None
         if config.use_n8n_workflow:
             logger.info("🔄 Attempting n8n workflow processing...")
@@ -427,79 +261,94 @@ async def chat_completions(
             elif config.n8n_fallback_to_direct:
                 logger.info("⚠️ n8n failed, falling back to direct service")
             else:
-                if monitoring_manager:
-                    monitoring_manager.record_request_error(tenant_id, "n8n_unavailable")
                 raise HTTPException(503, "n8n workflow unavailable and fallback disabled")
         
-        # ========== Direct service call ==========
+        # ========== Direct service call (ถ้าไม่ใช้ n8n หรือ fallback) ==========
         if not result:
             service_payload = {
                 "question": user_message,
                 "tenant_id": tenant_id,
                 "user_id": user_id,
-                "stream": False  # Always get full response first
+                "stream": request.stream
             }
             
-            result = await call_main_service("/v1/chat", service_payload, False)
-        
-        # Extract answer
-        if isinstance(result, dict) and "error" in result:
-            error_msg = result["error"]
-            if monitoring_manager:
-                monitoring_manager.record_request_error(tenant_id, error_msg)
+            endpoint = "/v1/chat/stream" if request.stream else "/v1/chat"
             
-            error_response = {
-                "id": f"chatcmpl-{int(datetime.now().timestamp())}",
-                "object": "chat.completion",
-                "created": int(datetime.now().timestamp()),
-                "model": request.model,
-                "choices": [{
-                    "index": 0,
-                    "message": {
-                        "role": "assistant",
-                        "content": f"ขออภัย เกิดข้อผิดพลาด: {error_msg}"
-                    },
-                    "finish_reason": "stop"
-                }],
-                "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
-            }
-            
-            if request.stream:
-                async def error_stream():
-                    yield f"data: {json.dumps(error_response)}\n\n"
-                    yield "data: [DONE]\n\n"
-                return StreamingResponse(error_stream(), media_type="text/event-stream")
-            else:
-                return error_response
-        
-        # Get answer
-        answer = result.get('answer', 'ไม่สามารถประมวลผลได้') if isinstance(result, dict) else str(result)
+            async for chunk in call_main_service(endpoint, service_payload, request.stream):
+                result = chunk
+                break
         
         # ========== Format response ==========
-        if request.stream and config.enable_streaming_optimization:
-            # ✅ Enhanced streaming response
+        if request.stream:
+            # Streaming response
+            async def generate():
+                try:
+                    # Send initial chunk
+                    initial_chunk = {
+                        "id": f"chatcmpl-{int(datetime.now().timestamp())}",
+                        "object": "chat.completion.chunk",
+                        "created": int(datetime.now().timestamp()),
+                        "model": request.model,
+                        "choices": [{
+                            "index": 0,
+                            "delta": {"role": "assistant", "content": ""},
+                            "finish_reason": None
+                        }]
+                    }
+                    yield f"data: {json.dumps(initial_chunk)}\n\n"
+                    
+                    # Stream the answer
+                    answer = result.get('answer', '') if isinstance(result, dict) else str(result)
+                    chunk_size = 50
+                    
+                    for i in range(0, len(answer), chunk_size):
+                        chunk = answer[i:i + chunk_size]
+                        stream_chunk = {
+                            "id": f"chatcmpl-{int(datetime.now().timestamp())}",
+                            "object": "chat.completion.chunk",
+                            "created": int(datetime.now().timestamp()),
+                            "model": request.model,
+                            "choices": [{
+                                "index": 0,
+                                "delta": {"content": chunk},
+                                "finish_reason": None
+                            }]
+                        }
+                        yield f"data: {json.dumps(stream_chunk)}\n\n"
+                        await asyncio.sleep(0.05)
+                    
+                    # Send completion
+                    final_chunk = {
+                        "id": f"chatcmpl-{int(datetime.now().timestamp())}",
+                        "object": "chat.completion.chunk",
+                        "created": int(datetime.now().timestamp()),
+                        "model": request.model,
+                        "choices": [{
+                            "index": 0,
+                            "delta": {},
+                            "finish_reason": "stop"
+                        }]
+                    }
+                    yield f"data: {json.dumps(final_chunk)}\n\n"
+                    yield "data: [DONE]\n\n"
+                    
+                except Exception as e:
+                    logger.error(f"Streaming error: {e}")
+                    yield f"data: {json.dumps({'error': str(e)})}\n\n"
+            
             return StreamingResponse(
-                generate_enhanced_streaming_response(answer, request.model, user_message, tenant_id),
+                generate(),
                 media_type="text/event-stream",
                 headers={
                     "Cache-Control": "no-cache",
                     "Connection": "keep-alive",
-                    "X-Accel-Buffering": "no",
-                    "Access-Control-Allow-Origin": "*"
+                    "X-Accel-Buffering": "no"
                 }
             )
+        
         else:
             # Non-streaming response
-            processing_time = time.time() - start_time
-            
-            # Monitor successful response
-            if monitoring_manager:
-                monitoring_manager.record_request_success(
-                    tenant_id, 
-                    processing_time,
-                    len(answer),
-                    request.stream
-                )
+            answer = result.get('answer', 'ไม่สามารถประมวลผลได้') if isinstance(result, dict) else str(result)
             
             return {
                 "id": f"chatcmpl-{int(datetime.now().timestamp())}",
@@ -524,13 +373,9 @@ async def chat_completions(
     except HTTPException:
         raise
     except Exception as e:
-        processing_time = time.time() - start_time
         logger.error(f"Unexpected error: {e}", exc_info=True)
         
-        if monitoring_manager:
-            monitoring_manager.record_request_error(tenant_id, str(e))
-        
-        error_response = {
+        return {
             "id": f"chatcmpl-{int(datetime.now().timestamp())}",
             "object": "chat.completion",
             "created": int(datetime.now().timestamp()),
@@ -545,81 +390,51 @@ async def chat_completions(
             }],
             "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
         }
-        
-        if request.stream:
-            async def error_stream():
-                yield f"data: {json.dumps(error_response, ensure_ascii=False)}\n\n"
-                yield "data: [DONE]\n\n"
-            return StreamingResponse(error_stream(), media_type="text/event-stream")
-        else:
-            return error_response
-
 # =============================================================================
-# ENHANCED HEALTH CHECK & MONITORING ENDPOINTS
+# HEALTH CHECK WITH N8N STATUS (แก้ไข)
 # =============================================================================
 
 @app.get("/health")
 async def health():
-    """Enhanced health check with detailed monitoring"""
+    """Health check endpoint with n8n status"""
     
     # Check main AI service
-    main_service_healthy = False
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(
                 f"{config.main_service_url}/health",
                 timeout=aiohttp.ClientTimeout(total=5)
             ) as response:
-                main_service_healthy = response.status == 200
+                service_healthy = response.status == 200
     except:
-        main_service_healthy = False
+        service_healthy = False
     
-    # Check N8N status
+    # Check n8n status (ถ้าเปิดใช้งาน)
     n8n_status = "disabled"
     if config.use_n8n_workflow:
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(
                     f"{config.n8n_base_url}/healthz",
-                    timeout=aiohttp.ClientTimeout(total=3)
+                    timeout=aiohttp.ClientTimeout(total=5)
                 ) as response:
                     n8n_status = "healthy" if response.status == 200 else "unhealthy"
         except:
             n8n_status = "unreachable"
     
-    # Get monitoring stats
-    stats = {}
-    if monitoring_manager:
-        stats = monitoring_manager.get_health_stats()
-    
     return {
-        "status": "healthy" if main_service_healthy else "degraded",
-        "service": "OpenWebUI Proxy Enhanced",
-        "version": "3.0.0",
-        "main_service": "connected" if main_service_healthy else "disconnected",
+        "status": "healthy" if service_healthy else "degraded",
+        "service": "OpenWebUI Proxy",
+        "version": "2.0.0",
+        "main_service": "connected" if service_healthy else "disconnected",
         "n8n_workflow": {
             "enabled": config.use_n8n_workflow,
             "status": n8n_status,
-            "timeout": f"{config.n8n_timeout}s",
+            "url": config.n8n_base_url if config.use_n8n_workflow else None,
             "fallback": config.n8n_fallback_to_direct
         },
-        "features": {
-            "advanced_monitoring": config.enable_advanced_monitoring,
-            "streaming_optimization": config.enable_streaming_optimization,
-            "chunk_size": config.chunk_size,
-            "chunk_delay": f"{config.chunk_delay}s"
-        },
-        "stats": stats,
         "timestamp": datetime.now().isoformat()
     }
-
-@app.get("/metrics")
-async def get_metrics():
-    """Get detailed metrics"""
-    if not monitoring_manager:
-        raise HTTPException(404, "Advanced monitoring not enabled")
-    
-    return monitoring_manager.get_detailed_metrics()
 
 @app.get("/v1/models")
 async def list_models():
@@ -643,17 +458,16 @@ async def list_models():
 
 if __name__ == "__main__":
     print("=" * 60)
-    print("OpenWebUI Proxy Enhanced v3.0.0")
+    print("OpenWebUI Proxy Service")
     print("=" * 60)
     print(f"Main Service: {config.main_service_url}")
-    print(f"N8N Workflow: {'ENABLED' if config.use_n8n_workflow else 'DISABLED'}")
+    print(f"n8n Workflow: {'ENABLED' if config.use_n8n_workflow else 'DISABLED'}")
     if config.use_n8n_workflow:
-        print(f"N8N URL: {config.n8n_base_url}")
-        print(f"N8N Timeout: {config.n8n_timeout}s")
+        print(f"n8n URL: {config.n8n_base_url}")
+        print(f"n8n Webhook: /{config.n8n_webhook_path}")
         print(f"Fallback: {config.n8n_fallback_to_direct}")
-    print(f"Advanced Monitoring: {'ENABLED' if config.enable_advanced_monitoring else 'DISABLED'}")
-    print(f"Streaming Optimization: {'ENABLED' if config.enable_streaming_optimization else 'DISABLED'}")
     print(f"Port: {config.port}")
+    print(f"Default Tenant: {config.default_tenant}")
     print("=" * 60)
     
     uvicorn.run(app, host="0.0.0.0", port=config.port)

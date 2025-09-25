@@ -59,44 +59,123 @@ class GeneralChatHandler:
         """
         Check if this is general chat (not database query)
         Returns: (is_general, chat_type)
+        FIXED: Prioritizes business context detection to prevent false positives
         """
         text_lower = text.lower().strip()
         
-        # Check greeting
+        # ============================================
+        # PHASE 1: BUSINESS CONTEXT CHECK (HIGHEST PRIORITY)
+        # ============================================
+        
+        # Business indicators that should NEVER be treated as general chat
+        business_indicators = [
+            # Company/Customer related
+            'บริษัท', 'ลูกค้า', 'คลีนิค', 'โรงพยาบาล', 'รพ.',
+            
+            # Service/Repair related
+            'ประวัติ', 'ซ่อม', 'บริการ', 'service', 'repair', 'maintenance',
+            'โอเวอร์ฮอล', 'overhaul', 'replacement', 'เปลี่ยน', 'pm',
+            
+            # Financial/Sales related
+            'ราคา', 'ยอด', 'รายได้', 'revenue', 'sales', 'income',
+            'มูลค่า', 'value', 'cost', 'price', 'เงิน', 'บาท',
+            
+            # Work/Job related
+            'งาน', 'work', 'job', 'แผนงาน', 'planned', 'วางแผน',
+            'ทีม', 'team', 'ช่าง', 'พนักงาน', 'employee',
+            
+            # Parts/Inventory related
+            'อะไหล่', 'parts', 'spare', 'คลัง', 'stock', 'inventory',
+            'warehouse', 'สต็อก', 'สินค้า',
+            
+            # Technical/Equipment related
+            'chiller', 'ชิลเลอร์', 'compressor', 'คอมเพรสเซอร์',
+            'แอร์', 'เครื่องปรับอากาศ', 'hvac', 'vrv', 'vrf',
+            
+            # Analysis/Reporting related
+            'วิเคราะห์', 'analysis', 'รายงาน', 'report', 'สรุป',
+            'summary', 'เปรียบเทียบ', 'compare', 'top', 'ดีที่สุด',
+            
+            # Time/Date related (in business context)
+            'ปี', 'year', 'เดือน', 'month', 'วันที่', 'date',
+            'ย้อนหลัง', 'history', 'เคย', 'มาแล้ว',
+            
+            # Quantity/Count related
+            'กี่', 'จำนวน', 'count', 'total', 'รวม', 'ทั้งหมด',
+            'มาก', 'น้อย', 'สูง', 'ต่ำ', 'max', 'min'
+        ]
+        
+        # If any business indicator is found, this is NOT general chat
+        if any(indicator in text_lower for indicator in business_indicators):
+            return False, None  # Let intent detection handle this
+        
+        # ============================================
+        # PHASE 2: GENERAL CHAT PATTERN CHECKS
+        # ============================================
+        
+        # Check greeting patterns
         for pattern in self.greeting_patterns:
             if re.search(pattern, text_lower):
                 return True, 'greeting'
         
-        # Check help
+        # Check help patterns
         for pattern in self.help_patterns:
             if re.search(pattern, text_lower):
                 return True, 'help'
         
-        # Check thanks
+        # Check thanks patterns
         for pattern in self.thanks_patterns:
             if re.search(pattern, text_lower):
                 return True, 'thanks'
         
-        # Check goodbye
+        # Check goodbye patterns
         for pattern in self.goodbye_patterns:
             if re.search(pattern, text_lower):
                 return True, 'goodbye'
         
-        # Check HVAC general
+        # Check HVAC general knowledge patterns
         for pattern in self.hvac_patterns:
             if re.search(pattern, text_lower):
                 return True, 'hvac_general'
         
-        # Check if too short to be database query
-        if len(text_lower.split()) <= 2 and not any(
-            keyword in text_lower for keyword in 
-            ['ราคา', 'ยอด', 'รายได้', 'งาน', 'อะไหล่', 'ลูกค้า']
-        ):
-            # Might be casual chat
+        # ============================================
+        # PHASE 3: CASUAL CHAT DETECTION
+        # ============================================
+        
+        # Very short messages without business context
+        if len(text_lower.split()) <= 2:
+            # Common casual expressions
+            casual_short_phrases = [
+                'อะไร', 'เป็นไง', 'ยังไง', 'ครับ', 'ค่ะ', 'จ้า',
+                'ok', 'okay', 'yes', 'no', 'ใช่', 'ไม่', 'อืม',
+                'wow', 'โอ้', 'เอ๋', 'หือ', 'อ่อ', '555', 'lol'
+            ]
+            
+            if any(phrase in text_lower for phrase in casual_short_phrases):
+                return True, 'casual'
+            
+            # Very short without clear business intent
             return True, 'casual'
         
+        # Medium length casual patterns
+        casual_patterns = [
+            r'^(อะไร|เป็นไง|ยังไง).*นะ?$',
+            r'^(โอเค|ok|ได้|good).*$',
+            r'^\w{1,3}$',  # Very short single words
+            r'^(อิอิ|เฮ่|ฮ่า|555+).*',  # Laughing/expressions
+        ]
+        
+        for pattern in casual_patterns:
+            if re.search(pattern, text_lower):
+                return True, 'casual'
+        
+        # ============================================
+        # PHASE 4: DEFAULT - NOT GENERAL CHAT
+        # ============================================
+        
+        # If we reach here, assume it's a business query that should go to intent detection
         return False, None
-    
+
     def get_response(self, chat_type: str, original_text: str = "") -> str:
         """Get appropriate response based on chat type"""
         

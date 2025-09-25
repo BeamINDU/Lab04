@@ -31,20 +31,6 @@ export default function Layout({ children }: LayoutProps) {
       current: router.pathname === '/dashboard',
       description: 'นำเข้าข้อมูล จัดการ Schema และ Tables'
     },
-    {
-      name: 'ประวัติการนำเข้า',
-      href: '/history',
-      icon: History,
-      current: router.pathname === '/history',
-      description: 'ดูประวัติการนำเข้าข้อมูลทั้งหมด'
-    },
-    {
-      name: 'ตั้งค่า',
-      href: '/settings',
-      icon: Settings,
-      current: router.pathname === '/settings',
-      description: 'ตั้งค่าระบบและผู้ใช้งาน'
-    }
   ];
 
   const handleSignOut = async () => {
