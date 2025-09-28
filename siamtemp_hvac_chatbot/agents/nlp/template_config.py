@@ -760,16 +760,6 @@ class TemplateConfig:
             'description': 'อะไหล่ที่มีราคาถูกที่สุด'
         },
         
-        'ekac_parts': {
-            'table': 'v_spare_part',
-            'complexity': 'NORMAL',
-            'keywords': ['ekac', 'รหัส ekac', 'อะไหล่ ekac'],
-            'has_subquery': False,
-            'has_not_in': False,
-            'year_adjustment': 'none',
-            'intent': 'spare_parts',
-            'description': 'อะไหล่รหัส EKAC'
-        },
         
         'total_stock_quantity': {
             'table': 'v_spare_part',
@@ -804,17 +794,7 @@ class TemplateConfig:
             'description': 'อะไหล่ที่ไม่มีการตั้งราคา'
         },
         
-        'ekac460_info': {
-            'table': 'v_spare_part',
-            'complexity': 'NORMAL',
-            'keywords': ['ekac460', 'รหัส ekac460'],
-            'has_subquery': False,
-            'has_not_in': False,
-            'year_adjustment': 'none',
-            'intent': 'spare_parts',
-            'description': 'ข้อมูลอะไหล่รหัส EKAC460'
-        },
-        
+       
         'set_parts': {
             'table': 'v_spare_part',
             'complexity': 'NORMAL',

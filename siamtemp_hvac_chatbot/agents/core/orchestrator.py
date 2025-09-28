@@ -15,6 +15,7 @@ from ..storage.database import SimplifiedDatabaseHandler
 from .context_handler import ContextHandler, ConversationTurn, ConversationState
 from collections import defaultdict
 from agents.nlp.general_chat_handler import GeneralChatHandler
+from ..utils.table_formatter import format_results_as_table_response
 logger = logging.getLogger(__name__)
 
 # =============================================================================
@@ -370,16 +371,10 @@ class ImprovedDualModelDynamicAISystem:
         
         # Clean data if enabled
         if self.enable_data_cleaning:
-            cleaned_results, cleaning_stats = self.data_cleaner.clean_results(
-                results, context.intent
-            )
-            processed['results'] = cleaned_results
-            processed['cleaning_stats'] = cleaning_stats
-            
-            # Generate insights
-            processed['insights'] = self.data_cleaner.create_summary_insights(
-                cleaned_results, context.intent
-            )
+            cleaned_results, cleaning_stats = self.data_cleaner.clean_results(results, context.intent)
+            processed['results'] = cleaned_results  # ← ใช้ cleaned
+        else:
+            processed['results'] = results
         
         return processed
     
@@ -390,28 +385,13 @@ class ImprovedDualModelDynamicAISystem:
     async def _generate_response(self, context: QueryContext, 
                                 sql_query: str,
                                 processed_data: Dict) -> str:
-        """Generate natural language response"""
         results = processed_data['results']
-        insights = processed_data.get('insights', {})
         
         if not results:
             return self._generate_no_results_response(context)
         
-        # Build response prompt
-        prompt = self.prompt_manager.build_response_prompt(
-            question=context.question,
-            results=results,  # Limit for prompt
-            sql_query=sql_query
-        )
-        
-        # Generate response
-        response = await self.ollama_client.generate(prompt, self.NL_MODEL)
-        
-        # Fallback to template if generation fails
-        if not response or len(response) < 50:
-            response = self._generate_template_response(results, context, insights)
-        
-        return response
+        # ใช้ Table Formatter แทน LLM
+        return format_results_as_table_response(results, context.question)
     
     # =========================================================================
     # STEP 8: FINALIZATION

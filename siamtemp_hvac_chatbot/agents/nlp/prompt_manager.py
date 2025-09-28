@@ -703,13 +703,14 @@ class PromptManager:
             """).strip(),
             
             'maintenance_history': dedent("""
-                SELECT 
+                SELECT
                     customer,
                     date,
                     detail,
-                    service_group,
-                FROM v_work_force 
-                WHERE job_description_pm = true 
+                    service_group
+                FROM v_work_force
+                WHERE job_description_pm = '1'
+                OR job_description_pm = 'true'
                 OR detail LIKE '%บำรุงรักษา%'
                 OR detail LIKE '%maintenance%'
                 ORDER BY date DESC;
@@ -747,21 +748,12 @@ class PromptManager:
                 SELECT * 
                 FROM v_spare_part
                 WHERE product_name LIKE '%EKAC460%'
+                   OR product_name LIKE '%model%'
                    OR product_name LIKE '%EKAC460%'
                 ORDER BY total_num DESC
                 LIMIT 50;
             """).strip(),
 
-            # Parts Search Multiple - ค้นหาอะไหล่หลายคำ
-            'parts_search_multi': dedent("""
-                SELECT *
-                FROM v_spare_part
-                WHERE product_name LIKE '%EK%'
-                   OR product_name LIKE '%model%'
-                   OR product_name LIKE '%EKAC460%'
-                ORDER BY total_num DESC
-                LIMIT 100;
-            """).strip(),
 
             # Sales Analysis Multi Year - วิเคราะห์การขายหลายปี
             'sales_analysis': dedent("""
@@ -2089,13 +2081,6 @@ class PromptManager:
         LIMIT 10;
     """).strip(),
 
-    # ข้อ 58: EKAC parts
-    'ekac_parts': dedent("""
-        SELECT product_code, product_name, balance_num, unit_price_num
-        FROM v_spare_part
-        WHERE product_code ILIKE '%EKAC%'
-        ORDER BY product_code;
-    """).strip(),
 
     # ข้อ 61: Total stock quantity
     'total_stock_quantity': dedent("""
@@ -2121,19 +2106,7 @@ class PromptManager:
         OR unit_price_num IS NULL;
     """).strip(),
 
-    # ข้อ 68: EKAC460 specific
-    'ekac460_info': dedent("""
-        SELECT *
-        FROM v_spare_part
-        WHERE product_code = 'EKAC460';
-    """).strip(),
 
-    # ข้อ 69: SET parts
-    'set_parts': dedent("""
-        SELECT product_code, product_name, balance_num, unit_price_num
-        FROM v_spare_part
-        WHERE unit ILIKE '%set%';
-    """).strip(),
 
     # ข้อ 70: Recently received
     'recently_received': dedent("""
@@ -2666,7 +2639,6 @@ class PromptManager:
                 'warehouse_summary': 'v_spare_part',
                 'stock_balance': 'v_spare_part',
                 'low_stock_items': 'v_spare_part',
-                'out_of_stock': 'v_spare_part',
                 'parts_by_warehouse': 'v_spare_part',
                 'parts_total_value': 'v_spare_part',
                 
@@ -3072,6 +3044,38 @@ class PromptManager:
         schema_prompt = self._get_dynamic_schema_prompt(target_table)
         hints = self._build_sql_hints(entities, intent)
         
+        # ตรวจสอบว่า template มี date conditions อยู่แล้วหรือไม่
+        has_date_conditions = any(keyword in template.lower() for keyword in [
+            'date', 'year', 'month', 'between', 'extract(',
+            '2024', '2025', 'where date', 'and date', 'year in'
+        ])
+        
+        # === CUSTOMER HISTORY SPECIAL HANDLING ===
+        if intent == 'customer_history' and entities.get('customers') and entities.get('years'):
+            customer = entities['customers'][0]
+            years_list = "', '".join(map(str, entities['years']))
+            
+            # Replace customer name and years in template
+            template = re.sub(r'%\w+%', f'%{customer}%', template)
+            template = re.sub(r"year\s*IN\s*\([^)]+\)", f"year IN ('{years_list}')", template)
+            
+            logger.info(f"🔄 Customer template updated: {customer}, years: {years_list}")
+            
+            prompt = dedent(f"""
+            You are a SQL query generator. Output ONLY the SQL query with no explanation.
+            
+            Use this template exactly (customer and years already updated):
+            ----------------------------------------
+            {template}
+            ----------------------------------------
+            
+            Question: {question}
+            
+            SQL:
+            """).strip()
+            
+            return prompt
+        
         # === FIX 1: Handle multiple years replacement ===
         if entities.get('years') and len(entities['years']) > 1:
             years_list = "', '".join(map(str, entities['years']))
@@ -3116,6 +3120,44 @@ class PromptManager:
             )
             
             logger.info(f"🔄 Replaced date range: {first_day} to {last_day}")
+        
+        # === NEW: DYNAMIC DATE CONDITIONS FOR TEMPLATES WITHOUT DATE ===
+        if not has_date_conditions:
+            # เพิ่ม date conditions ถ้าคำถามมีเวลาระบุ แต่ template ไม่มี
+            additional_conditions = []
+            
+            if entities.get('months'):
+                month = entities['months'][0]
+                additional_conditions.append(f'AND EXTRACT(MONTH FROM "date") = {month}')
+            
+            if entities.get('years'):
+                year = entities['years'][0]
+                additional_conditions.append(f'AND EXTRACT(YEAR FROM "date") = {year}')
+            
+            if additional_conditions:
+                conditions_text = ' '.join(additional_conditions)
+                
+                prompt = dedent(f"""
+                You are a SQL query generator. Output ONLY the SQL query with no explanation.
+                
+                BASE TEMPLATE:
+                {template}
+                
+                Add these date conditions to the WHERE clause:
+                {conditions_text}
+                
+                INSTRUCTIONS:
+                1. Take the base template above
+                2. Add the date conditions to the existing WHERE clause
+                3. If template has no WHERE clause, add WHERE with the date conditions
+                4. Output the complete modified SQL
+                
+                Question: {question}
+                
+                SQL:
+                """).strip()
+                
+                return prompt
         
         # Check if this is planned work
         is_planned_work = ('วางแผน' in question.lower() or 
@@ -3402,7 +3444,6 @@ class PromptManager:
             
             # Stock management
             'low_stock': 'v_spare_part',
-            'out_of_stock': 'v_spare_part',
             'stock_movement': 'v_spare_part',
             'stock_balance': 'v_spare_part',
 
@@ -3559,8 +3600,6 @@ class PromptManager:
             # Specific parts
             'compressor_parts': 'v_spare_part',
             'filter_parts': 'v_spare_part',
-            'ekac_parts': 'v_spare_part',
-            'ekac460_info': 'v_spare_part',
             'set_parts': 'v_spare_part',
 
             # Stock quantity
@@ -4112,11 +4151,7 @@ class PromptManager:
                 'low stock', 'อะไหล่ใกล้หมด'
             ],
             
-            'out_of_stock': [
-                'หมดสต็อก', 'out of stock', 'สินค้าหมด', 
-                'stock หมด', 'อะไหล่หมด'
-            ],
-            
+          
             'high_unit_price': [
                 'ราคาต่อหน่วยสูง', 'ราคาแพง', 'expensive parts', 
                 'high price', 'อะไหล่แพง'
@@ -4650,10 +4685,6 @@ class PromptManager:
             'อะไหล่ราคาถูก', 'lowest price parts'
         ],
 
-        'ekac_parts': [
-            'อะไหล่ ekac', 'ekac parts', 'parts ekac',
-            'อะไหล่รหัส ekac', 'ekac code parts'
-        ],
 
         'total_stock_quantity': [
             'จำนวนสต็อกรวม', 'total stock quantity', 'สต็อกทั้งหมด',
@@ -4670,10 +4701,6 @@ class PromptManager:
             'parts no price', 'อะไหล่ราคาเป็นศูนย์'
         ],
 
-        'ekac460_info': [
-            'ข้อมูล ekac460', 'ekac460 info', 'อะไหล่ ekac460',
-            'รายละเอียด ekac460', 'ekac460 details'
-        ],
 
         'set_parts': [
             'อะไหล่ชุด', 'set parts', 'อะไหล่หน่วยชุด',
@@ -4916,8 +4943,6 @@ class PromptManager:
             'average_part_price': 'average_part_price',
             'compressor_parts': 'compressor_parts',
             'filter_parts': 'filter_parts',
-            'ekac_parts': 'ekac_parts',
-            'ekac460_info': 'ekac460_info',
             'set_parts': 'set_parts',
             'recently_received': 'recently_received',
             'total_stock_quantity': 'total_stock_quantity',

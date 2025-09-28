@@ -194,19 +194,19 @@ class DataCleaningEngine:
     
     def _enhance_parts_data(self, results: List[Dict]) -> List[Dict]:
         """Enhance spare parts data"""
-        for row in results:
-            # Add availability status
-            balance = row.get('balance_num', 0) or 0
-            row['availability'] = 'In Stock' if balance > 0 else 'Out of Stock'
+        # for row in results:
+        #     # Add availability status
+        #     balance = row.get('balance_num', 0) or 0
+        #     row['availability'] = 'In Stock' if balance > 0 else 'Out of Stock'
             
-            # Add value category
-            total_value = row.get('total_num', 0) or 0
-            if total_value > 50000:
-                row['value_category'] = 'High Value'
-            elif total_value > 10000:
-                row['value_category'] = 'Medium Value'
-            else:
-                row['value_category'] = 'Low Value'
+        #     # Add value category
+        #     total_value = row.get('total_num', 0) or 0
+        #     if total_value > 50000:
+        #         row['value_category'] = 'High Value'
+        #     elif total_value > 10000:
+        #         row['value_category'] = 'Medium Value'
+        #     else:
+        #         row['value_category'] = 'Low Value'
         
         return results
     
