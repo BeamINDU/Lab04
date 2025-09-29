@@ -389,7 +389,7 @@ class PromptManager:
                        SUM(total_revenue) AS total_revenue
                 FROM v_sales
                 WHERE customer_name LIKE '%STANLEY%'
-                  AND year IN ('2023','2024','2025')
+                  AND year IN ('2022','2023','2024','2025')
                 GROUP BY year, customer_name
                 ORDER BY year, total_revenue DESC;
             """).strip(),
@@ -1615,29 +1615,21 @@ class PromptManager:
         
         # คำถามข้อ 85: งาน Start Up
         'startup_works_all': dedent("""
-            SELECT 
-                date,
-                customer, 
-                project, 
-                detail,
-                job_description_start_up
+            SELECT date, customer, project, detail, job_description_start_up 
             FROM v_work_force 
             WHERE job_description_start_up IS NOT NULL 
-                AND job_description_start_up != '' 
+            AND job_description_start_up != ''
+            {year_condition}
             ORDER BY date DESC;
         """).strip(),
         
         # คำถามข้อ 86: งาน Support
         'support_works': dedent("""
-            SELECT 
-                date,
-                customer, 
-                project, 
-                detail,
-                job_description_support_all
+            SELECT date, customer, project, detail, job_description_support_all 
             FROM v_work_force 
             WHERE job_description_support_all IS NOT NULL 
-                AND job_description_support_all != '' 
+            AND job_description_support_all != ''
+            {year_condition}
             ORDER BY date DESC;
         """).strip(),
         
@@ -2363,7 +2355,10 @@ class PromptManager:
     # ===== MAIN METHODS =====
     
     def _extract_employees(self, text: str) -> List[str]:
-        """Extract employee/staff names from text"""
+        """
+        Extract employee/staff names from text
+        Enhanced version ที่จัดการชื่อไทยได้ดีขึ้น
+        """
         employees = []
         text_lower = text.lower()
         
@@ -2377,27 +2372,43 @@ class PromptManager:
         is_employee_search = any(kw in text_lower for kw in employee_keywords)
         
         if is_employee_search:
-            # Pattern 1: ชื่อ followed by Thai name
-            pattern1 = r'ชื่อ\s+([ก-์]+(?:\s+[ก-์]+)?)'
-            matches = re.findall(pattern1, text)
+            # Pattern 1: พนักงานชื่อ + ชื่อไทย
+            pattern1 = r'(?:พนักงาน|ช่าง|ทีม)(?:ชื่อ|ชื่อว่า|คือ)?\s*([ก-๙]+(?:\s+[ก-๙]+)?)'
+            matches1 = re.findall(pattern1, text)
+            for match in matches1:
+                clean_name = match.strip()
+                if len(clean_name) >= 2:  # อย่างน้อย 2 ตัวอักษร
+                    employees.append(clean_name)
+                    logger.info(f"✅ Found employee (pattern 1): {clean_name}")
             
-            for match in matches:
-                name = match.strip()
-                # Filter out common words
-                if name not in ['พนักงาน', 'ช่าง', 'ทีม', 'ข้อมูล', 'การทำงาน']:
-                    employees.append(name)
-                    logger.info(f"✅ Found employee name: {name}")
-            
-            # Pattern 2: If no matches, try another pattern
+            # Pattern 2: ชื่อ + ชื่อไทย (generic)
             if not employees:
-                # Look for Thai names after keywords
-                pattern2 = r'(?:พนักงาน|ช่าง|ทีม)\s*(?:ชื่อ)?\s*([ก-์]+)'
-                matches = re.findall(pattern2, text)
-                for match in matches:
-                    name = match.strip()
-                    if name not in ['ชื่อ', 'ที่', 'ของ'] and len(name) > 1:
-                        employees.append(name)
-                        logger.info(f"✅ Found employee name: {name}")
+                pattern2 = r'ชื่อ\s+([ก-๙]+(?:\s+[ก-๙]+)?)'
+                matches2 = re.findall(pattern2, text)
+                for match in matches2:
+                    clean_name = match.strip()
+                    # ตรวจสอบว่าไม่ใช่คำทั่วไป
+                    exclude_words = ['เดือน', 'ปี', 'วัน', 'ครั้ง', 'บริษัท']
+                    if len(clean_name) >= 2 and clean_name not in exclude_words:
+                        employees.append(clean_name)
+                        logger.info(f"✅ Found employee (pattern 2): {clean_name}")
+            
+            # Pattern 3: ทีม + ชื่อ
+            pattern3 = r'ทีม\s*([ก-๙]+(?:\s+[ก-๙]+)?)'
+            matches3 = re.findall(pattern3, text)
+            for match in matches3:
+                clean_name = match.strip()
+                if len(clean_name) >= 2:
+                    employees.append(clean_name)
+                    logger.info(f"✅ Found employee (pattern 3): {clean_name}")
+        
+        # Remove duplicates
+        employees = list(dict.fromkeys(employees))
+        
+        if employees:
+            logger.info(f"✅ Final extracted employees: {employees}")
+        else:
+            logger.warning(f"⚠️ No employees extracted from: '{text}'")
         
         return employees
 
@@ -3044,6 +3055,63 @@ class PromptManager:
         schema_prompt = self._get_dynamic_schema_prompt(target_table)
         hints = self._build_sql_hints(entities, intent)
         
+        # =================================================================
+        # 🔥 NEW: PARTS_PRICE SPECIAL HANDLING (แก้ปัญหาหลัก)
+        # =================================================================
+        
+        if intent == 'parts_price' and entities.get('products'):
+            products = entities['products']
+            logger.info(f"🎯 Parts price query with products: {products}")
+            
+            # สร้าง WHERE clause ที่ชัดเจนจาก products ที่ extract มา
+            where_conditions = []
+            for product in products:
+                where_conditions.append(f"product_name LIKE '%{product}%'")
+            
+            where_clause = " OR ".join(where_conditions)
+            
+            # สร้าง explicit SQL โดยไม่พึ่ง template ที่อาจมีปัญหา
+            explicit_sql = f"""
+    SELECT 
+        product_code,
+        product_name, 
+        balance_num,
+        unit_price_num,
+        total_num,
+        wh
+    FROM v_spare_part 
+    WHERE {where_clause}
+    ORDER BY total_num DESC;
+            """.strip()
+            
+            prompt = dedent(f"""
+            You are a SQL query generator. Output ONLY the SQL query with no explanation.
+            
+            🎯 CRITICAL INSTRUCTION FOR PARTS PRICE QUERY:
+            
+            The user is asking for price of these specific products: {products}
+            
+            Use this EXACT SQL (already customized for the products):
+            ----------------------------------------
+            {explicit_sql}
+            ----------------------------------------
+            
+            DO NOT modify the WHERE clause!
+            DO NOT use generic '%model%' or placeholder values!
+            DO NOT use different product codes like EKAC460!
+            
+            Question: {question}
+            Detected products: {products}
+            
+            Output the SQL above EXACTLY as shown:
+            """).strip()
+            
+            return prompt
+        
+        # =================================================================
+        # EXISTING LOGIC (เดิม)
+        # =================================================================
+        
         # ตรวจสอบว่า template มี date conditions อยู่แล้วหรือไม่
         has_date_conditions = any(keyword in template.lower() for keyword in [
             'date', 'year', 'month', 'between', 'extract(',
@@ -3075,7 +3143,62 @@ class PromptManager:
             """).strip()
             
             return prompt
-        
+         
+
+        if intent == 'work_force' or intent == 'employee_work':
+            # Extract employee names
+            employees = self._extract_employees(question)
+            
+            if employees:
+                logger.info(f"🎯 Employee query for: {employees}")
+                
+                # สร้าง WHERE clause สำหรับ employee
+                employee_conditions = []
+                for emp in employees:
+                    employee_conditions.append(f"service_group LIKE '%{emp}%'")
+                
+                where_clause = " OR ".join(employee_conditions)
+                
+                # สร้าง explicit SQL
+                explicit_sql = f"""
+                    SELECT 
+                        date,
+                        customer,
+                        project,
+                        detail,
+                        service_group,
+                        success,
+                        unsuccessful
+                    FROM v_work_force 
+                    WHERE {where_clause}
+                    ORDER BY date DESC;
+                """.strip()
+                
+                prompt = dedent(f"""
+                You are a SQL query generator. Output ONLY the SQL query with no explanation.
+                
+                🎯 EMPLOYEE WORK HISTORY QUERY:
+                
+                The user wants work history for employee(s): {employees}
+                
+                Use this EXACT SQL (already customized):
+                ----------------------------------------
+                {explicit_sql}
+                ----------------------------------------
+                
+                CRITICAL INSTRUCTIONS:
+                1. Employee names are in 'service_group' column, NOT 'customer'
+                2. Use LIKE '%name%' for partial matching
+                3. DO NOT change the WHERE clause or column names
+                4. DO NOT use 'customer' column for employee search
+                
+                Question: {question}
+                
+                Output the SQL above EXACTLY as shown:
+                """).strip()
+                
+                return prompt
+
         # === FIX 1: Handle multiple years replacement ===
         if entities.get('years') and len(entities['years']) > 1:
             years_list = "', '".join(map(str, entities['years']))
@@ -3188,6 +3311,110 @@ class PromptManager:
         """).strip()
         
         return prompt
+
+
+    # =================================================================
+    # เพิ่ม method สำหรับ debug parts_price
+    # =================================================================
+
+    def debug_parts_price_prompt(self, question: str, entities: Dict) -> Dict:
+        """
+        🔧 DEBUG: ช่วยดู parts_price prompt generation
+        """
+        
+        if not entities.get('products'):
+            return {
+                'error': 'No products in entities',
+                'entities': entities
+            }
+        
+        products = entities['products']
+        
+        # สร้าง WHERE clause
+        where_conditions = []
+        for product in products:
+            where_conditions.append(f"product_name LIKE '%{product}%'")
+        
+        where_clause = " OR ".join(where_conditions)
+        
+        # สร้าง SQL
+        explicit_sql = f"""
+    SELECT 
+        product_code,
+        product_name, 
+        balance_num,
+        unit_price_num,
+        total_num,
+        wh
+    FROM v_spare_part 
+    WHERE {where_clause}
+    ORDER BY total_num DESC;
+        """.strip()
+        
+        return {
+            'question': question,
+            'detected_products': products,
+            'where_clause': where_clause,
+            'generated_sql': explicit_sql,
+            'should_find_products': products
+        }
+
+
+    # =================================================================
+    # เพิ่ม validation หลัง SQL generation
+    # =================================================================
+
+    def validate_parts_price_result(self, sql: str, original_entities: Dict) -> Dict:
+        """
+        🔧 VALIDATION: ตรวจสอบ SQL ที่ generate มาว่าใช้ products ถูกต้องหรือไม่
+        """
+        
+        validation_result = {
+            'sql': sql,
+            'original_products': original_entities.get('products', []),
+            'found_in_sql': [],
+            'missing_from_sql': [],
+            'false_positives': [],
+            'is_valid': False,
+            'issues': []
+        }
+        
+        original_products = original_entities.get('products', [])
+        if not original_products:
+            validation_result['is_valid'] = True
+            validation_result['issues'].append('No products to validate')
+            return validation_result
+        
+        sql_upper = sql.upper()
+        
+        # ตรวจสอบ products ที่ควรมี
+        for product in original_products:
+            if product.upper() in sql_upper:
+                validation_result['found_in_sql'].append(product)
+            else:
+                validation_result['missing_from_sql'].append(product)
+                validation_result['issues'].append(f"Missing product: {product}")
+        
+        # ตรวจสอบ false positives (product codes ที่ไม่ควรมี)
+        known_false_positives = ['EKAC460', 'MODEL', '%MODEL%']
+        
+        for fp in known_false_positives:
+            if fp in sql_upper:
+                # ตรวจสอบว่าเป็น false positive จริงหรือไม่
+                if fp.replace('%', '') not in [p.upper() for p in original_products]:
+                    validation_result['false_positives'].append(fp)
+                    validation_result['issues'].append(f"False positive: {fp}")
+        
+        # ประเมินผลรวม
+        has_all_products = len(validation_result['missing_from_sql']) == 0
+        has_no_false_positives = len(validation_result['false_positives']) == 0
+        
+        validation_result['is_valid'] = has_all_products and has_no_false_positives
+        
+        if validation_result['is_valid']:
+            validation_result['issues'].append('✅ SQL validation passed')
+        
+        return validation_result
 
     def _get_example_name(self, example: str) -> str:
         """Get example name for logging and exact match checking"""
@@ -3915,11 +4142,13 @@ class PromptManager:
                 'รายงานการซื้อขายประจำปี', 'yearly transaction'
             ],
 
+            'customer_history_3year': [
+                'มีการซื้อขายย้อนหลัง', 'มีการซื้อขายย้อนหลัง 3 ปี มีอะไรบ้าง'
+            ],
             'customer_history': [
                 'ประวัติลูกค้า', 'ประวัติการซื้อขาย', 'customer history', 
                 'การซื้อขายย้อนหลัง', 'ข้อมูลลูกค้า', 'รายละเอียดลูกค้า'
             ],
-            
             'customer_years_count': [
                 'ซื้อขายมากี่ปี', 'กี่ปีแล้ว', 'how many years', 
                 'ซื้อขายมาแล้วกี่ปี', 'ใช้บริการมากี่ปี', 'years operation'
@@ -4457,7 +4686,7 @@ class PromptManager:
 
         'customer_specific_history': [
             'ประวัติลูกค้าเฉพาะราย', 'customer specific history', 'ประวัติลูกค้าเฉพาะ',
-            'ข้อมูลลูกค้าราย', 'individual customer history'
+            'ข้อมูลลูกค้าราย', 'individual customer history','ข้อมูลลูกค้า','ข้อมูลลูกค้าบริษัท','ขอข้อมูลบริษัท'
         ],
 
         'frequent_customers': [

@@ -1240,6 +1240,9 @@ export class FileImportService {
   private prepareRowForInsertion(row: any, tableColumns: any[]): any {
     const insertData: any = {};
     
+    console.log('=== Row Data Debug ===');
+    console.log('Row keys:', Object.keys(row));
+    console.log('Row values:', row);
     for (const column of tableColumns) {
       const columnName = column.column_name;
       

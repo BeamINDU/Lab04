@@ -241,7 +241,7 @@ class TemplateConfig:
             'intent': 'customer_analysis',
             'description': 'ประวัติการใช้บริการของลูกค้า'
         },
-        
+
         'total_revenue_year': {
             'table': 'v_sales',
             'complexity': 'NORMAL',

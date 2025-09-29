@@ -179,7 +179,15 @@ class ImprovedIntentDetector:
                 ],
                 'negative': ['อะไหล่', 'ราคา', 'แผนงาน']
             },
-            
+            'customer_specific_history': {
+                'strong': ['ข้อมูลลูกค้า', 'ข้อมูลบริษัท', 'ขอข้อมูล'],
+                'medium': ['รายละเอียดลูกค้า', 'individual customer'],
+                'patterns': [
+                    r'ขอข้อมูลบริษัท',
+                    r'ข้อมูลลูกค้า(?!ทั้งหมด|กี่)',
+                ],
+                'negative': ['ทั้งหมด', 'กี่', 'รวม']
+            },
             'top_customers': {
                 'strong': ['ลูกค้า', 'Top', 'อันดับ', 'สูงสุด'],
                 'medium': ['มากที่สุด', 'ใหญ่ที่สุด', 'หลัก'],
@@ -761,23 +769,229 @@ class ImprovedIntentDetector:
         return dates
     
     def _extract_products(self, question: str) -> List[str]:
-        """Extract product/model names"""
-        products = []
+        """
+        🔧 ENHANCED v2.0: Extract product/model names based on REAL product data
         
-        # Common product patterns
-        product_patterns = [
-            r'EKAC\d+',
-            r'RCUG\d+[A-Z]*\d*',
-            r'17[A-C]\d{5}[A-Z]?',
-            r'EK\s+model\s+(\w+)',
-            r'model\s+(\w+)'
+        วิเคราะห์จาก product_name จริงในระบบ และปรับ patterns ให้ครอบคลุม:
+        - EK series: EKAC230, EKWD043, EKCU10ST/EKCU51, EKAC240B1, EKDW090HR-PO21712-1C
+        - 17 series: 17B27237A, 17B29401A, 17C46618C, 17F05931A 
+        - H7 series: H7A00526A, H7B00027B, H7C00035A, H7G00164A
+        - Other codes: G7D21209A, P24385, P24780
+        """
+        products = []
+        logger.info(f"🔍 Extracting products from: '{question}'")
+        
+        # =================================================================
+        # 1. EK SERIES PATTERNS (จากข้อมูลจริง)
+        # =================================================================
+        
+        ek_patterns = [
+            # EK + 3 letters + numbers + optional suffix
+            r'EK[A-Z]{2}\d+[A-Z]*\d*[A-Z]*',           # EKAC230, EKWD043
+            r'EK[A-Z]{3}\d+[A-Z]*\d*[A-Z]*',           # EKCU10ST  
+            r'EK[A-Z]{4}\d+[A-Z]*[-]*[A-Z]*\d*[-]*[A-Z]*\d*[A-Z]*', # EKDW090HR-PO21712-1C
+            
+            # EK with slash combinations
+            r'EK[A-Z]+\d+[A-Z]*[/][A-Z]*\d+[A-Z]*',   # EKCU10ST/EKCU51
+            
+            # EK with colon/semicolon
+            r'EK[A-Z]+\d+[A-Z]*\d*(?=[:\s;])',        # EKWD043: (before colon)
         ]
         
-        for pattern in product_patterns:
+        for pattern in ek_patterns:
             matches = re.findall(pattern, question, re.IGNORECASE)
-            products.extend(matches)
+            for match in matches:
+                clean_product = match.strip().upper()
+                if len(clean_product) >= 5:  # EK + อย่างน้อย 3 ตัวอักษร
+                    products.append(clean_product)
+                    logger.info(f"✅ Found EK series: {clean_product}")
         
-        return list(set(products))
+        # =================================================================
+        # 2. NUMERIC SERIES PATTERNS (17xxx, H7xxx, G7xxx, Pxxxxx)
+        # =================================================================
+        
+        numeric_patterns = [
+            # 17 series: 17B27237A, 17C46618C, 17F05931A
+            r'17[A-Z]\d{5}[A-Z]',                     # 17B27237A
+            
+            # H7 series: H7A00526A, H7B00027B, H7C00035A, H7G00164A
+            r'H7[A-Z]\d{5}[A-Z]',                     # H7A00526A
+            
+            # G7 series: G7D21209A, G7D01466B, G7D02889A
+            r'G7[A-Z]\d{5}[A-Z]',                     # G7D21209A
+            
+            # P series: P24385, P24780, P24314
+            r'P\d{5}',                                # P24385
+            
+            # Other numeric patterns
+            r'[A-Z]\d{6}[A-Z]',                       # General pattern
+        ]
+        
+        for pattern in numeric_patterns:
+            matches = re.findall(pattern, question, re.IGNORECASE)
+            for match in matches:
+                clean_product = match.strip().upper()
+                products.append(clean_product)
+                logger.info(f"✅ Found numeric series: {clean_product}")
+        
+        # =================================================================
+        # 3. MOTOR AND EQUIPMENT CODES
+        # =================================================================
+        
+        equipment_patterns = [
+            # Motor codes: Y132S-40, Y2,132M-4
+            r'Y\d*[A-Z]*\d*[A-Z]*[-,]\d*[A-Z]*[-]?\d*',  # Y132S-40, Y2,132M-4
+            
+            # PCB codes: 17G32507A, 17G3250E
+            r'17G\d{4,5}[A-Z]',                       # 17G32507A
+            
+            # Other equipment patterns from real data
+            r'RPI-[\d\.]+[A-Z]+\d*',                  # RPI-3.0FSG1
+            r'RAS\d+[A-Z]+',                          # RAS16FS3, RAS-20FSNQ
+            r'RCUA\d+[A-Z]+',                         # RCUA065AVMY, RCUA150AVMY
+            
+            # BKC series: BKC-05C-L
+            r'BKC-\d+[A-Z]+-[A-Z]',                   # BKC-05C-L
+            
+            # NSK series: NSK-BA017D-241, NSK-BA042D-241
+            r'NSK-[A-Z]+\d+[A-Z]+-\d+',              # NSK-BA017D-241
+            
+            # MPDS series: MPDS6130, MPDS6240
+            r'MPDS\d+',                               # MPDS6130
+            
+            # ODS series: ODS800C-215B4, ODS900C-160B5
+            r'ODS\d+[A-Z]+-\d+[A-Z]+',               # ODS800C-215B4
+        ]
+        
+        for pattern in equipment_patterns:
+            matches = re.findall(pattern, question, re.IGNORECASE)
+            for match in matches:
+                clean_product = match.strip().upper()
+                products.append(clean_product)
+                logger.info(f"✅ Found equipment code: {clean_product}")
+        
+        # =================================================================
+        # 4. SLASH SEPARATED PRODUCTS (เช่น EKCU10ST/EKCU51)
+        # =================================================================
+        
+        # Handle slash-separated products specially
+        slash_pattern = r'([A-Z]+\d+[A-Z]*\d*[A-Z]*)/([A-Z]+\d+[A-Z]*\d*[A-Z]*)'
+        slash_matches = re.findall(slash_pattern, question, re.IGNORECASE)
+        
+        for product1, product2 in slash_matches:
+            if len(product1.strip()) >= 4:
+                products.append(product1.strip().upper())
+                logger.info(f"✅ Found slash product 1: {product1.strip().upper()}")
+            if len(product2.strip()) >= 4:
+                products.append(product2.strip().upper())
+                logger.info(f"✅ Found slash product 2: {product2.strip().upper()}")
+        
+        # =================================================================
+        # 5. FALLBACK: GENERAL ALPHANUMERIC CODES  
+        # =================================================================
+        
+        # ใช้เฉพาะเมื่อไม่เจอจาก patterns ข้างต้น
+        if not products:
+            logger.info("🔄 Using fallback patterns...")
+            
+            fallback_patterns = [
+                # General alphanumeric with minimum requirements
+                r'\b([A-Z]{2,}[0-9]{2,}[A-Z0-9\-/]*)\b',  # At least 2 letters + 2 numbers
+                r'\b([A-Z]+[0-9]+[A-Z]*)\b',               # Letter(s) + number(s) + optional letters
+            ]
+            
+            for pattern in fallback_patterns:
+                matches = re.findall(pattern, question, re.IGNORECASE)
+                for match in matches:
+                    clean_product = match.strip().upper()
+                    
+                    # Filter out common false positives
+                    false_positives = [
+                        'HTTP', 'HTTPS', 'JSON', 'HTML', 'POST', 'GET', 'API',
+                        'V1', 'V2', 'V3', 'KW', 'HZ', 'VAC', 'AC', 'DC'
+                    ]
+                    
+                    if (len(clean_product) >= 4 and 
+                        clean_product not in false_positives and
+                        re.search(r'[0-9]', clean_product) and  # Must contain numbers
+                        not re.match(r'^\d+$', clean_product)):  # Not just numbers
+                        
+                        products.append(clean_product)
+                        logger.info(f"✅ Found via fallback: {clean_product}")
+        
+        # =================================================================
+        # 6. SPECIAL HANDLING FOR COLON/SEMICOLON SEPARATED
+        # =================================================================
+        
+        # Handle cases like "Water pressure Difference Switch:EKWD043"
+        colon_pattern = r'[:;]\s*([A-Z]+\d+[A-Z]*\d*[A-Z]*)'
+        colon_matches = re.findall(colon_pattern, question, re.IGNORECASE)
+        
+        for match in colon_matches:
+            clean_product = match.strip().upper()
+            if len(clean_product) >= 4:
+                products.append(clean_product)
+                logger.info(f"✅ Found after colon/semicolon: {clean_product}")
+        
+        # =================================================================
+        # 7. CLEAN AND DEDUPLICATE
+        # =================================================================
+        
+        # Remove duplicates และ clean up
+        cleaned_products = []
+        seen = set()
+        
+        for product in products:
+            # Clean product name - รักษา dash, slash, colon สำหรับ product codes
+            clean = re.sub(r'[^\w\-/:]+', '', product)  
+            clean = clean.upper().strip()
+            
+            # Remove trailing punctuation
+            clean = clean.rstrip(':-.,;')
+            
+            # Avoid duplicates
+            if clean and clean not in seen and len(clean) >= 3:
+                cleaned_products.append(clean)
+                seen.add(clean)
+        
+        # =================================================================
+        # 8. VALIDATION AGAINST KNOWN PATTERNS
+        # =================================================================
+        
+        # Validate ตาม patterns ที่รู้จักจากข้อมูลจริง
+        validated_products = []
+        
+        known_patterns = [
+            r'^EK[A-Z]{2,4}\d+[A-Z]*\d*[A-Z]*$',       # EK series
+            r'^17[A-Z]\d{5}[A-Z]$',                     # 17 series  
+            r'^H7[A-Z]\d{5}[A-Z]$',                     # H7 series
+            r'^G7[A-Z]\d{5}[A-Z]$',                     # G7 series
+            r'^P\d{5}$',                                # P series
+            r'^[A-Z]+\d+[A-Z0-9\-/]*$',                # General equipment codes
+        ]
+        
+        for product in cleaned_products:
+            is_valid = any(re.match(pattern, product) for pattern in known_patterns)
+            
+            if is_valid or len(product) >= 6:  # Either matches known pattern or is long enough
+                validated_products.append(product)
+            else:
+                logger.debug(f"🔍 Filtered out: {product} (doesn't match known patterns)")
+        
+        # =================================================================
+        # 9. LOGGING AND RETURN
+        # =================================================================
+        
+        if validated_products:
+            logger.info(f"✅ Final extracted products: {validated_products}")
+        else:
+            logger.warning(f"⚠️ No valid products extracted from: '{question}'")
+            # Debug log สำหรับการ troubleshoot
+            logger.debug(f"🔍 Raw products found: {products}")
+            logger.debug(f"🔍 Cleaned products: {cleaned_products}")
+        
+        return validated_products
+
     
     def _extract_customers(self, question: str) -> List[str]:
         """
