@@ -1615,21 +1615,29 @@ class PromptManager:
         
         # คำถามข้อ 85: งาน Start Up
         'startup_works_all': dedent("""
-            SELECT date, customer, project, detail, job_description_start_up 
+            SELECT 
+                date,
+                customer, 
+                project, 
+                detail,
+                job_description_start_up
             FROM v_work_force 
             WHERE job_description_start_up IS NOT NULL 
-            AND job_description_start_up != ''
-            {year_condition}
+                AND job_description_start_up != '' 
             ORDER BY date DESC;
         """).strip(),
         
         # คำถามข้อ 86: งาน Support
         'support_works': dedent("""
-            SELECT date, customer, project, detail, job_description_support_all 
+            SELECT 
+                date,
+                customer, 
+                project, 
+                detail,
+                job_description_support_all
             FROM v_work_force 
             WHERE job_description_support_all IS NOT NULL 
-            AND job_description_support_all != ''
-            {year_condition}
+                AND job_description_support_all != '' 
             ORDER BY date DESC;
         """).strip(),
         
@@ -3143,7 +3151,51 @@ class PromptManager:
             """).strip()
             
             return prompt
-         
+            
+        if intent == 'work_force' and entities.get('years'):
+            year = entities['years'][0]
+            
+            # ตรวจสอบว่า template มี date condition แล้วหรือไม่
+            has_date_in_template = any(kw in template.lower() for kw in [
+                'extract(year', 'extract(month', 'date =', 'year from'
+            ])
+            
+            if not has_date_in_template:
+                # Template ไม่มี date condition - ต้องเพิ่ม
+                logger.info(f"🔧 Adding year filter: {year} to work_force query")
+                
+                # เพิ่ม year condition เข้าไปใน template
+                # หา WHERE clause แล้วเพิ่ม AND condition
+                if 'WHERE' in template.upper():
+                    # แทรก year condition หลัง WHERE clause
+                    template_parts = template.split('ORDER BY')
+                    where_part = template_parts[0]
+                    order_part = template_parts[1] if len(template_parts) > 1 else ''
+                    
+                    # เพิ่ม year condition
+                    modified_where = where_part.rstrip() + f' AND EXTRACT(YEAR FROM "date") = {year}'
+                    
+                    if order_part:
+                        template = modified_where + ' ORDER BY' + order_part
+                    else:
+                        template = modified_where
+                    
+                    logger.info(f"✅ Modified template with year {year}")
+                
+                prompt = dedent(f"""
+                You are a SQL query generator. Output ONLY the SQL query.
+                
+                Use this EXACT template (year filter already added):
+                ----------------------------------------
+                {template}
+                ----------------------------------------
+                
+                Question: {question}
+                
+                Output the SQL above EXACTLY as shown:
+                """).strip()
+                
+                return prompt
 
         if intent == 'work_force' or intent == 'employee_work':
             # Extract employee names
