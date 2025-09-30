@@ -1615,29 +1615,19 @@ class PromptManager:
         
         # คำถามข้อ 85: งาน Start Up
         'startup_works_all': dedent("""
-            SELECT 
-                date,
-                customer, 
-                project, 
-                detail,
-                job_description_start_up
+            SELECT date, customer, project, detail, job_description_start_up 
             FROM v_work_force 
             WHERE job_description_start_up IS NOT NULL 
-                AND job_description_start_up != '' 
+            AND job_description_start_up != ''
             ORDER BY date DESC;
         """).strip(),
         
         # คำถามข้อ 86: งาน Support
         'support_works': dedent("""
-            SELECT 
-                date,
-                customer, 
-                project, 
-                detail,
-                job_description_support_all
+            SELECT date, customer, project, detail, job_description_support_all 
             FROM v_work_force 
             WHERE job_description_support_all IS NOT NULL 
-                AND job_description_support_all != '' 
+            AND job_description_support_all != ''
             ORDER BY date DESC;
         """).strip(),
         
@@ -2447,11 +2437,113 @@ class PromptManager:
             question = re.sub(r'\b25[67]\d\b', lambda m: str(int(m.group())-543), question)
             
             # ============================================
+            # 🆕 PARTS PRICE SPECIAL HANDLING (PRIORITY!)
+            # ============================================
+            if intent in ['spare_parts', 'parts_search', 'parts_price']:
+                # Check if asking about parts for specific equipment
+                if any(word in question_lower for word in ['ใช้กับเครื่อง', 'สำหรับเครื่อง', 'ติดกับเครื่อง']):
+                    
+                    # Extract equipment/brand info
+                    search_terms = []
+                    
+                    if entities.get('products'):
+                        search_terms.extend(entities['products'])
+                    
+                    if entities.get('brands'):
+                        search_terms.extend(entities['brands'])
+                    
+                    # Extract keywords from question
+                    keywords = ['sensor', 'เซนเซอร์', 'switch', 'สวิตช์', 'pressure', 'valve']
+                    for keyword in keywords:
+                        if keyword in question_lower:
+                            search_terms.append(keyword)
+                    
+                    if search_terms:
+                        where_conditions = []
+                        for term in search_terms:
+                            where_conditions.append(f"product_name LIKE '%{term}%'")
+                        
+                        where_clause = " OR ".join(where_conditions)
+                        
+                        explicit_sql = f"""
+                            SELECT 
+                                product_code,
+                                product_name, 
+                                balance_num,
+                                unit_price_num,
+                                total_num,
+                                wh
+                            FROM v_spare_part 
+                            WHERE {where_clause}
+                            ORDER BY product_name;
+                        """.strip()
+                        
+                        prompt = dedent(f"""
+                        You are a SQL query generator. Output ONLY the SQL query.
+                        
+                        PARTS SEARCH QUERY - Search terms: {search_terms}
+                        
+                        Use this EXACT SQL:
+                        ----------------------------------------
+                        {explicit_sql}
+                        ----------------------------------------
+                        
+                        Question: {question}
+                        
+                        Output the SQL above EXACTLY:
+                        """).strip()
+                        
+                        return prompt
+        
+            if intent == 'parts_price' and entities.get('products'):
+                products = entities['products']
+                logger.info(f"🎯 Parts price query with products: {products}")
+                
+                where_conditions = []
+                for product in products:
+                    where_conditions.append(f"product_name LIKE '%{product}%'")
+                
+                where_clause = " OR ".join(where_conditions)
+                
+                explicit_sql = f"""
+                    SELECT 
+                        product_code,
+                        product_name, 
+                        balance_num,
+                        unit_price_num,
+                        total_num,
+                        wh
+                    FROM v_spare_part 
+                    WHERE {where_clause}
+                    ORDER BY total_num DESC;
+                """.strip()
+                
+                prompt = dedent(f"""
+                You are a SQL query generator. Output ONLY the SQL query with no explanation.
+                
+                PARTS PRICE QUERY - Products detected: {products}
+                
+                Use this EXACT SQL:
+                ----------------------------------------
+                {explicit_sql}
+                ----------------------------------------
+                
+                CRITICAL: DO NOT change the WHERE clause!
+                DO NOT use placeholder values like EKAC460 or %model%!
+                The products {products} are already in the SQL above.
+                
+                Question: {question}
+                
+                Output the SQL above EXACTLY:
+                """).strip()
+                
+                return prompt
+            
+            # ============================================
             # 🔧 FIX 1: CUSTOMER NAME OPTIMIZATION
             # ============================================
-            original_question = question  # Keep original for logging
+            original_question = question
             
-            # If we have customer entities, optimize the question
             if entities.get('customers'):
                 question = self._optimize_customer_in_question(question, entities)
                 logger.info(f"🔄 Question optimized: '{original_question}' -> '{question}'")
@@ -2461,312 +2553,349 @@ class PromptManager:
             # ============================================
             employees = self._extract_employees(question)
             if employees:
-                # Clean up employee names
                 cleaned_employees = []
                 for emp in employees:
-                    # Remove common prefixes
-                    emp_clean = emp
-                    for prefix in ['ขอข้อมูลการทำงานพนักงานชื่อ', 'พนักงานชื่อ', 'ช่างชื่อ', 'ชื่อ']:
-                        emp_clean = emp_clean.replace(prefix, '').strip()
-                    
-                    if emp_clean and len(emp_clean) > 1:
-                        cleaned_employees.append(emp_clean)
+                    clean = emp.strip()
+                    if len(clean) >= 2:
+                        cleaned_employees.append(clean)
                 
                 if cleaned_employees:
                     entities['employees'] = cleaned_employees
-                    logger.info(f"Detected employees: {cleaned_employees}")
-
-            # Use context if provided
-            if context:
-                logger.debug(f"Using context: {context}")
-                for key, value in context.get('entities', {}).items():
-                    if key not in entities or not entities[key]:
-                        entities[key] = value
+                    logger.info(f"✅ Cleaned employee names: {cleaned_employees}")
             
             # ============================================
-            # INTENT OVERRIDE LOGIC
-            # ============================================
-            
-            original_intent = intent
-            # Override Rule 1: Money/Value keywords → force sales intent
-            money_indicators = ['มูลค่า', 'ราคา', 'revenue', 'ยอดขาย', 'รายได้', 'บาท']
-            if any(word in question_lower for word in money_indicators):
-                if intent in ['work_force', 'work_plan', 'repair_history']:
-                    logger.warning(f"Override intent: {intent} → sales (found money keywords)")
-                    intent = 'sales'
-            
-            # Override Rule 2: Specific patterns
-            if 'งาน' in question_lower and any(kw in question_lower for kw in ['มูลค่า', 'สูงสุด', 'ต่ำสุด']):
-                logger.warning(f"Pattern 'งาน + มูลค่า' detected → forcing sales intent")
-                intent = 'sales'
-            
-            # ============================================
-            # DETERMINE TARGET TABLE
+            # TEMPLATE SELECTION
             # ============================================
             
             target_table = self._get_target_table(intent)
+            logger.info(f"🎯 Target table: {target_table} (intent: {intent} → {intent})")
             
-            if target_table is None:
-                logger.info(f"No table mapping for intent '{intent}', detecting from keywords")
-                target_table = self._detect_table_from_keywords(question)
-            
-            # Final validation for money-related queries
-            if 'มูลค่า' in question_lower and target_table != 'v_sales':
-                logger.warning(f"Final override: {target_table} → v_sales (มูลค่า requires v_sales)")
-                target_table = 'v_sales'
-                intent = 'sales'
-            
-            logger.info(f"🎯 Target table: {target_table} (intent: {original_intent} → {intent})")
-            
-            # ============================================
-            # SELECT BEST EXAMPLE
-            # ============================================
-            
-            example = self._select_best_example(question, intent, entities)
-            example_name = self._get_example_name(example)
-            
-            if not example_name or example_name == 'custom':
-                logger.warning(f"No specific template found, using fallback")
-                return self._get_fallback_prompt(question)
+            if examples_override:
+                example = examples_override[0]
+                example_name = self._get_example_name(example)
+            else:
+                example = self._select_best_example(question, intent, entities)
+                example_name = self._get_example_name(example)
             
             logger.info(f"Selected SQL example: {example_name} for table {target_table}")
             
-            # เพิ่มหลังบรรทัด 103 ใน build_sql_prompt()
-
-            TEMPLATE_TABLE_OVERRIDE = {
-                # ========================================
-                # V_SALES TEMPLATES (ยอดขาย/รายได้)
-                # ========================================
-                'total_revenue_all': 'v_sales',
-                'total_revenue_year': 'v_sales',
-                'revenue_by_year': 'v_sales',
-                'revenue_by_service_type': 'v_sales',
-                'compare_revenue_years': 'v_sales',
-                'year_comparison': 'v_sales',
-                'average_annual_revenue': 'v_sales',
-                'year_max_revenue': 'v_sales',
-                'year_min_revenue': 'v_sales',
+            if not example:
+                logger.warning("No example found, using fallback")
+                return self._get_fallback_prompt(question)
+            
+            template = example
+            
+            # Get schema prompt
+            schema_prompt = self._get_dynamic_schema_prompt(target_table)
+            
+            # Check if template has date conditions
+            has_date_conditions = any(keyword in template.lower() for keyword in [
+                'date', 'year', 'month', 'between', 'extract(',
+                '2024', '2025', 'where date', 'and date', 'year in'
+            ])
+            
+            # ============================================
+            # CUSTOMER HISTORY SPECIAL HANDLING
+            # ============================================
+            if intent == 'customer_history' and entities.get('customers') and entities.get('years'):
+                customer = entities['customers'][0]
+                years_list = "', '".join(map(str, entities['years']))
                 
-                # Sales Analysis
-                'sales_analysis': 'v_sales',
-                'sales_summary': 'v_sales',
-                'sales_monthly': 'v_sales',
-                'sales_by_month': 'v_sales',
+                template = re.sub(r'%\w+%', f'%{customer}%', template)
+                template = re.sub(r"year\s*IN\s*\([^)]+\)", f"year IN ('{years_list}')", template)
                 
-                # Overhaul Sales
-                'overhaul_sales_specific': 'v_sales',
-                'overhaul_sales': 'v_sales',
-                'overhaul_total': 'v_sales',
-                'overhaul_sales_all': 'v_sales',
-                'overhaul_report': 'v_sales',
+                logger.info(f"🔄 Customer template updated: {customer}, years: {years_list}")
                 
-                # Service/Parts Sales
-                'service_revenue': 'v_sales',
-                'service_num': 'v_sales',
-                'parts_total': 'v_sales',
-                'replacement_total': 'v_sales',
-                'product_sales': 'v_sales',
-                'solution_sales': 'v_sales',
+                prompt = dedent(f"""
+                You are a SQL query generator. Output ONLY the SQL query with no explanation.
                 
-                # Work Value/Amount
-                'max_value_work': 'v_sales',
-                'min_value_work': 'v_sales',
-                'average_revenue_per_job': 'v_sales',
-                'high_value_transactions': 'v_sales',
-                'low_value_transactions': 'v_sales',
+                Use this template exactly (customer and years already updated):
+                ----------------------------------------
+                {template}
+                ----------------------------------------
                 
-                # Customer Sales
-                'customer_history': 'v_sales',  # Purchase history
-                'customer_sales': 'v_sales',
-                'customer_revenue': 'v_sales',
-                'customer_specific_history': 'v_sales',
-                'top_customers': 'v_sales',
-                'frequent_customers': 'v_sales',
-                'new_customers_year': 'v_sales',
-                'new_customers_in_year': 'v_sales',
-                'inactive_customers': 'v_sales',
-                'customers_using_overhaul': 'v_sales',
-                'continuous_customers': 'v_sales',
-                'customers_continuous_years': 'v_sales',
-                'customer_years_count': 'v_sales',
+                Question: {question}
                 
-                # Customer Counts
-                'count_total_customers': 'v_sales',
-                'count_all_jobs': 'v_sales',
-                'count_jobs_year': 'v_sales',
+                SQL:
+                """).strip()
                 
-                # Government/Private
-                'government_customers': 'v_sales',
-                'private_customers': 'v_sales',
+                return prompt
+            
+            # ============================================
+            # 🆕 WORK_FORCE + MONTHS HANDLING (FIX!)
+            # ============================================
+            # รองรับทุก work-related intents
+            if intent in ['work_force', 'employee_work', 'work_overhaul', 'pm_work', 'cpa_work', 'work_analysis']:
+                # Extract employee names
+                employees = self._extract_employees(question)
                 
-                # ========================================
-                # V_WORK_FORCE TEMPLATES (งาน/การทำงาน)
-                # ========================================
-                'work_monthly': 'v_work_force',
-                'work_daily': 'v_work_force',
-                'work_summary': 'v_work_force',
-                'work_summary_monthly': 'v_work_force',
-                'work_force_base': 'v_work_force',
-                'work_specific_month': 'v_work_force',
-                'latest_works': 'v_work_force',
-                
-                # Work Types
-                'work_overhaul': 'v_work_force',
-                'work_replacement': 'v_work_force',
-                'work_service': 'v_work_force',
-                'all_pm_works': 'v_work_force',
-                'pm_work': 'v_work_force',
-                
-                # Work Status
-                'successful_works': 'v_work_force',
-                'unsuccessful_works': 'v_work_force',
-                'completed_work': 'v_work_force',
-                'pending_work': 'v_work_force',
-                
-                # Team/Employee
-                'employee_work_history': 'v_work_force',
-                'employee_monthly': 'v_work_force',
-                'team_works': 'v_work_force',
-                'work_team_specific': 'v_work_force',
-                'team_a_works': 'v_work_force',
-                'service_group_search': 'v_work_force',
-                
-                # Repair/Service History
-                'repair_history': 'v_work_force',
-                'customer_repair_history': 'v_work_force',
-                'service_history': 'v_work_force',
-                'maintenance_history': 'v_work_force',
-                
-                # Special Work
-                'cpa_works': 'v_work_force',
-                'government_work': 'v_work_force',
-                'project_work': 'v_work_force',
-                'work_duration': 'v_work_force',
-                
-                # Work Counts
-                'count_all_works': 'v_work_force',
-                
-                # ========================================
-                # V_SPARE_PART TEMPLATES (อะไหล่/สต๊อก)
-                # ========================================
-                'spare_parts_stock': 'v_spare_part',
-                'spare_parts_price': 'v_spare_part',
-                'spare_parts_all': 'v_spare_part',
-                'spare_parts_search': 'v_spare_part',
-                'inventory_check': 'v_spare_part',
-                'inventory_value': 'v_spare_part',
-                'warehouse_summary': 'v_spare_part',
-                'stock_balance': 'v_spare_part',
-                'low_stock_items': 'v_spare_part',
-                'parts_by_warehouse': 'v_spare_part',
-                'parts_total_value': 'v_spare_part',
-                
-                # ========================================
-                # BASIC/FALLBACK TEMPLATES
-                # ========================================
-                'basic_query': None,  # Depends on context
-                'simple_select': None,  # Depends on context
-                'custom': None,  # Custom query
-            }
-
-            # Check if template requires specific table
-            if example_name in TEMPLATE_TABLE_OVERRIDE:
-                required_table = TEMPLATE_TABLE_OVERRIDE[example_name]
-                
-                # Only override if we have a specific requirement
-                if required_table and target_table != required_table:
-                    logger.warning(f"🔧 OVERRIDE: Template '{example_name}' requires table '{required_table}' (was: {target_table})")
-                    target_table = required_table
+                if employees:
+                    logger.info(f"🎯 Employee query for: {employees}")
                     
-                    # Update intent for consistency
-                    if required_table == 'v_sales':
-                        if 'overhaul' in example_name:
-                            intent = 'overhaul_sales'
-                        elif 'customer' in example_name:
-                            intent = 'customer_analysis'
-                        else:
-                            intent = 'sales'
-                            
-                    elif required_table == 'v_work_force':
-                        if 'overhaul' in example_name:
-                            intent = 'work_overhaul'
-                        elif 'employee' in example_name:
-                            intent = 'employee_work'
-                        else:
-                            intent = 'work_force'
-                            
-                    elif required_table == 'v_spare_part':
-                        intent = 'spare_parts'
+                    employee_conditions = []
+                    for emp in employees:
+                        employee_conditions.append(f"service_group LIKE '%{emp}%'")
                     
-                    logger.info(f"✅ Final configuration: table={target_table}, intent={intent}")
-        
-            # ============================================
-            # GET TEMPLATE CONFIGURATION
-            # ============================================
+                    where_clause = " OR ".join(employee_conditions)
+                    
+                    explicit_sql = f"""
+                        SELECT 
+                            date,
+                            customer,
+                            project,
+                            detail,
+                            service_group,
+                            success,
+                            unsuccessful
+                        FROM v_work_force 
+                        WHERE {where_clause}
+                        ORDER BY date DESC;
+                    """.strip()
+                    
+                    prompt = dedent(f"""
+                    You are a SQL query generator. Output ONLY the SQL query with no explanation.
+                    
+                    🎯 EMPLOYEE WORK HISTORY QUERY:
+                    
+                    The user wants work history for employee(s): {employees}
+                    
+                    Use this EXACT SQL (already customized):
+                    ----------------------------------------
+                    {explicit_sql}
+                    ----------------------------------------
+                    
+                    CRITICAL INSTRUCTIONS:
+                    1. Employee names are in 'service_group' column, NOT 'customer'
+                    2. Use LIKE '%name%' for partial matching
+                    3. DO NOT change the WHERE clause or column names
+                    4. DO NOT use 'customer' column for employee search
+                    
+                    Question: {question}
+                    
+                    Output the SQL above EXACTLY as shown:
+                    """).strip()
+                    
+                    return prompt
+                
+                # 🆕 Handle MONTHS for all work intents (THIS IS THE FIX!)
+                if entities.get('months') and not employees:
+                    month = entities['months'][0]
+                    
+                    # Check if template already has month condition
+                    has_month_in_template = any(kw in template.lower() for kw in [
+                        'extract(month', 'month from', 'month =', 'month in'
+                    ])
+                    
+                    if not has_month_in_template:
+                        logger.info(f"🔧 Adding month filter: {month} to {intent} query")
+                        
+                        # Modify template to add month condition
+                        if 'WHERE' in template.upper() and 'ORDER BY' in template.upper():
+                            # Add AND condition before ORDER BY
+                            template = template.replace(
+                                'ORDER BY',
+                                f"AND EXTRACT(MONTH FROM \"date\") = {month}\n            ORDER BY"
+                            )
+                            logger.info(f"✅ Modified template: Added month filter before ORDER BY")
+                        elif 'WHERE' in template.upper():
+                            # Add AND at the end before semicolon
+                            template = template.rstrip(';').rstrip()
+                            template += f"\n                AND EXTRACT(MONTH FROM \"date\") = {month};"
+                            logger.info(f"✅ Modified template: Added month filter at end")
+                        else:
+                            # No WHERE clause, add one
+                            if 'FROM' in template.upper():
+                                # Insert WHERE after FROM clause
+                                parts = template.split('FROM')
+                                if len(parts) == 2:
+                                    from_parts = parts[1].split('\n')
+                                    table_line = from_parts[0]
+                                    rest = '\n'.join(from_parts[1:]) if len(from_parts) > 1 else ''
+                                    template = (
+                                        f"{parts[0]}FROM{table_line}\n"
+                                        f"            WHERE EXTRACT(MONTH FROM \"date\") = {month}\n"
+                                        f"{rest}"
+                                    )
+                                    logger.info(f"✅ Modified template: Added WHERE with month filter")
+                        
+                        logger.info(f"✅ Final template with month {month}:\n{template}")
+                    
+                    # Build prompt with modified template
+                    prompt = dedent(f"""
+                    You are a SQL query generator.
+                    Output ONLY the SQL query with no explanation.
+                    
+                    {schema_prompt}
+                    
+                    SQL Template (month filter already added):
+                    ----------------------------------------
+                    {template}
+                    ----------------------------------------
+                    
+                    Question: {question}
+                    
+                    ⚠️ Output the SQL above EXACTLY as shown - month filter is already correct!
+                    
+                    SQL:
+                    """).strip()
+                    
+                    return prompt
+                
+                # Handle YEARS for work_force
+                if entities.get('years'):
+                    year = entities['years'][0]
+                    
+                    has_date_in_template = any(kw in template.lower() for kw in [
+                        'extract(year', 'extract(month', 'date =', 'year from'
+                    ])
+                    
+                    if not has_date_in_template:
+                        logger.info(f"🔧 Adding year filter: {year} to work_force query")
+                        
+                        if 'WHERE' in template.upper():
+                            template_parts = template.split('ORDER BY')
+                            where_part = template_parts[0]
+                            order_part = template_parts[1] if len(template_parts) > 1 else ''
+                            
+                            modified_where = where_part.rstrip() + f' AND EXTRACT(YEAR FROM "date") = {year}'
+                            
+                            if order_part:
+                                template = modified_where + ' ORDER BY' + order_part
+                            else:
+                                template = modified_where
+                            
+                            logger.info(f"✅ Modified template with year {year}")
+                        
+                        prompt = dedent(f"""
+                        You are a SQL query generator. Output ONLY the SQL query.
+                        
+                        {schema_prompt}
+                        
+                        SQL Template (year filter already added):
+                        ----------------------------------------
+                        {template}
+                        ----------------------------------------
+                        
+                        Question: {question}
+                        
+                        Output the SQL above EXACTLY as shown:
+                        """).strip()
+                        
+                        return prompt
             
-            template_config = TemplateConfig.get_template_config(example_name)
+            # ============================================
+            # MULTIPLE YEARS REPLACEMENT
+            # ============================================
+            if entities.get('years') and len(entities['years']) > 1:
+                years_list = "', '".join(map(str, entities['years']))
+                years_clause = f"year IN ('{years_list}')"
+                
+                template = re.sub(r"year\s*=\s*'[^']*'", years_clause, template)
+                template = re.sub(r"year\s*IN\s*\([^)]+\)", years_clause, template)
+                
+                logger.info(f"🔄 Replaced years clause: {years_clause}")
             
-            if not template_config:
-                logger.warning(f"No configuration found for template: {example_name}")
-                # Fallback to normal mode if no config
-                return self._build_normal_prompt(
-                    example, question, intent, entities, target_table
+            # ============================================
+            # DATE REPLACEMENT FOR MONTHLY QUERIES
+            # ============================================
+            if intent in ['work_summary', 'work_plan'] and entities.get('months'):
+                month = entities['months'][0]
+                year = entities.get('years', ['2025'])[0]
+                
+                if isinstance(month, int):
+                    first_day = f"{year}-{month:02d}-01"
+                    last_day_num = self._get_last_day_of_month(int(year), month)
+                    last_day = f"{year}-{month:02d}-{last_day_num:02d}"
+                else:
+                    month_int = int(month)
+                    first_day = f"{year}-{month_int:02d}-01"
+                    last_day_num = self._get_last_day_of_month(int(year), month_int)
+                    last_day = f"{year}-{month_int:02d}-{last_day_num:02d}"
+                
+                template = re.sub(
+                    r'\d{4}-\d{2}-\d{2}\'?\s+AND\s+\'?\d{4}-\d{2}-\d{2}',
+                    f"{first_day}' AND '{last_day}",
+                    template
                 )
-            
-            complexity = template_config.get('complexity', 'NORMAL')
-            logger.info(f"Template complexity: {complexity}")
+                
+                logger.info(f"🔄 Replaced date range: {first_day} to {last_day}")
             
             # ============================================
-            # 🔧 FIX 2: CUSTOMER KEYWORD INJECTION
+            # DYNAMIC DATE CONDITIONS (Fallback)
             # ============================================
-            
-            # Modify example to use customer keyword if applicable
-            if entities.get('customers') and 'customer' in example_name.lower():
-                example = self._inject_customer_keyword(example, entities)
+            if not has_date_conditions:
+                additional_conditions = []
+                
+                if entities.get('months'):
+                    month = entities['months'][0]
+                    additional_conditions.append(f'AND EXTRACT(MONTH FROM "date") = {month}')
+                
+                if entities.get('years'):
+                    year = entities['years'][0]
+                    additional_conditions.append(f'AND EXTRACT(YEAR FROM "date") = {year}')
+                
+                if additional_conditions:
+                    conditions_text = ' '.join(additional_conditions)
+                    
+                    prompt = dedent(f"""
+                    You are a SQL query generator.
+                    Output ONLY the SQL query with no explanation.
+                    
+                    BASE TEMPLATE:
+                    {template}
+                    
+                    Add these date conditions to the WHERE clause:
+                    {conditions_text}
+                    
+                    INSTRUCTIONS:
+                    1. Take the base template above
+                    2. Add the date conditions to the existing WHERE clause
+                    3. If template has no WHERE clause, add WHERE with the date conditions
+                    4. Output the complete modified SQL
+                    
+                    Question: {question}
+                    
+                    SQL:
+                    """).strip()
+                    
+                    return prompt
             
             # ============================================
-            # HANDLE BASED ON COMPLEXITY
+            # NORMAL PROMPT (Default case)
             # ============================================
+            is_planned_work = ('วางแผน' in question.lower() or 'planned' in question.lower())
             
-            # CASE 1: COMPLEX LOGIC TEMPLATES
-            if complexity == 'COMPLEX':
-                logger.warning(f"⚠️ COMPLEX template: {example_name}")
-                
-                # Apply smart year adjustment if needed
-                modified_example = example
-                if TemplateConfig.requires_smart_year_adjustment(example_name):
-                    modified_example = self._apply_smart_year_adjustment(
-                        example, entities, question_lower
-                    )
-                
-                return self._build_complex_prompt_with_customer_hint(
-                    modified_example, question, intent, template_config, entities
-                )
+            prompt = dedent(f"""
+            You are a SQL query generator. Output ONLY the SQL query with no explanation.
             
-            # CASE 2: EXACT TEMPLATES
-            elif complexity == 'EXACT':
-                logger.warning(f"📌 EXACT template: {example_name}")
-                return self._build_exact_prompt(example)
+            ⚠️ CRITICAL INSTRUCTIONS:
+            1. Use the EXACT SQL template below - it already has the correct dates/years
+            2. DO NOT change any dates or year conditions - they are already set correctly
+            3. DO NOT add any WHERE conditions not in the template
+            4. DO NOT add job_description filters unless in the template
+            {"5. This asks for ALL work - DO NOT filter by job type" if is_planned_work else ""}
             
-            # CASE 3: NORMAL TEMPLATES
-            else:
-                logger.info(f"NORMAL template: {example_name}")
-                
-                # Apply simple year adjustment if needed
-                modified_example = example
-                if template_config.get('year_adjustment') == 'simple' and entities.get('years'):
-                    modified_example = self._apply_simple_year_adjustment(example, entities)
-                
-                return self._build_normal_prompt_with_customer_hint(
-                    modified_example, question, intent, entities, target_table
-                )
-                
+            {schema_prompt}
+            
+            SQL Template (USE EXACTLY):
+            ----------------------------------------
+            {template}
+            ----------------------------------------
+            
+            Question: {question}
+            
+            ⚠️ OUTPUT THE EXACT SQL ABOVE - NO CHANGES!
+            
+            SQL:
+            """).strip()
+            
+            return prompt
+            
         except Exception as e:
-            logger.error(f"Failed to build SQL prompt: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
+            logger.error(f"Error building SQL prompt: {e}")
+            logger.error(f"Question: {question}, Intent: {intent}, Entities: {entities}")
             return self._get_fallback_prompt(question)
-
+      
     # ============================================
     # 🆕 HELPER METHODS FOR CUSTOMER OPTIMIZATION
     # ============================================
@@ -3151,51 +3280,7 @@ class PromptManager:
             """).strip()
             
             return prompt
-            
-        if intent == 'work_force' and entities.get('years'):
-            year = entities['years'][0]
-            
-            # ตรวจสอบว่า template มี date condition แล้วหรือไม่
-            has_date_in_template = any(kw in template.lower() for kw in [
-                'extract(year', 'extract(month', 'date =', 'year from'
-            ])
-            
-            if not has_date_in_template:
-                # Template ไม่มี date condition - ต้องเพิ่ม
-                logger.info(f"🔧 Adding year filter: {year} to work_force query")
-                
-                # เพิ่ม year condition เข้าไปใน template
-                # หา WHERE clause แล้วเพิ่ม AND condition
-                if 'WHERE' in template.upper():
-                    # แทรก year condition หลัง WHERE clause
-                    template_parts = template.split('ORDER BY')
-                    where_part = template_parts[0]
-                    order_part = template_parts[1] if len(template_parts) > 1 else ''
-                    
-                    # เพิ่ม year condition
-                    modified_where = where_part.rstrip() + f' AND EXTRACT(YEAR FROM "date") = {year}'
-                    
-                    if order_part:
-                        template = modified_where + ' ORDER BY' + order_part
-                    else:
-                        template = modified_where
-                    
-                    logger.info(f"✅ Modified template with year {year}")
-                
-                prompt = dedent(f"""
-                You are a SQL query generator. Output ONLY the SQL query.
-                
-                Use this EXACT template (year filter already added):
-                ----------------------------------------
-                {template}
-                ----------------------------------------
-                
-                Question: {question}
-                
-                Output the SQL above EXACTLY as shown:
-                """).strip()
-                
-                return prompt
+         
 
         if intent == 'work_force' or intent == 'employee_work':
             # Extract employee names
@@ -3660,7 +3745,7 @@ class PromptManager:
             'top_customers': 'v_sales',
             'new_customers': 'v_sales',
             'inactive_customers': 'v_sales',
-            
+            'monthly_transaction_count':'v_sales',
             # Value/Amount queries
             'max_value': 'v_sales',
             'min_value': 'v_sales',
@@ -4084,6 +4169,14 @@ class PromptManager:
             logger.info("Priority: งานที่วางแผน → work_monthly")
             return self.SQL_EXAMPLES.get('work_monthly', '')
         
+        if intent == 'pm_work':
+            logger.info("Priority: pm_work intent → all_pm_works")
+            return self.SQL_EXAMPLES.get('all_pm_works', '')
+
+        if intent == 'cpa_work':
+            logger.info("Priority: cpa_work intent → cpa_works")
+            return self.SQL_EXAMPLES.get('cpa_works', '')
+    
         # === PHASE 0: Direct Exact Match ===
         exact_matches = {
             # ข้อ 1-10: รายได้และยอดขาย
@@ -4374,7 +4467,7 @@ class PromptManager:
             # REPAIR & SERVICE TEMPLATES
             # ========================================
             'customer_repair_history': [
-                'ประวัติการซ่อม', 'ประวัติซ่อม', 'repair history',
+                'ประวัติการซ่อม', 'ประวัติซ่อม', 'repair history','มีประวัติการซ่อมอะไรบ้าง',
                 'ซ่อมอะไรบ้าง', 'เคยซ่อม', 'การซ่อมแซม',
                 'ลูกค้าซ่อม', 'ประวัติงานซ่อม', 'customer repair'
             ],
@@ -4777,7 +4870,7 @@ class PromptManager:
         ],
 
         'parts_in_stock': [
-            'อะไหล่ที่มีสต็อก', 'parts in stock', 'อะไหล่คงเหลือ',
+            'อะไหล่ที่มีสต็อก', 'parts in stock', 'อะไหล่คงเหลือ','อะไหล่ในสต็อก',
             'อะไหล่ที่มี', 'available parts'
         ],
 

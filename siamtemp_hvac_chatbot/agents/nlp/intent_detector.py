@@ -120,15 +120,30 @@ class ImprovedIntentDetector:
             },
             
             'spare_parts': {
-                'strong': ['อะไหล่', 'spare', 'part', 'ชิ้นส่วน'],
-                'medium': ['stock', 'คงเหลือ', 'คลัง', 'เก็บ'],
-                'weak': ['EK', 'model', 'HITACHI', 'เครื่อง'],
-                'patterns': [
-                    r'อะไหล่.*เครื่อง',
-                    r'ชิ้นส่วน.*model',
-                    r'spare.*part'
+                'strong': ['อะไหล่', 'ราคาอะไหล่', 'spare parts', 'parts'],
+                'medium': [
+                    'sensor', 'เซนเซอร์',
+                    'pressure switch', 'water pressure',
+                    'คลัง', 'stock', 'inventory',
+                    'ใช้กับเครื่อง', 'ติดกับเครื่อง'
                 ],
-                'negative': ['งาน', 'ทีม', 'รายได้', 'แผนงาน']
+                'weak': ['ราคา', 'price', 'มี', 'available'],
+                'patterns': [
+                    r'sensor.*(?:ใช้|ติด).*เครื่อง',
+                    r'อะไหล่.*(?:สำหรับ|ใช้กับ)',
+                    r'ราคา.*parts',
+                ],
+                'negative': ['ซ่อม', 'repair', 'ประวัติ']
+            },
+            'parts_search': {
+                'strong': ['sensor', 'เซนเซอร์', 'switch', 'สวิตช์'],
+                'medium': ['ใช้กับเครื่อง', 'สำหรับเครื่อง', 'ติดกับเครื่อง'],
+                'weak': ['ที่ใช้', 'ที่ติด'],
+                'patterns': [
+                    r'sensor.*(?:ใช้|ติด|สำหรับ).*เครื่อง',
+                    r'(?:sensor|switch|valve).*(?:hitachi|ekac|clarion)',
+                ],
+                'negative': ['ซ่อม', 'ประวัติ', 'รายงาน']
             },
             
             'parts_price': {
