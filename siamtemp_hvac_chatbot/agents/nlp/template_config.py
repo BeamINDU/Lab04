@@ -1339,7 +1339,16 @@ class TemplateConfig:
             'intent': 'work_analysis',
             'description': 'งานที่เกินเวลา'
         },
-        
+        'sales_by_month_detailed': {
+            'table': 'v_sales',
+            'complexity': 'NORMAL',
+            'keywords': ['ยอดขายเดือน', 'monthly sales', 'รายได้เดือน'],
+            'has_subquery': False,
+            'has_not_in': False,
+            'year_adjustment': 'none',
+            'intent': 'sales',
+            'description': 'ยอดขายแยกตามเดือน'
+        },
         'startup_works_all': {
             'table': 'v_work_force',
             'complexity': 'NORMAL',

@@ -349,6 +349,21 @@ class PromptManager:
                 FROM v_sales 
                 WHERE year = '2025' AND month = '8';
             """).strip(),
+            'sales_by_month_detailed': dedent("""
+                SELECT 
+                    year,
+                    month,
+                    SUM(overhaul_num) AS overhaul,
+                    SUM(replacement_num) AS replacement,
+                    SUM(service_num) AS service,
+                    SUM(parts_num) AS parts,
+                    SUM(product_num) AS product,
+                    SUM(solution_num) AS solution,
+                    SUM(total_revenue) AS total_revenue
+                FROM v_sales
+                WHERE year = '2025' AND month = '7'
+                GROUP BY year, month;
+            """).strip(),
             
             'customer_transaction_frequency': dedent("""
                 SELECT 
@@ -3732,7 +3747,7 @@ class PromptManager:
             'overhaul_sales': 'v_sales',
             'overhaul_report': 'v_sales',
             'overhaul_revenue': 'v_sales',
-            
+            'sales_by_month_detailed': 'v_sales',
             # Service/Parts sales
             'service_sales': 'v_sales',
             'parts_sales': 'v_sales',
@@ -4176,7 +4191,15 @@ class PromptManager:
         if intent == 'cpa_work':
             logger.info("Priority: cpa_work intent → cpa_works")
             return self.SQL_EXAMPLES.get('cpa_works', '')
-    
+        
+        if intent == 'work_plan':
+            logger.info("Priority: work_plan intent → work_monthly")
+            return self.SQL_EXAMPLES.get('work_monthly', '')
+        
+        if intent == 'sales' and entities.get('months'):
+            logger.info("Priority: sales + months → sales_by_month_detailed")
+            return self.SQL_EXAMPLES.get('sales_by_month_detailed', '')
+
         # === PHASE 0: Direct Exact Match ===
         exact_matches = {
             # ข้อ 1-10: รายได้และยอดขาย
@@ -4224,6 +4247,9 @@ class PromptManager:
             'งานที่ทำสำเร็จ': 'successful_works',
             'งานที่ไม่สำเร็จ': 'unsuccessful_works',
             'งานของทีม a': 'team_works',
+            'ยอดขายเดือน': 'sales_by_month_detailed',
+            'ยอดขายรายเดือน': 'sales_by_month_detailed',
+            'รายได้เดือน': 'sales_by_month_detailed',
         }
         
         for pattern, example_name in exact_matches.items():
@@ -4271,7 +4297,10 @@ class PromptManager:
                 'จำนวนการซื้อ', 'ครั้งการซื้อ', 'frequency purchase',
                 'เดือนมีลูกค้าซื้อกี่ครั้ง', 'มีการซื้อขายกี่ครั้ง'
             ],
-            
+            'sales_by_month_detailed': [
+                'ยอดขายเดือน', 'sales by month', 'รายได้เดือน',
+                'ยอดขายรายเดือน', 'monthly sales', 'รายได้รายเดือน'
+            ],
             'customer_transaction_frequency': [
                 'ลูกค้าซื้อกี่ครั้ง', 'frequency customer', 'ลูกค้าซื้อบ่อย',
                 'ลูกค้าซื้อมากครั้ง', 'customer frequency', 'ความถี่การซื้อ'
