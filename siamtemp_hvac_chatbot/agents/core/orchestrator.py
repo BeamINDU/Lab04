@@ -316,7 +316,7 @@ class ImprovedDualModelDynamicAISystem:
     
     async def _generate_sql(self, context: QueryContext) -> str:
         """Generate and validate SQL query"""
-
+        logger.info(f"🔍 _generate_sql entities: {context.entities}")
         # Build SQL prompt
         prompt = self.prompt_manager.build_sql_prompt(
             question=context.question,

@@ -2335,7 +2335,22 @@ class PromptManager:
                     sanitized.append(clean)
             if sanitized:
                 validated['products'] = sanitized
+
+        if entities.get('brands'):
+            sanitized_brands = []
+            for brand in entities['brands']:
+                clean = re.sub(r'[^a-zA-Z0-9\-_\s]', '', brand).strip().upper()
+                if clean:
+                    sanitized_brands.append(clean)
+            if sanitized_brands:
+                validated['brands'] = sanitized_brands
         
+        # เพิ่มส่วนนี้ด้วย - Validate other missing fields
+        if entities.get('amounts'):
+            validated['amounts'] = entities['amounts']
+        
+        if entities.get('job_types'):
+            validated['job_types'] = entities['job_types']
         return validated
     
     # ===== UTILITY METHODS =====
@@ -2428,7 +2443,7 @@ class PromptManager:
     def build_sql_prompt(self, question: str, intent: str, entities: Dict,
                         context: Dict = None, examples_override: List[str] = None) -> str:
         """Build SQL generation prompt with centralized template configuration"""
-        
+        logger.info(f"🔍 build_sql_prompt received entities: {entities}")
         try:
             # ============================================
             # INITIALIZATION
@@ -2445,7 +2460,10 @@ class PromptManager:
                 raise ValueError(f"Invalid input: {msg}")
             
             # Validate and convert entities
+            entities_before = entities.copy()
             entities = self.validate_entities(entities)
+            logger.info(f"🔍 entities before validate: {entities_before}")
+            logger.info(f"🔍 entities after validate: {entities}")
             question_lower = question.lower()
             
             # Convert Buddhist Era years in question
@@ -2455,60 +2473,62 @@ class PromptManager:
             # 🆕 PARTS PRICE SPECIAL HANDLING (PRIORITY!)
             # ============================================
             if intent in ['spare_parts', 'parts_search', 'parts_price']:
-                # Check if asking about parts for specific equipment
-                if any(word in question_lower for word in ['ใช้กับเครื่อง', 'สำหรับเครื่อง', 'ติดกับเครื่อง']):
+                search_terms = []
+                
+                # เช็ค brands เสมอ 
+                if entities.get('brands'):
+                    search_terms.extend(entities['brands'])
+                    logger.info(f"🔧 Added brands: {entities['brands']}")
+                
+                # เช็ค products
+                if entities.get('products'):
+                    search_terms.extend(entities['products'])
+                    logger.info(f"🔧 Added products: {entities['products']}")
+                
+                # เช็ค keywords
+                keywords = ['sensor', 'เซนเซอร์', 'switch', 'สวิตช์', 'pressure', 'valve']
+                for keyword in keywords:
+                    if keyword in question_lower:
+                        search_terms.append(keyword)
+                        logger.info(f"🔧 Added keyword: {keyword}")
+                
+                # สร้าง SQL ถ้ามี search_terms
+                if search_terms:
+                    where_conditions = []
+                    for term in search_terms:
+                        where_conditions.append(f"product_name LIKE '%{term}%'")
                     
-                    # Extract equipment/brand info
-                    search_terms = []
+                    where_clause = " OR ".join(where_conditions)
                     
-                    if entities.get('products'):
-                        search_terms.extend(entities['products'])
+                    explicit_sql = f"""
+                        SELECT 
+                            product_code,
+                            product_name, 
+                            balance_num,
+                            unit_price_num,
+                            total_num,
+                            wh
+                        FROM v_spare_part 
+                        WHERE {where_clause}
+                        ORDER BY product_name;
+                    """.strip()
                     
-                    if entities.get('brands'):
-                        search_terms.extend(entities['brands'])
+                    prompt = dedent(f"""
+                    You are a SQL query generator. Output ONLY the SQL query.
                     
-                    # Extract keywords from question
-                    keywords = ['sensor', 'เซนเซอร์', 'switch', 'สวิตช์', 'pressure', 'valve']
-                    for keyword in keywords:
-                        if keyword in question_lower:
-                            search_terms.append(keyword)
+                    PARTS SEARCH QUERY - Search terms: {search_terms}
                     
-                    if search_terms:
-                        where_conditions = []
-                        for term in search_terms:
-                            where_conditions.append(f"product_name LIKE '%{term}%'")
-                        
-                        where_clause = " OR ".join(where_conditions)
-                        
-                        explicit_sql = f"""
-                            SELECT 
-                                product_code,
-                                product_name, 
-                                balance_num,
-                                unit_price_num,
-                                total_num,
-                                wh
-                            FROM v_spare_part 
-                            WHERE {where_clause}
-                            ORDER BY product_name;
-                        """.strip()
-                        
-                        prompt = dedent(f"""
-                        You are a SQL query generator. Output ONLY the SQL query.
-                        
-                        PARTS SEARCH QUERY - Search terms: {search_terms}
-                        
-                        Use this EXACT SQL:
-                        ----------------------------------------
-                        {explicit_sql}
-                        ----------------------------------------
-                        
-                        Question: {question}
-                        
-                        Output the SQL above EXACTLY:
-                        """).strip()
-                        
-                        return prompt
+                    Use this EXACT SQL:
+                    ----------------------------------------
+                    {explicit_sql}
+                    ----------------------------------------
+                    
+                    Question: {question}
+                    
+                    Output the SQL above EXACTLY:
+                    """).strip()
+                    
+                    return prompt
         
             if intent == 'parts_price' and entities.get('products'):
                 products = entities['products']
@@ -2700,8 +2720,8 @@ class PromptManager:
                     has_month_in_template = any(kw in template.lower() for kw in [
                         'extract(month', 'month from', 'month =', 'month in'
                     ])
-                    
-                    if not has_month_in_template:
+                    has_date_between = 'between' in template.lower()
+                    if not has_month_in_template and not has_date_between:
                         logger.info(f"🔧 Adding month filter: {month} to {intent} query")
                         
                         # Modify template to add month condition
