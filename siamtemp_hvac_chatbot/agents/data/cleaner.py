@@ -164,17 +164,6 @@ class DataCleaningEngine:
     
     def _enhance_sales_data(self, results: List[Dict]) -> List[Dict]:
         """Enhance sales data"""
-        for row in results:
-            # Add primary service type
-            row['primary_service'] = self._get_primary_service(row)
-            
-            # Extract year from job_no if exists
-            if 'job_no' in row and row['job_no']:
-                match = re.search(r'(\d{2})-', str(row['job_no']))
-                if match:
-                    year = int(match.group(1))
-                    row['fiscal_year'] = 2000 + year if year < 50 else 1900 + year
-        
         return results
     
     def _enhance_work_data(self, results: List[Dict]) -> List[Dict]:
@@ -209,20 +198,6 @@ class DataCleaningEngine:
         #         row['value_category'] = 'Low Value'
         
         return results
-    
-    def _get_primary_service(self, row: Dict) -> str:
-        """Determine primary service type from sales data"""
-        services = {
-            'overhaul': row.get('overhaul_num', 0) or 0,
-            'replacement': row.get('replacement_num', 0) or 0,
-            'service': row.get('service_num', 0) or 0,
-            'parts': row.get('parts_num', 0) or 0,
-            'product': row.get('product_num', 0) or 0,
-            'solution': row.get('solution_num', 0) or 0
-        }
-        
-        max_service = max(services.items(), key=lambda x: float(x[1]))
-        return max_service[0] if max_service[1] > 0 else 'none'
     
     def _get_job_type(self, row: Dict) -> str:
         """Derive job type from job description fields"""
@@ -298,38 +273,6 @@ class DataCleaningEngine:
     
     def _create_sales_insights(self, results: List[Dict], insights: Dict) -> Dict:
         """Create sales-specific insights"""
-        total_revenue = sum(r.get('total_revenue', 0) or 0 for r in results)
-        
-        # Group by customer
-        customer_revenue = defaultdict(float)
-        service_counts = Counter()
-        
-        for r in results:
-            customer = self._standardize_company_name(r.get('customer_name', ''))
-            if customer:
-                customer_revenue[customer] += r.get('total_revenue', 0) or 0
-            
-            # Count primary services
-            if 'primary_service' in r:
-                service_counts[r['primary_service']] += 1
-        
-        insights['summary'] = {
-            'total_revenue': f"{total_revenue:,.0f}",
-            'average_revenue': f"{total_revenue/len(results):,.0f}" if results else "0",
-            'service_breakdown': dict(service_counts.most_common(5))
-        }
-        
-        insights['top_items'] = {
-            'top_customers': dict(sorted(customer_revenue.items(), 
-                                       key=lambda x: x[1], 
-                                       reverse=True)[:5])
-        }
-        
-        insights['statistics'] = {
-            'total_transactions': len(results),
-            'unique_customers': len(customer_revenue),
-            'max_transaction': max((r.get('total_revenue', 0) for r in results), default=0)
-        }
         
         return insights
     

@@ -349,21 +349,6 @@ class PromptManager:
                 FROM v_sales 
                 WHERE year = '2025' AND month = '8';
             """).strip(),
-            'sales_by_month_detailed': dedent("""
-                SELECT 
-                    year,
-                    month,
-                    SUM(overhaul_num) AS overhaul,
-                    SUM(replacement_num) AS replacement,
-                    SUM(service_num) AS service,
-                    SUM(parts_num) AS parts,
-                    SUM(product_num) AS product,
-                    SUM(solution_num) AS solution,
-                    SUM(total_revenue) AS total_revenue
-                FROM v_sales
-                WHERE year = '2025' AND month = '7'
-                GROUP BY year, month;
-            """).strip(),
             
             'customer_transaction_frequency': dedent("""
                 SELECT 
@@ -2335,22 +2320,7 @@ class PromptManager:
                     sanitized.append(clean)
             if sanitized:
                 validated['products'] = sanitized
-
-        if entities.get('brands'):
-            sanitized_brands = []
-            for brand in entities['brands']:
-                clean = re.sub(r'[^a-zA-Z0-9\-_\s]', '', brand).strip().upper()
-                if clean:
-                    sanitized_brands.append(clean)
-            if sanitized_brands:
-                validated['brands'] = sanitized_brands
         
-        # เพิ่มส่วนนี้ด้วย - Validate other missing fields
-        if entities.get('amounts'):
-            validated['amounts'] = entities['amounts']
-        
-        if entities.get('job_types'):
-            validated['job_types'] = entities['job_types']
         return validated
     
     # ===== UTILITY METHODS =====
@@ -2443,7 +2413,7 @@ class PromptManager:
     def build_sql_prompt(self, question: str, intent: str, entities: Dict,
                         context: Dict = None, examples_override: List[str] = None) -> str:
         """Build SQL generation prompt with centralized template configuration"""
-        logger.info(f"🔍 build_sql_prompt received entities: {entities}")
+        
         try:
             # ============================================
             # INITIALIZATION
@@ -2460,10 +2430,7 @@ class PromptManager:
                 raise ValueError(f"Invalid input: {msg}")
             
             # Validate and convert entities
-            entities_before = entities.copy()
             entities = self.validate_entities(entities)
-            logger.info(f"🔍 entities before validate: {entities_before}")
-            logger.info(f"🔍 entities after validate: {entities}")
             question_lower = question.lower()
             
             # Convert Buddhist Era years in question
@@ -2472,64 +2439,6 @@ class PromptManager:
             # ============================================
             # 🆕 PARTS PRICE SPECIAL HANDLING (PRIORITY!)
             # ============================================
-            if intent in ['spare_parts', 'parts_search', 'parts_price']:
-                search_terms = []
-                
-                # เช็ค brands เสมอ 
-                if entities.get('brands'):
-                    search_terms.extend(entities['brands'])
-                    logger.info(f"🔧 Added brands: {entities['brands']}")
-                
-                # เช็ค products
-                if entities.get('products'):
-                    search_terms.extend(entities['products'])
-                    logger.info(f"🔧 Added products: {entities['products']}")
-                
-                # เช็ค keywords
-                keywords = ['sensor', 'เซนเซอร์', 'switch', 'สวิตช์', 'pressure', 'valve']
-                for keyword in keywords:
-                    if keyword in question_lower:
-                        search_terms.append(keyword)
-                        logger.info(f"🔧 Added keyword: {keyword}")
-                
-                # สร้าง SQL ถ้ามี search_terms
-                if search_terms:
-                    where_conditions = []
-                    for term in search_terms:
-                        where_conditions.append(f"product_name LIKE '%{term}%'")
-                    
-                    where_clause = " OR ".join(where_conditions)
-                    
-                    explicit_sql = f"""
-                        SELECT 
-                            product_code,
-                            product_name, 
-                            balance_num,
-                            unit_price_num,
-                            total_num,
-                            wh
-                        FROM v_spare_part 
-                        WHERE {where_clause}
-                        ORDER BY product_name;
-                    """.strip()
-                    
-                    prompt = dedent(f"""
-                    You are a SQL query generator. Output ONLY the SQL query.
-                    
-                    PARTS SEARCH QUERY - Search terms: {search_terms}
-                    
-                    Use this EXACT SQL:
-                    ----------------------------------------
-                    {explicit_sql}
-                    ----------------------------------------
-                    
-                    Question: {question}
-                    
-                    Output the SQL above EXACTLY:
-                    """).strip()
-                    
-                    return prompt
-        
             if intent == 'parts_price' and entities.get('products'):
                 products = entities['products']
                 logger.info(f"🎯 Parts price query with products: {products}")
@@ -2720,8 +2629,8 @@ class PromptManager:
                     has_month_in_template = any(kw in template.lower() for kw in [
                         'extract(month', 'month from', 'month =', 'month in'
                     ])
-                    has_date_between = 'between' in template.lower()
-                    if not has_month_in_template and not has_date_between:
+                    
+                    if not has_month_in_template:
                         logger.info(f"🔧 Adding month filter: {month} to {intent} query")
                         
                         # Modify template to add month condition
@@ -2930,7 +2839,7 @@ class PromptManager:
             logger.error(f"Error building SQL prompt: {e}")
             logger.error(f"Question: {question}, Intent: {intent}, Entities: {entities}")
             return self._get_fallback_prompt(question)
-      
+    
     # ============================================
     # 🆕 HELPER METHODS FOR CUSTOMER OPTIMIZATION
     # ============================================
@@ -3767,7 +3676,7 @@ class PromptManager:
             'overhaul_sales': 'v_sales',
             'overhaul_report': 'v_sales',
             'overhaul_revenue': 'v_sales',
-            'sales_by_month_detailed': 'v_sales',
+            
             # Service/Parts sales
             'service_sales': 'v_sales',
             'parts_sales': 'v_sales',
@@ -3780,7 +3689,7 @@ class PromptManager:
             'top_customers': 'v_sales',
             'new_customers': 'v_sales',
             'inactive_customers': 'v_sales',
-            'monthly_transaction_count':'v_sales',
+            
             # Value/Amount queries
             'max_value': 'v_sales',
             'min_value': 'v_sales',
@@ -4211,15 +4120,7 @@ class PromptManager:
         if intent == 'cpa_work':
             logger.info("Priority: cpa_work intent → cpa_works")
             return self.SQL_EXAMPLES.get('cpa_works', '')
-        
-        if intent == 'work_plan':
-            logger.info("Priority: work_plan intent → work_monthly")
-            return self.SQL_EXAMPLES.get('work_monthly', '')
-        
-        if intent == 'sales' and entities.get('months'):
-            logger.info("Priority: sales + months → sales_by_month_detailed")
-            return self.SQL_EXAMPLES.get('sales_by_month_detailed', '')
-
+    
         # === PHASE 0: Direct Exact Match ===
         exact_matches = {
             # ข้อ 1-10: รายได้และยอดขาย
@@ -4267,9 +4168,6 @@ class PromptManager:
             'งานที่ทำสำเร็จ': 'successful_works',
             'งานที่ไม่สำเร็จ': 'unsuccessful_works',
             'งานของทีม a': 'team_works',
-            'ยอดขายเดือน': 'sales_by_month_detailed',
-            'ยอดขายรายเดือน': 'sales_by_month_detailed',
-            'รายได้เดือน': 'sales_by_month_detailed',
         }
         
         for pattern, example_name in exact_matches.items():
@@ -4317,10 +4215,7 @@ class PromptManager:
                 'จำนวนการซื้อ', 'ครั้งการซื้อ', 'frequency purchase',
                 'เดือนมีลูกค้าซื้อกี่ครั้ง', 'มีการซื้อขายกี่ครั้ง'
             ],
-            'sales_by_month_detailed': [
-                'ยอดขายเดือน', 'sales by month', 'รายได้เดือน',
-                'ยอดขายรายเดือน', 'monthly sales', 'รายได้รายเดือน'
-            ],
+            
             'customer_transaction_frequency': [
                 'ลูกค้าซื้อกี่ครั้ง', 'frequency customer', 'ลูกค้าซื้อบ่อย',
                 'ลูกค้าซื้อมากครั้ง', 'customer frequency', 'ความถี่การซื้อ'
@@ -4516,7 +4411,7 @@ class PromptManager:
             # REPAIR & SERVICE TEMPLATES
             # ========================================
             'customer_repair_history': [
-                'ประวัติการซ่อม', 'ประวัติซ่อม', 'repair history','มีประวัติการซ่อมอะไรบ้าง',
+                'ประวัติการซ่อม', 'ประวัติซ่อม', 'repair history',
                 'ซ่อมอะไรบ้าง', 'เคยซ่อม', 'การซ่อมแซม',
                 'ลูกค้าซ่อม', 'ประวัติงานซ่อม', 'customer repair'
             ],

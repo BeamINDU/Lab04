@@ -477,60 +477,120 @@ export class FileImportService {
     return Math.min(maxByteLength * 2, 5000);
   }
 
-  private convertValueToColumnType(value: any, column: any): any {
-    if (value == null || value === '') {
-      return null;
-    }
-
-    const dataType = column.data_type.toLowerCase();
-    const stringValue = String(value).trim();
-
-    if ((dataType === 'date' || dataType === 'timestamp') && this.isExcelDateSerial(stringValue, column.column_name || '')) {
-      const serialNumber = parseInt(stringValue);
-      const convertedDate = this.convertExcelSerial(serialNumber);
-      
-      if (dataType === 'date') {
-        return convertedDate;
-      } else {
-        return convertedDate + 'T00:00:00Z';
-      }
-    }
-
-    if (dataType === 'date' || dataType === 'timestamp') {
-      const dateValue = new Date(stringValue);
-      if (!isNaN(dateValue.getTime())) {
-        if (dataType === 'date') {
-          return dateValue.toISOString().split('T')[0];
-        } else {
-          return dateValue.toISOString();
-        }
-      }
-      throw new Error(`Invalid date value: ${stringValue}`);
-    }
-
-    switch (dataType) {
-      case 'integer':
-      case 'bigint':
-      case 'smallint':
-        const intValue = parseInt(stringValue);
-        if (isNaN(intValue)) throw new Error(`Invalid integer: ${stringValue}`);
-        return intValue;
-
-      case 'numeric':
-      case 'decimal':
-      case 'real':
-      case 'double precision':
-        const numValue = parseFloat(stringValue);
-        if (isNaN(numValue)) throw new Error(`Invalid number: ${stringValue}`);
-        return numValue;
-
-      case 'boolean':
-        return ['true', '1', 'yes', 'y', 'on', 'ใช่'].includes(stringValue.toLowerCase());
-
-      default:
-        return stringValue;
-    }
+private convertValueToColumnType(value: any, column: any): any {
+  // ถ้าค่าเป็น null หรือ undefined ให้ return null
+  if (value === null || value === undefined || value === '') {
+    return null;
   }
+
+  // Debug log
+  console.log(`Converting value "${value}" for column ${column.column_name} (type: ${column.data_type})`);
+
+  // *** แก้ไข: ตรวจสอบ VARCHAR และ character varying ก่อน ***
+  // PostgreSQL ใช้ 'character varying' เป็นชื่อ internal สำหรับ VARCHAR
+  if (column.data_type === 'character varying' || 
+      column.data_type === 'varchar' ||
+      column.data_type === 'text' ||
+      column.data_type === 'character' ||
+      column.data_type === 'char' ||
+      column.data_type?.toLowerCase().includes('char') ||
+      column.data_type?.toUpperCase() === 'VARCHAR') {
+    // Return as string without any conversion
+    return String(value);
+  }
+
+  // ตรวจสอบ INTEGER types
+  if (column.data_type === 'integer' || 
+      column.data_type === 'int' ||
+      column.data_type === 'int4' ||
+      column.data_type === 'bigint' ||
+      column.data_type === 'smallint') {
+    const parsed = parseInt(value, 10);
+    return isNaN(parsed) ? null : parsed;
+  }
+
+  // ตรวจสอบ DECIMAL/NUMERIC types
+  if (column.data_type === 'numeric' ||
+      column.data_type === 'decimal' ||
+      column.data_type === 'real' ||
+      column.data_type === 'double precision' ||
+      column.data_type === 'float') {
+    const parsed = parseFloat(value);
+    return isNaN(parsed) ? null : parsed;
+  }
+
+  // ตรวจสอบ BOOLEAN
+  if (column.data_type === 'boolean' || column.data_type === 'bool') {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'string') {
+      const lower = value.toLowerCase();
+      return lower === 'true' || lower === '1' || lower === 't' || lower === 'yes';
+    }
+    return Boolean(value);
+  }
+
+  // *** สำคัญ: ตรวจสอบ DATE/TIMESTAMP อย่างระมัดระวัง ***
+  // จะ convert เป็น date ก็ต่อเมื่อ column type เป็น date/timestamp จริงๆ เท่านั้น
+  if (column.data_type === 'date') {
+    // ตรวจสอบว่าเป็นวันที่จริงๆ ก่อน convert
+    const dateStr = String(value);
+    if (/^\d{4}-\d{2}-\d{2}/.test(dateStr) || /^\d{1,2}\/\d{1,2}\/\d{4}/.test(dateStr)) {
+      try {
+        const date = new Date(value);
+        if (!isNaN(date.getTime())) {
+          return date.toISOString().split('T')[0];
+        }
+      } catch (e) {
+        console.warn(`Failed to parse date: ${value}`);
+      }
+    }
+    // ถ้าไม่ใช่ format date ให้เก็บเป็น string
+    return String(value);
+  }
+
+  if (column.data_type === 'timestamp' || 
+      column.data_type === 'timestamp without time zone' ||
+      column.data_type === 'timestamp with time zone' ||
+      column.data_type === 'timestamptz') {
+    // ตรวจสอบว่าเป็น timestamp จริงๆ ก่อน convert
+    const dateStr = String(value);
+    if (/^\d{4}-\d{2}-\d{2}/.test(dateStr) || /^\d{1,2}\/\d{1,2}\/\d{4}/.test(dateStr)) {
+      try {
+        const date = new Date(value);
+        if (!isNaN(date.getTime())) {
+          return date.toISOString();
+        }
+      } catch (e) {
+        console.warn(`Failed to parse timestamp: ${value}`);
+      }
+    }
+    // ถ้าไม่ใช่ format timestamp ให้เก็บเป็น string
+    return String(value);
+  }
+
+  // JSON/JSONB types
+  if (column.data_type === 'json' || column.data_type === 'jsonb') {
+    if (typeof value === 'object') {
+      return JSON.stringify(value);
+    }
+    return value;
+  }
+
+  // *** DEFAULT: ถ้าไม่ match กับ type ไหนเลย ให้ return เป็น string ***
+  // ไม่พยายาม convert เป็น date หรือ type อื่นๆ
+  console.log(`Unknown column type ${column.data_type}, returning as string`);
+  return String(value);
+}
+
+// เพิ่ม method สำหรับ validate ว่า table columns ที่ได้มาถูกต้อง
+private validateTableColumns(columns: any[]): void {
+  columns.forEach(col => {
+    console.log(`Column ${col.column_name}:`);
+    console.log(`  - data_type: ${col.data_type}`);
+    console.log(`  - is_nullable: ${col.is_nullable}`);
+    console.log(`  - column_default: ${col.column_default}`);
+  });
+}
 
   private logFileSample(filePath: string, fileName: string): void {
     try {
@@ -1275,7 +1335,10 @@ export class FileImportService {
         data_type,
         is_nullable,
         column_default,
-        is_identity,
+        CASE 
+          WHEN column_default LIKE 'nextval%' THEN 'YES'
+          ELSE 'NO'
+        END as is_identity,
         character_maximum_length
       FROM information_schema.columns
       WHERE table_schema = $1 AND table_name = $2
@@ -1283,6 +1346,13 @@ export class FileImportService {
     `;
     
     const result = await this.dbService.pool.query(query, [schema, tableName]);
+    
+    // Debug: แสดง columns ที่ได้
+    console.log(`Table ${schema}.${tableName} columns:`, result.rows.map(r => ({
+      name: r.column_name,
+      type: r.data_type
+    })));
+    
     return result.rows;
   }
 
